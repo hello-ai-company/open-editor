@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+      - grokbot/phase-2-private-standalone-core
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Pack
+        run: npm pack -w @hello-ai/editor-core
+
+      - name: Inspect tarball
+        run: node scripts/inspect-tarball.mjs
+
+      - name: Isolated consumer
+        run: node scripts/isolated-consumer.mjs
+
+      - name: Security scan
+        run: node scripts/security-scan.mjs
