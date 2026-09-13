@@ -43,6 +43,27 @@ if (!files.includes("package/package.json") || !files.some((file) => file.endsWi
   process.exit(1);
 }
 
+const packedPackage = JSON.parse(execFileSync("tar", ["-xOf", tarball, "package/package.json"], { encoding: "utf8" }));
+const authorizedRegistry = "https://npm.pkg.github.com";
+const authorizedVersion = "0.0.0-phase3.e17b4b5";
+
+if (packedPackage.publishConfig?.registry !== authorizedRegistry) {
+  console.error(
+    `Tarball publishConfig.registry must be ${authorizedRegistry}, got ${packedPackage.publishConfig?.registry ?? "<missing>"}.`
+  );
+  process.exit(1);
+}
+
+if (packedPackage.version !== authorizedVersion) {
+  console.error(`Tarball version must be ${authorizedVersion}, got ${packedPackage.version ?? "<missing>"}.`);
+  process.exit(1);
+}
+
+if (packedPackage.name !== "@hello-ai/editor-core") {
+  console.error(`Tarball name must be @hello-ai/editor-core, got ${packedPackage.name ?? "<missing>"}.`);
+  process.exit(1);
+}
+
 const extracted = execFileSync("tar", ["-xOf", tarball], { encoding: "utf8" });
 const leakage = [
   { name: "personal-ai", pattern: /personal-ai/i },
