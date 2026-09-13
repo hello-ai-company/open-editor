@@ -2,7 +2,7 @@
 
 **PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
 
-`@hello-ai/editor-core` is a host-neutral document seam. It describes typed block trees, JSON serialization, and optional provider contracts. It does not render UI, talk to a backend, or import host application modules.
+`@hello-ai-company/editor-core` is a host-neutral document seam. It describes typed block trees, JSON serialization, and optional provider contracts. It does not render UI, talk to a backend, or import host application modules.
 
 ## Package surface
 

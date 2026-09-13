@@ -9,7 +9,7 @@ import {
   type EditorProviders,
   type JsonValue,
   type NativeBridge
-} from "@hello-ai/editor-core";
+} from "@hello-ai-company/editor-core";
 
 const blocks = [
   {

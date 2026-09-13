@@ -10,7 +10,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 function findTarball() {
   const directories = [root, join(root, "packages/core")];
   for (const directory of directories) {
-    const match = readdirSync(directory).find((name) => name.startsWith("hello-ai-editor-core-") && name.endsWith(".tgz"));
+    const match = readdirSync(directory).find((name) => name.startsWith("hello-ai-company-editor-core-") && name.endsWith(".tgz"));
     if (match) return join(directory, match);
   }
   return undefined;
@@ -19,7 +19,7 @@ function findTarball() {
 const tarball = findTarball();
 
 if (!tarball) {
-  console.error("No @hello-ai/editor-core tarball found. Run npm pack -w @hello-ai/editor-core first.");
+  console.error("No @hello-ai-company/editor-core tarball found. Run npm pack -w @hello-ai-company/editor-core first.");
   process.exit(1);
 }
 

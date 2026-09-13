@@ -13,7 +13,7 @@ This repository is a private, internal extraction workspace for a standalone edi
 
 ## Package
 
-`@hello-ai/editor-core` (`packages/core`, `0.0.0-private`) is the Phase 2 standalone core:
+`@hello-ai-company/editor-core` (`packages/core`, `0.0.0-phase3.e17b4b5`) is the Phase 3 private GitHub Packages core:
 
 - document model and `JsonValue`
 - JSON serialization
@@ -28,7 +28,7 @@ npm ci
 npm run typecheck
 npm test
 npm run build
-npm pack -w @hello-ai/editor-core
+npm pack -w @hello-ai-company/editor-core
 node scripts/inspect-tarball.mjs
 node scripts/isolated-consumer.mjs
 node scripts/security-scan.mjs
