@@ -1,0 +1,20 @@
+{
+  "name": "open-editor",
+  "version": "0.0.0-private",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "pack:core": "npm pack -w @hello-ai/editor-core",
+    "security:scan": "node scripts/security-scan.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
