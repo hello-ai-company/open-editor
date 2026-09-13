@@ -12,7 +12,10 @@
     "test": "npm run test --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "pack:core": "npm pack -w @hello-ai/editor-core",
-    "security:scan": "node scripts/security-scan.mjs"
+    "inspect:tarball": "node scripts/inspect-tarball.mjs",
+    "verify:isolated": "node scripts/isolated-consumer.mjs",
+    "security:scan": "node scripts/security-scan.mjs",
+    "verify": "npm run typecheck && npm test && npm run build && npm run pack:core && npm run inspect:tarball && npm run verify:isolated && npm run security:scan"
   },
   "engines": {
     "node": ">=20"

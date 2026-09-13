@@ -1,0 +1,10 @@
+{
+  "name": "isolated-consumer",
+  "version": "0.0.0-private",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}
