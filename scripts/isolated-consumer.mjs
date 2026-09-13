@@ -30,7 +30,11 @@ try {
     cwd: workdir,
     stdio: "inherit"
   });
-  execFileSync("npx", ["--yes", "typescript@5.9.2", "--noEmit", "-p", "tsconfig.json"], {
+  execFileSync("npm", ["install", "--no-save", "typescript@5.9.2"], {
+    cwd: workdir,
+    stdio: "inherit"
+  });
+  execFileSync("npx", ["tsc", "--noEmit", "-p", "tsconfig.json"], {
     cwd: workdir,
     stdio: "inherit"
   });

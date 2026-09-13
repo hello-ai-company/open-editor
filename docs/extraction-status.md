@@ -41,3 +41,17 @@ This repository has fresh history only. The source repository was not imported a
 ## Publish / visibility
 
 Not authorized for public release, npm publish, tags, or a public PR.
+
+## Gate results (local)
+
+| Gate | Result |
+| --- | --- |
+| `npm ci` | PASS |
+| typecheck | PASS |
+| unit tests (14) | PASS |
+| build (`dist` + `.d.ts`) | PASS |
+| `npm pack` | PASS (`hello-ai-editor-core-0.0.0-private.tgz`) |
+| tarball inspect (no host leakage) | PASS |
+| isolated consumer install + typecheck | PASS |
+| security scan (`packages/core/src` + `npm audit --omit=dev`) | PASS (0 production vulnerabilities) |
+| git history | fresh only: Initial commit → baseline → Phase 2 extract |
