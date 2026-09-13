@@ -1,5 +1,5 @@
 {
-  "name": "@hello-ai/editor-core",
+  "name": "@hello-ai-company/editor-core",
   "version": "0.0.0-phase3.e17b4b5",
   "license": "UNLICENSED",
   "description": "Private standalone editor document model, serialization, and provider seams.",

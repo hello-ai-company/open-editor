@@ -50,7 +50,7 @@ Not authorized for public release, npm publish, tags, or a public PR.
 | typecheck | PASS |
 | unit tests (14) | PASS |
 | build (`dist` + `.d.ts`) | PASS |
-| `npm pack` | PASS (`hello-ai-editor-core-0.0.0-private.tgz`) |
+| `npm pack` | PASS (`hello-ai-company-editor-core-0.0.0-phase3.e17b4b5.tgz`) |
 | tarball inspect (no host leakage) | PASS |
 | isolated consumer install + typecheck | PASS |
 | security scan (`packages/core/src` + `npm audit --omit=dev`) | PASS (0 production vulnerabilities) |

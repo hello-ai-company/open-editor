@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - grokbot/phase-2-private-standalone-core
+      - grokbot/phase-3-private-package-distribution
   workflow_dispatch:
 
 permissions:
@@ -38,7 +39,7 @@ jobs:
         run: npm run build
 
       - name: Pack
-        run: npm pack -w @hello-ai/editor-core
+        run: npm pack -w @hello-ai-company/editor-core
 
       - name: Inspect tarball
         run: node scripts/inspect-tarball.mjs

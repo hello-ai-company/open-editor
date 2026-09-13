@@ -23,7 +23,7 @@ jobs:
           node-version: 20
           cache: npm
           registry-url: https://npm.pkg.github.com
-          scope: "@hello-ai"
+          scope: "@hello-ai-company"
 
       - name: Install
         run: npm ci
@@ -38,7 +38,7 @@ jobs:
         run: npm run build
 
       - name: Pack
-        run: npm pack -w @hello-ai/editor-core
+        run: npm pack -w @hello-ai-company/editor-core
 
       - name: Inspect tarball
         run: node scripts/inspect-tarball.mjs
@@ -51,6 +51,10 @@ jobs:
           node -e '
             const { readFileSync } = require("fs");
             const pkg = JSON.parse(readFileSync("packages/core/package.json", "utf8"));
+            if (pkg.name !== "@hello-ai-company/editor-core") {
+              console.error("STOP — package name must be @hello-ai-company/editor-core");
+              process.exit(1);
+            }
             if (pkg.publishConfig?.registry !== "https://npm.pkg.github.com") {
               console.error("STOP — publishConfig.registry is not GitHub Packages");
               process.exit(1);
@@ -70,7 +74,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set +x
-          if npm view "@hello-ai/editor-core@0.0.0-phase3.e17b4b5" version --registry=https://npm.pkg.github.com; then
+          if npm view "@hello-ai-company/editor-core@0.0.0-phase3.e17b4b5" version --registry=https://npm.pkg.github.com; then
             echo "STOP — PACKAGE VERSION ALREADY EXISTS"
             exit 1
           fi
@@ -78,4 +82,4 @@ jobs:
       - name: Publish to GitHub Packages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm publish -w @hello-ai/editor-core --access restricted --provenance=false
+        run: npm publish -w @hello-ai-company/editor-core --access restricted --provenance=false

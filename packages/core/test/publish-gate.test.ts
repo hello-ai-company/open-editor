@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import packageJsonSource from "../package.json?raw";
 
-const AUTHORIZED_NAME = "@hello-ai/editor-core";
+const AUTHORIZED_NAME = "@hello-ai-company/editor-core";
 const AUTHORIZED_REGISTRY = "https://npm.pkg.github.com";
 const AUTHORIZED_VERSION = "0.0.0-phase3.e17b4b5";
 const FORBIDDEN_VERSIONS = ["0.0.0-private", "latest", "0.1.0", "1.0.0"] as const;
