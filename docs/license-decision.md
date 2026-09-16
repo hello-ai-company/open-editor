@@ -1,6 +1,6 @@
 # License decision (comparison only)
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. Historical comparison. Live SPDX is **MIT** as of Phase 4E.
 
 This note compares common options for a **future** human decision. It does **not** select a license. `LICENSE` and `packages/core/LICENSE` remain **UNLICENSED**. All rights reserved.
 

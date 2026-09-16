@@ -1,38 +1,102 @@
-# open-editor
+# OpenEditor
 
-**PRIVATE EXTRACTION WORKSPACE**
+OpenEditor is a **portable document layer** for host-neutral editors — not another rich-text editor.
 
-**NOT AUTHORIZED FOR PUBLIC RELEASE**
+The public package is [`@hello-ai-company/editor-core`](./packages/core). It is a small TypeScript core: a versioned document model, JSON serialization, and optional provider **types**. Host UI, React, BlockNote, and other adapters are out of scope for this package.
 
-This repository is a private, internal extraction workspace for a standalone editor-core package. It is not an open-source project, not a public product, and not authorized for public visibility, npm publish, tagging, or release.
+## Status
 
-- Repository visibility must remain **private**.
-- License: **UNLICENSED**. All rights reserved.
-- Do not import `personal-ai` git history.
-- Do not open public PRs, merge to a public fork, or publish packages.
+| Item | Value |
+| --- | --- |
+| Package | `@hello-ai-company/editor-core@0.1.0` |
+| License | MIT — Copyright (c) 2026 Yuki Shibata |
+| Registry (prepared) | https://registry.npmjs.org (`publishConfig.access`: public) |
+| Repository visibility | **PRIVATE** until a later human-gated public transition |
+| npm publish | **Not executed** in this tree. First publish is a later gated step. |
+| Runtime dependencies | none |
 
-## Package
+This source tree is public-ready. It is **not** a public GitHub repository yet, and the package is **not** on npmjs yet.
 
-`@hello-ai-company/editor-core` (`packages/core`, `0.0.0-phase3.e17b4b5`) is the Phase 3 private GitHub Packages core:
+## Install (after first public publish)
 
-- document model and `JsonValue`
-- JSON serialization
-- optional provider seams
+```bash
+npm install @hello-ai-company/editor-core
+```
 
-See `docs/architecture.md`, `docs/providers.md`, `docs/public-api.md`, `docs/versioning.md`, `docs/security-boundary.md`, `docs/public-release-checklist.md`, `docs/extraction-status.md`, `docs/owner-oss-policy.md`, `docs/owner-release-confirmations.md`, `docs/public-release-decision.md`, and `docs/release-gate-closure.md`.
+Requirements: Node.js `>=20`, ESM (`"type": "module"`). There is no CommonJS `require` export.
 
-Phase 4D.1 is documentation only. Owner confirmations: D2/D3/D6/D19 **CLOSED**; D11 **PREPARED** (enable GitHub PVR during public transition); D1-EXEC **PENDING EXECUTION AUTHORIZATION**. MIT is **selected**, not **applied**. Copyright line `Copyright (c) 2026 Yuki Shibata` is recorded and **must not** be written into `LICENSE` in this phase. The repository must stay **private** and **UNLICENSED**.
+Until the first public publish, install from a packed tarball:
+
+```bash
+npm pack -w @hello-ai-company/editor-core
+npm install ./hello-ai-company-editor-core-0.1.0.tgz
+```
+
+## Quickstart
+
+```ts
+import {
+  createEditorDocument,
+  serializeEditorDocument,
+  deserializeEditorDocument
+} from "@hello-ai-company/editor-core";
+
+const doc = createEditorDocument([
+  {
+    id: "p1",
+    type: "paragraph",
+    props: { text: "Hello" }
+  }
+]);
+
+const json = serializeEditorDocument(doc);
+const roundTrip = deserializeEditorDocument(json);
+```
+
+Unknown block `type` strings round-trip. `schemaVersion` is the positive integer `1`.
+
+## Architecture
+
+Public shape: **Small Core + Adapters + Docs + Examples**.
+
+| Layer | What it is | v0.1.0 |
+| --- | --- | --- |
+| **Small Core** | `@hello-ai-company/editor-core` — document model, JSON, optional provider types | shipped |
+| **Adapters** | Host integrations (for example a future BlockNote adapter) | **not shipped** — separate packages later |
+| **Docs** | Architecture, public API, contributing, security | this repository |
+| **Examples** | Consumer examples | later |
+
+See [docs/architecture.md](./docs/architecture.md), [docs/public-api.md](./docs/public-api.md), [docs/providers.md](./docs/providers.md), [docs/versioning.md](./docs/versioning.md), and [docs/security-boundary.md](./docs/security-boundary.md).
+
+## Roadmap
+
+v0.1.0 is an early 0.x line:
+
+- **Stable:** document model, JSON serialization, `schemaVersion` `1`, runtime helpers, document types
+- **Experimental:** optional provider type seams
+- **Later:** adapter packages, more docs and examples
+
+This repository will not turn the core into a hosted editor, Cloud/Enterprise SKU, or paid plugin. Using, modifying, forking, self-hosting, and commercially using the core is free under MIT. Optional sponsorship may be offered later to help sustain maintenance; it will not unlock exclusive core functionality. There is no `.github/FUNDING.yml` yet.
 
 ## Local gates
 
 ```bash
 npm ci
-npm run typecheck
-npm test
-npm run build
-npm pack -w @hello-ai-company/editor-core
-node scripts/inspect-tarball.mjs
-node scripts/isolated-consumer.mjs
-node scripts/security-scan.mjs
-node scripts/api-contract.mjs
+npm run verify
 ```
+
+`verify` runs typecheck, tests, build, pack, tarball inspect, isolated consumer, security scan, and API contract.
+
+Dry-run publish only (does **not** publish):
+
+```bash
+npm run publish:dry-run
+```
+
+## Contributing / security
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) and [SECURITY.md](./SECURITY.md).
+
+## License
+
+[MIT](./LICENSE). Copyright (c) 2026 Yuki Shibata.

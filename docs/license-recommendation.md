@@ -1,10 +1,10 @@
-# License recommendation (MIT owner-selected; not applied)
+# License recommendation (MIT owner-selected; applied in Phase 4E)
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. Historical selection record. MIT is **applied** in Phase 4E (`LICENSE` files + metadata).
 
 **Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
 **Role:** Record **OWNER-SELECTED FUTURE LICENSE = MIT**. **Not legal advice.**  
-**SELECTED: YES (MIT). APPLIED TO LICENSE FILES: NO.** `LICENSE`, `packages/core/LICENSE`, and `"license": "UNLICENSED"` fields are **unchanged**.
+**SELECTED: YES (MIT). APPLIED TO LICENSE FILES: YES (Phase 4E).**
 
 This note does **not** authorize rewriting license files. Comparison context: [license-decision.md](./license-decision.md). Third-party inventory: [third-party-license-inventory.md](./third-party-license-inventory.md). Gate closure: [release-gate-closure.md](./release-gate-closure.md). Confirmations: [owner-release-confirmations.md](./owner-release-confirmations.md).
 
@@ -12,11 +12,11 @@ This note does **not** authorize rewriting license files. Comparison context: [l
 
 | Role | SPDX | Owner-selected | Applied now |
 | --- | --- | --- | --- |
-| **OWNER-SELECTED FUTURE LICENSE** | **MIT** | **YES** | **NO** |
+| **OWNER-SELECTED LICENSE** | **MIT** | **YES** | **YES** (Phase 4E) |
 | Documented fallback (not selected) | **Apache-2.0** | NO | **NO** |
 | GPL family (GPL / LGPL / AGPL) | Not recommended for this library | NO | **NO** |
 | BUSL / other source-available | Incompatible with confirmed “genuine OSS” intent | NO | **NO** |
-| Remain `UNLICENSED` | Current private state | status quo files | **YES** (files unchanged) |
+| Remain `UNLICENSED` | Historical private state | superseded | **NO** |
 
 D2 **selection** is **CLOSED**. D2 **application** is **LICENSE APPLICATION REQUIRED** in a later phase. D3 and D19 confirmation gates are **CLOSED** in Phase 4D.1; the copyright line must still **not** be written into `LICENSE` until that application phase. Do **not** apply MIT in Phase 4D.1.
 

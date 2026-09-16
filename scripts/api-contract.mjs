@@ -6,7 +6,13 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { collectProviderMethodsFromAst } from "./lib/provider-methods.mjs";
 import { collectTypeExportNames, diffTypeExports } from "./lib/type-exports.mjs";
-import { ensureTarball } from "./lib/tarball.mjs";
+import {
+  AUTHORIZED_LICENSE,
+  AUTHORIZED_NAME,
+  AUTHORIZED_REGISTRY,
+  AUTHORIZED_VERSION,
+  ensureTarball
+} from "./lib/tarball.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const tarball = resolve(ensureTarball(root));
@@ -30,7 +36,7 @@ try {
       name: "editor-core-api-contract",
       private: true,
       type: "module",
-      license: "UNLICENSED"
+      license: "MIT"
     })
   );
   execFileSync("npm", ["install", "--omit=dev", tarball], {
@@ -45,14 +51,23 @@ try {
   if (installedPackage.name !== publicApi.packageName) {
     fail(`Installed name ${installedPackage.name} != ${publicApi.packageName}`);
   }
+  if (publicApi.packageName !== AUTHORIZED_NAME) {
+    fail(`Contract packageName ${publicApi.packageName} != ${AUTHORIZED_NAME}`);
+  }
   if (installedPackage.version !== publicApi.version) {
     fail(`Installed version ${installedPackage.version} != ${publicApi.version}`);
   }
-  if (installedPackage.license !== "UNLICENSED") {
+  if (installedPackage.version !== AUTHORIZED_VERSION) {
+    fail(`Installed version ${installedPackage.version} != ${AUTHORIZED_VERSION}`);
+  }
+  if (installedPackage.license !== AUTHORIZED_LICENSE) {
     fail(`Installed license changed: ${installedPackage.license}`);
   }
-  if (installedPackage.publishConfig?.registry !== "https://npm.pkg.github.com") {
-    fail("Installed registry is not GitHub Packages.");
+  if (installedPackage.publishConfig?.registry !== AUTHORIZED_REGISTRY) {
+    fail(`Installed registry is not ${AUTHORIZED_REGISTRY}.`);
+  }
+  if (installedPackage.publishConfig?.access !== "public") {
+    fail("Installed publishConfig.access must be public.");
   }
   if (!installedPackage.exports?.["."]?.types || !installedPackage.exports?.["."]?.import) {
     fail('Installed exports must keep "." types/import only.');

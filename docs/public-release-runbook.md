@@ -1,6 +1,6 @@
 # Public release runbook (do not execute)
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. Human-gated runbook. Phase 4E applied MIT + `0.1.0` metadata only. Do not execute visibility/npmjs/tag/Release.
 
 Human-gated plan for a **possible** private→public transition of `@hello-ai-company/editor-core`. **Phase 4D.1 must not execute any step below.** Every destructive or legally binding action has a **HUMAN GATE**. Do not check license-application / visibility / publish items in [public-release-checklist.md](./public-release-checklist.md) from this runbook.
 

@@ -1,24 +1,24 @@
 # Repository governance (recommendations only)
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. Historical governance notes plus Phase 4E CI updates. Current prepared identity: `@hello-ai-company/editor-core@0.1.0` MIT on npmjs (not published; repo PRIVATE).
 
-Recommendations for a **future** public OSS posture. **No GitHub settings, branch protection, secrets, visibility, Sponsors, or workflow files were changed in Phase 4D.1.**
+Phase 4E applied public-facing files and canonical CI. **No GitHub visibility, branch protection, secrets, Sponsors, PVR, or npm publish** were changed.
 
-Related drafts: [public-drafts/README.md](./public-drafts/README.md), [public-drafts/CONTRIBUTING.md](./public-drafts/CONTRIBUTING.md), [public-drafts/SECURITY.md](./public-drafts/SECURITY.md).
+Public-facing files now live at repo root (`README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE`). Historical drafts: [public-drafts/README.md](./public-drafts/README.md). Branch protection plan (do not configure): [branch-protection-plan.md](./branch-protection-plan.md).
 
-## Current private posture
+## Current posture (Phase 4E)
 
 | Area | Today |
 | --- | --- |
-| Visibility | PRIVATE (must remain until owner approval) |
-| Root README | Private extraction banners; retain until authorized rewrite |
-| License | `UNLICENSED` at root and `packages/core` |
-| CODEOWNERS | Missing |
-| CONTRIBUTING / SECURITY / CoC | Missing at root; drafts under `docs/public-drafts/` only |
-| Issue / PR templates | Missing (`.github/` contains workflows only) |
+| Visibility | PRIVATE (must remain until D1-EXEC) |
+| Root README | Public OSS positioning (portable document layer) |
+| License | MIT — `Copyright (c) 2026 Yuki Shibata` |
+| CODEOWNERS | `.github/CODEOWNERS` → `* @yuki-s-code` |
+| CONTRIBUTING / SECURITY | Present at root; no CLA/DCO; PVR documented not enabled |
+| Issue / PR templates | Missing (optional later) |
 | Dependabot | Missing |
-| Publish | `publish-private-core.yml` on `workflow_dispatch` only; `--access restricted --provenance=false` |
-| Security contact | **None enabled** — prefer GitHub Private Vulnerability Reporting; D11 **PREPARED** (enable during public transition; not enabled; no invented email) |
+| Publish | Private GH Packages workflow **retired**. Active non-publishing `public-release-preflight.yml` (dry-run only). Template only: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml) |
+| Security contact | D11 **PREPARED** — **ENABLE DURING PUBLIC TRANSITION**; not enabled; no invented email |
 | Funding | **No** `.github/FUNDING.yml` — **SPONSOR LINK — OWNER SETUP REQUIRED** |
 
 ## File checklist vs typical public OSS
@@ -26,11 +26,10 @@ Related drafts: [public-drafts/README.md](./public-drafts/README.md), [public-dr
 | Artifact | Now | Recommendation when public is authorized | Apply in 4D? |
 | --- | --- | --- | --- |
 | Root README | Private banner | Replace with reviewed `docs/public-drafts/README.md` | NO |
-| LICENSE (OSS) | Proprietary UNLICENSED | Apply selected SPDX | NO |
-| CONTRIBUTING.md | Absent | Promote draft to root | NO |
-| SECURITY.md | Absent | Promote draft **after** D11 is enabled during public transition | NO |
-| CODE_OF_CONDUCT.md | Absent | Add Contributor Covenant or org CoC | NO |
-| `.github/CODEOWNERS` | Absent | Require review from named owners | NO |
+| LICENSE (OSS) | MIT applied | Keep MIT | YES (Phase 4E) |
+| CONTRIBUTING.md | Present at root | Keep lightweight; no CLA/DCO | YES (Phase 4E) |
+| SECURITY.md | Present at root | Enable PVR during public transition | YES file / NO PVR |
+| `.github/CODEOWNERS` | `* @yuki-s-code` | Keep | YES (Phase 4E) |
 | `.github/ISSUE_TEMPLATE/*` | Absent | Bug / feature; block “please publish” noise | NO |
 | `.github/pull_request_template.md` | Absent | Checklist: verify, no identity edits | NO |
 | `.github/dependabot.yml` | Absent | npm + GitHub Actions | NO |
@@ -39,25 +38,16 @@ Related drafts: [public-drafts/README.md](./public-drafts/README.md), [public-dr
 
 ## CI recommendations
 
-### What exists
+### What exists (Phase 4E)
 
 | Workflow | Triggers | Notes |
 | --- | --- | --- |
-| `ci.yml` | `push` to `main`, `grokbot/phase-2-*`, `grokbot/phase-3-*`; `workflow_dispatch` | **No `pull_request`**. Omits `scripts/api-contract.mjs` vs local `npm run verify`. |
-| `phase-4a-release-readiness.yml` | `push`/`pull_request` involving `main` and the Phase 4A branch; matrix Node 20/22 | Currently the PR verify path; includes API contract |
-| `publish-private-core.yml` | `workflow_dispatch` only | Keep human-gated; do not add `push` publish |
+| `ci.yml` | `push`/`pull_request` on `main`; `workflow_dispatch` | Canonical verify; Node 20+22; includes API contract |
+| `public-release-preflight.yml` | `push`/`pull_request` on `main`; `workflow_dispatch` | Non-publishing; `contents:read` only; `npm publish --dry-run`; no `packages:write` / `id-token` / `NPM_TOKEN` |
+| `phase-4a-release-readiness.yml` | **retired** | Merged into `ci.yml` |
+| `publish-private-core.yml` | **retired** | Do not unpublish existing GitHub Packages `0.0.0-phase3.e17b4b5` |
 
-### Recommended (do not implement now)
-
-1. Canonical job name matching `npm run verify` exactly; required status check on `main`.
-2. `pull_request` + `push` to `main` on that job (fork PRs without publish secrets).
-3. Keep Node 20 and 22.
-4. Concurrency cancel-in-progress per ref.
-5. **Never** auto-publish on push.
-6. When Phase 4A workflow is retired, **merge** its PR coverage into `ci.yml` first or PRs lose CI.
-7. Optional later: `npm audit` / OSV **in addition to** `scripts/security-scan.mjs` (leakage scan is not a CVE scanner substitute).
-
-Phase 4D.1 CI: documentation-only. Do not expand workflow branch lists unless a later authorized phase says so.
+Rules: never auto-publish on push; dry-run only in active workflows. OIDC publish template is **not** active.
 
 ## Branch protection (recommend only — do not click settings)
 

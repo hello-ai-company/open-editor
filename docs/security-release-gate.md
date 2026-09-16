@@ -1,6 +1,6 @@
 # Security release gate (Phase 4D / 4D.1)
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. D11 remains **PREPARED — ENABLE DURING PUBLIC TRANSITION**. Root `SECURITY.md` now exists; PVR is **not enabled**.
 
 **Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
 **Role:** Classify the public-security-contact gate. **Do not** invent an email. **Do not** enable GitHub security settings, Private Vulnerability Reporting, or a live `SECURITY.md` in this phase.

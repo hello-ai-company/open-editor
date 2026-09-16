@@ -1,0 +1,87 @@
+name: public-release-preflight
+
+# Non-publishing public-release preflight. Dry-run only.
+# Does not publish, tag, Release, or change visibility.
+# No packages:write, no id-token, no NPM_TOKEN.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-release-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install
+        run: npm ci
+
+      - name: Verify
+        run: npm run verify
+
+      - name: Identity lock
+        run: |
+          node -e '
+            const { readFileSync } = require("fs");
+            const pkg = JSON.parse(readFileSync("packages/core/package.json", "utf8"));
+            const root = JSON.parse(readFileSync("package.json", "utf8"));
+            if (pkg.name !== "@hello-ai-company/editor-core") {
+              console.error("STOP — package name must be @hello-ai-company/editor-core");
+              process.exit(1);
+            }
+            if (pkg.version !== "0.1.0") {
+              console.error("STOP — version is not 0.1.0");
+              process.exit(1);
+            }
+            if (pkg.license !== "MIT") {
+              console.error("STOP — license is not MIT");
+              process.exit(1);
+            }
+            if (pkg.publishConfig?.registry !== "https://registry.npmjs.org") {
+              console.error("STOP — publishConfig.registry is not npmjs");
+              process.exit(1);
+            }
+            if (pkg.publishConfig?.access !== "public") {
+              console.error("STOP — publishConfig.access is not public");
+              process.exit(1);
+            }
+            if (pkg.private === true) {
+              console.error("STOP — packages/core must not set private:true");
+              process.exit(1);
+            }
+            if (root.private !== true) {
+              console.error("STOP — workspace root must remain private:true");
+              process.exit(1);
+            }
+          '
+
+      - name: npm publish dry-run only
+        run: npm publish -w @hello-ai-company/editor-core --access public --registry=https://registry.npmjs.org --dry-run

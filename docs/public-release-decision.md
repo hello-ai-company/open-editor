@@ -1,6 +1,6 @@
 # Public release decision package (master)
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. Historical decision matrix. Current prepared identity: `@hello-ai-company/editor-core@0.1.0` MIT on npmjs (not published; repo PRIVATE).
 
 **Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
 **Role of this document:** Human decision package for a *possible future* OSS release of `@hello-ai-company/editor-core`.  

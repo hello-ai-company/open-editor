@@ -1,6 +1,6 @@
 # npm publication readiness (Phase 4D / 4D.1)
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. D6 confirmation plus Phase 4E metadata (npmjs public `0.1.0`). No real publish.
 
 **Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
 **Role:** Record D6 owner confirmation. **Never** `npm login`, `npm adduser`, `npm org`, `npm publish`, or register a scope from this phase.

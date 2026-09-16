@@ -1,26 +1,27 @@
 # Versioning and compatibility
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+Policy for `@hello-ai-company/editor-core@0.1.0` (MIT, npmjs public access prepared). This document does **not** authorize npm publish, tags, or GitHub Releases.
 
-This is a future-facing policy for `@hello-ai-company/editor-core`. It does **not** bump the current package version and does **not** authorize publish, tags, or Releases.
+## Current identity
 
-## Current identity (frozen)
+| Field | Value |
+| --- | --- |
+| Name | `@hello-ai-company/editor-core` |
+| Version | `0.1.0` |
+| License | MIT |
+| Registry (prepared) | `https://registry.npmjs.org` |
+| Access | public |
+| Visibility | PRIVATE until a later human-gated public transition |
+| Document `schemaVersion` | `1` |
 
-| Field | Value | Change in this phase |
-| --- | --- | --- |
-| Name | `@hello-ai-company/editor-core` | NO |
-| Version | `0.0.0-phase3.e17b4b5` | NO |
-| License | `UNLICENSED` | NO |
-| Registry | `https://npm.pkg.github.com` | NO |
-| Visibility | PRIVATE | NO |
-| Document `schemaVersion` | `1` | NO |
+The historical private GitHub Packages prerelease `0.0.0-phase3.e17b4b5` is **immutable** and must not be reused on npmjs.
 
 ## Two version layers
 
 1. **Package version** — JavaScript/TypeScript export contract.
 2. **Document `schemaVersion`** — persisted JSON shape. Currently the positive integer `1` only.
 
-A package bump without a schema bump is possible in a later authorized phase. Introducing `schemaVersion: 2` is a separate, breaking document-format event and is not authorized here.
+A package bump without a schema bump is possible. Introducing `schemaVersion: 2` is a separate, breaking document-format event.
 
 ## Supported runtimes
 
@@ -28,9 +29,9 @@ A package bump without a schema bump is possible in a later authorized phase. In
 - CI verifies Node 20 and Node 22.
 - Module format: ESM only. No CommonJS export. No subpath exports unless an isolated tarball consumer later proves a need.
 
-## Additive vs breaking (after this freeze)
+## Additive vs breaking
 
-**Additive** (would be a future minor/patch if publishing were authorized):
+**Additive** (future minor/patch after a public line exists):
 
 - New optional provider methods or optional `EditorProviders` keys
 - New type-only exports
@@ -38,11 +39,10 @@ A package bump without a schema bump is possible in a later authorized phase. In
 - New block `type` strings and extra `props` / `content` keys (`JsonValue`)
 - Documentation and CI-only changes
 
-**Breaking** (future major / new phase):
+**Breaking** (future major):
 
-- Changing name, version string, license, registry, or visibility
-- Changing `EDITOR_DOCUMENT_SCHEMA_VERSION` or accepting schema `2` without a migration story
 - Removing or renaming exports; changing function signatures
+- Changing `EDITOR_DOCUMENT_SCHEMA_VERSION` or accepting schema `2` without a migration story
 - Making optional provider methods required
 - Tightening deserialize so previously valid payloads fail (including unknown block types)
 - Adding runtime dependencies
@@ -60,7 +60,3 @@ A package bump without a schema bump is possible in a later authorized phase. In
 ## Provider evolution
 
 All provider methods stay optional. Host-specific actions belong on `NativeBridge.hostRequest` / `hostResponse` with `JsonValue` payloads. New host verbs must not appear as first-class methods (`openEmployees` and the rest of the forbidden list).
-
-## Prerelease channel (future)
-
-If a later authorized private publish happens, keep immutable published versions. Do not reuse `0.0.0-phase3.e17b4b5`. A future identifier would be a new prerelease such as `0.0.0-phaseN.<sha>` only after human approval. This document does not select that identifier.

@@ -1,6 +1,6 @@
 # Owner release confirmations (Phase 4D.1)
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. Phase 4D.1 confirmation record. Phase 4E applied the recorded MIT line; D1-EXEC still pending.
 
 **Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
 **Role:** Record owner final **pre-release confirmations**. Docs/evidence only.  

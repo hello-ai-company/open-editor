@@ -11,7 +11,7 @@ const typeExports = publicApi.typeExports;
 describe("editor-core public API", () => {
   it("exposes only the approved runtime surface", () => {
     expect(publicApi.packageName).toBe("@hello-ai-company/editor-core");
-    expect(publicApi.version).toBe("0.0.0-phase3.e17b4b5");
+    expect(publicApi.version).toBe("0.1.0");
     expect(Object.keys(editorCore).sort()).toEqual([...runtimeExports].sort());
     expect(editorCore.EDITOR_DOCUMENT_SCHEMA_VERSION).toBe(1);
   });

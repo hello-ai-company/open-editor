@@ -3,6 +3,8 @@ import { basename, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { findLeakageHits, hasPrivateAbsolutePath } from "./lib/leakage-patterns.mjs";
 import {
+  AUTHORIZED_ACCESS,
+  AUTHORIZED_COPYRIGHT,
   AUTHORIZED_LICENSE,
   AUTHORIZED_NAME,
   AUTHORIZED_REGISTRY,
@@ -23,7 +25,11 @@ if (!tarball) {
 const files = listTarballFiles(tarball);
 console.log(`Tarball ${tarball} contents:\n${files.map((file) => `  ${file}`).join("\n")}`);
 
-const allowedExact = new Set(["package/package.json", "package/LICENSE"]);
+const allowedExact = new Set([
+  "package/package.json",
+  "package/LICENSE",
+  "package/README.md"
+]);
 const allowedDistFile = /^package\/dist\/[A-Za-z0-9._-]+\.(js|d\.ts|js\.map|d\.ts\.map)$/;
 const denylist = [
   { name: "src tree", pattern: /(^|\/)src(\/|$)/ },
@@ -31,7 +37,6 @@ const denylist = [
   { name: "node_modules", pattern: /(^|\/)node_modules(\/|$)/ },
   { name: "git metadata", pattern: /(^|\/)\.git(\/|$)/ },
   { name: "env file", pattern: /(^|\/)\.env(?:\.|$)/ },
-  { name: "README", pattern: /(^|\/)README(?:\.[A-Za-z0-9]+)?$/i },
   { name: "tsconfig", pattern: /(^|\/)tsconfig[^/]*$/ },
   { name: "source TypeScript", pattern: /\.tsx?$/ }
 ];
@@ -64,8 +69,13 @@ if (denied.length > 0) {
   process.exit(1);
 }
 
-if (!files.includes("package/package.json") || !files.some((file) => file.endsWith(".d.ts"))) {
-  console.error("Tarball is missing package.json or declaration files.");
+if (
+  !files.includes("package/package.json")
+  || !files.includes("package/LICENSE")
+  || !files.includes("package/README.md")
+  || !files.some((file) => file.endsWith(".d.ts"))
+) {
+  console.error("Tarball is missing package.json, LICENSE, README.md, or declaration files.");
   process.exit(1);
 }
 
@@ -74,6 +84,13 @@ const packedPackage = JSON.parse(readTarballFile(tarball, "package/package.json"
 if (packedPackage.publishConfig?.registry !== AUTHORIZED_REGISTRY) {
   console.error(
     `Tarball publishConfig.registry must be ${AUTHORIZED_REGISTRY}, got ${packedPackage.publishConfig?.registry ?? "<missing>"}.`
+  );
+  process.exit(1);
+}
+
+if (packedPackage.publishConfig?.access !== AUTHORIZED_ACCESS) {
+  console.error(
+    `Tarball publishConfig.access must be ${AUTHORIZED_ACCESS}, got ${packedPackage.publishConfig?.access ?? "<missing>"}.`
   );
   process.exit(1);
 }
@@ -93,8 +110,19 @@ if (packedPackage.license !== AUTHORIZED_LICENSE) {
   process.exit(1);
 }
 
+if (packedPackage.private === true) {
+  console.error("Tarball package must remain publishable (private must not be true).");
+  process.exit(1);
+}
+
 if (packedPackage.dependencies && Object.keys(packedPackage.dependencies).length > 0) {
   console.error("Tarball must not introduce runtime dependencies.");
+  process.exit(1);
+}
+
+const packedLicense = readTarballFile(tarball, "package/LICENSE");
+if (!packedLicense.includes("MIT License") || !packedLicense.includes(AUTHORIZED_COPYRIGHT)) {
+  console.error(`Tarball LICENSE must be MIT with ${AUTHORIZED_COPYRIGHT}.`);
   process.exit(1);
 }
 
@@ -121,4 +149,4 @@ if (leakageHits.size > 0) {
   process.exit(1);
 }
 
-console.log("Tarball inspect passed: allowlist/denylist, identity lock, no host leakage, no private paths.");
+console.log("Tarball inspect passed: allowlist/denylist, identity lock, MIT license, no host leakage, no private paths.");

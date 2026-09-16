@@ -1,0 +1,67 @@
+# TEMPLATE ONLY — not an active GitHub Actions workflow.
+# Do not copy this file into `.github/workflows/` until written D1-EXEC
+# and first-publish bootstrap are complete.
+# This template must not run in Phase 4E.
+#
+# Real `npm publish` is forbidden until a later authorized public-transition phase.
+# Do not add NPM_TOKEN. After bootstrap, use npm trusted publishing (OIDC).
+#
+# See docs/first-public-publish-bootstrap.md.
+
+name: publish-public-core
+
+on:
+  workflow_dispatch:
+
+# OIDC for npm trusted publishing. Not used in Phase 4E.
+# Do not enable this workflow while the repository is still in public-release
+# preparation. First package creation needs the bootstrap documented separately.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: public-npmjs # create this GitHub Environment later; require reviewers
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install
+        run: npm ci
+
+      - name: Verify
+        run: npm run verify
+
+      - name: Identity lock
+        run: |
+          node -e '
+            const { readFileSync } = require("fs");
+            const pkg = JSON.parse(readFileSync("packages/core/package.json", "utf8"));
+            if (pkg.name !== "@hello-ai-company/editor-core") process.exit(1);
+            if (pkg.version !== "0.1.0") process.exit(1);
+            if (pkg.license !== "MIT") process.exit(1);
+            if (pkg.publishConfig?.registry !== "https://registry.npmjs.org") process.exit(1);
+            if (pkg.publishConfig?.access !== "public") process.exit(1);
+          '
+
+      # PLACEHOLDER — do not uncomment in Phase 4E.
+      # After bootstrap + npm trusted publisher is configured on the package:
+      # - name: Publish to npmjs
+      #   run: npm publish -w @hello-ai-company/editor-core --access public --registry=https://registry.npmjs.org --provenance
+      #
+      # Never:
+      # - env.NODE_AUTH_TOKEN / secrets.NPM_TOKEN
+      # - auto-publish on push
+      # - republish 0.0.0-phase3.e17b4b5

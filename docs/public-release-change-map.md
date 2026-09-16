@@ -1,6 +1,6 @@
 # Public release change map (future prep only)
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. Historical file map. Phase 4E executed the license/identity/docs/CI prep rows; not visibility/publish/tag.
 
 **Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
 **Role:** List files a **later** authorized phase would touch. **Do not execute.** Phase 4D.1 changes documentation/policy only.

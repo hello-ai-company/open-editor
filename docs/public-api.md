@@ -1,8 +1,6 @@
 # Public API freeze
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
-
-This document freezes the current `@hello-ai-company/editor-core` public surface at identity `0.0.0-phase3.e17b4b5` (UNLICENSED, GitHub Packages). It is a private contract, not a public OSS API announcement.
+This document freezes the `@hello-ai-company/editor-core` public surface at identity `0.1.0` (MIT, npmjs public access prepared). It is the machine-checked contract for the 0.x early line.
 
 Canonical machine copy: `packages/core/contracts/public-api.json` and `packages/core/contracts/provider-contract.json`.
 

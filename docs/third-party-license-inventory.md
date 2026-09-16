@@ -1,10 +1,8 @@
 # Third-party license inventory
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. Historical inventory. Current first-party license is MIT (`Copyright (c) 2026 Yuki Shibata`).
 
-Phase 4B inventory for a future OSS decision. **No license was applied.** SPDX, NOTICE, and copyright-holder naming remain **OWNER DECISION PENDING**.
-
-Inventory date context: lockfile at `origin/main` `c87bf79b7454079bb31b31e283c53747aca43c08` (`package-lock.json` unchanged in this phase).
+Phase 4B inventory of third-party licenses. First-party MIT was applied in Phase 4E. SPDX NOTICE / CLA remain unused (no CLA/DCO for v0.1.0).
 
 ## Verdict
 
@@ -12,21 +10,21 @@ Inventory date context: lockfile at `origin/main` `c87bf79b7454079bb31b31e283c53
 | --- | --- |
 | Production runtime dependencies in `@hello-ai-company/editor-core` | **None** |
 | Third-party source bundled in `packages/core/src/**` | **None** |
-| Third-party code in the published tarball | **None** (allowlist: `package.json`, `LICENSE`, `dist/*`) |
+| Third-party code in the published tarball | **None** (allowlist: `package.json`, `LICENSE`, `README.md`, `dist/*`) |
 | Copyleft (GPL/AGPL/LGPL) in the lockfile | **None found** |
 | Third-party license uncertainty **blocker** for the artifact | **No** |
-| Remaining legal question | Chain-of-title for the `personal-ai` extract — D19 **CLOSED** (owner representation, not legal advice); MIT still not applied |
+| Remaining legal question | Chain-of-title for the extract — D19 **CLOSED** (owner representation, not legal advice); MIT **applied** in Phase 4E |
 
 ## First-party license (not third-party)
 
 | Path | SPDX / field | Text |
 | --- | --- | --- |
-| `LICENSE` | `UNLICENSED` | Proprietary, confidential, all rights reserved |
-| `packages/core/LICENSE` | `UNLICENSED` | Same text; **ships in the npm tarball** |
-| Root `package.json` `"license"` | `UNLICENSED` | Workspace is `"private": true` |
-| `packages/core/package.json` `"license"` | `UNLICENSED` | Publishable package identity |
+| `LICENSE` | MIT | `Copyright (c) 2026 Yuki Shibata` |
+| `packages/core/LICENSE` | MIT | Same text; **ships in the npm tarball** |
+| Root `package.json` `"license"` | MIT | Workspace is `"private": true` |
+| `packages/core/package.json` `"license"` | MIT | Publishable package identity |
 
-Copyright holder is recorded in Phase 4D.1 as `Copyright (c) 2026 Yuki Shibata` and is **not** stated in those files. **DO NOT write into LICENSE yet.**
+Copyright holder `Copyright (c) 2026 Yuki Shibata` is written into both `LICENSE` files in Phase 4E.
 
 ## Production (published package)
 
@@ -81,7 +79,7 @@ Provenance (internal, not an npm dep): extracted from `hello-ai-company/personal
 
 ## GitHub Actions (not redistributed)
 
-Used by `.github/workflows/ci.yml`, `phase-4a-release-readiness.yml`, and `publish-private-core.yml`:
+Used by `.github/workflows/ci.yml` and `public-release-preflight.yml` (`phase-4a-release-readiness.yml` and `publish-private-core.yml` retired in Phase 4E):
 
 | Action | Pin | Typical license | In tarball |
 | --- | --- | --- | --- |
@@ -90,7 +88,7 @@ Used by `.github/workflows/ci.yml`, `phase-4a-release-readiness.yml`, and `publi
 
 ## Isolated consumer harness
 
-`tests/isolated-consumer/` is `private` + `UNLICENSED`. `scripts/isolated-consumer.mjs` may install `typescript@5.9.2` **into a temp directory** for consumer typecheck. That install is not part of the published core package.
+`tests/isolated-consumer/` is `private` + MIT (test fixture; not published). `scripts/isolated-consumer.mjs` may install `typescript@5.9.2` **into a temp directory** for consumer typecheck. That install is not part of the published core package.
 
 ## Inventory method (repeatable)
 
@@ -106,16 +104,8 @@ npm pack -w @hello-ai-company/editor-core
 node scripts/inspect-tarball.mjs
 ```
 
-Do not add license-checker (or any) runtime/dev dependency in this phase. Lockfile must stay unchanged.
+Do not add license-checker (or any) runtime/dev dependency in this phase except lockfile follow-through for workspace license/version metadata.
 
-## Applying an OSS license later (not now)
+## Applying an OSS license (done in Phase 4E)
 
-Would require, at minimum:
-
-1. Owner selection of SPDX (see [license-decision.md](./license-decision.md))
-2. Replace `LICENSE` and `packages/core/LICENSE`
-3. Change `"license"` in root and `packages/core` `package.json` (lockfile follows)
-4. Update `AUTHORIZED_LICENSE` in `scripts/lib/tarball.mjs` and tests/scripts that assert `UNLICENSED`
-5. Optional NOTICE, per-file headers, CLA/DCO
-
-That work is **LICENSE APPLICATION REQUIRED** and is **out of scope for Phase 4D.1**. See [license-recommendation.md](./license-recommendation.md) (OWNER-SELECTED MIT — **not applied**). Use copyright line `Copyright (c) 2026 Yuki Shibata` when applying — **not in this phase**.
+Phase 4E applied MIT + `Copyright (c) 2026 Yuki Shibata` to `LICENSE` files, package metadata, `AUTHORIZED_LICENSE`, and identity tests. Optional NOTICE / CLA / DCO remain out of scope (no CLA/DCO for v0.1.0).

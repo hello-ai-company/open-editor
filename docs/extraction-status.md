@@ -1,6 +1,6 @@
 # Extraction status
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. Provenance and phase log. Current prepared identity: `@hello-ai-company/editor-core@0.1.0` MIT on npmjs (not published; repo PRIVATE).
 
 ## Provenance
 
@@ -37,11 +37,11 @@ Approved source files only (original extract):
 - `schemaVersion` must be the positive integer `1` (reject `-1`, `0`, `1.5`, `2`)
 - Allowlist parsing uses TypeScript AST plus `method?(` / `method?:` / `method()` patterns
 
-## Phase 3 private package
+## Phase 3 private package (historical)
 
 - Identity: `@hello-ai-company/editor-core@0.0.0-phase3.e17b4b5`
 - Registry: `https://npm.pkg.github.com`
-- License: `UNLICENSED`
+- License: `UNLICENSED` (superseded in Phase 4E; version remains immutable on GitHub Packages)
 
 ## Phase 4A private release-readiness
 
@@ -75,13 +75,24 @@ Approved source files only (original extract):
 - Companion: `docs/owner-release-confirmations.md`
 - **Not** a public OSS release. No FUNDING.yml, no LICENSE file changes, no npm register, no PVR enablement.
 
+## Phase 4E public release preparation
+
+- Public-exposure audit: [public-exposure-audit.md](./public-exposure-audit.md) — P1 none; P2 historical UNLICENSED / phase IDs
+- MIT applied: root `LICENSE` + `packages/core/LICENSE` with `Copyright (c) 2026 Yuki Shibata`
+- Package identity: `@hello-ai-company/editor-core@0.1.0`, `publishConfig` npmjs + public
+- Root workspace remains `"private": true`
+- Public README / `packages/core/README.md` / CONTRIBUTING / SECURITY / CODEOWNERS
+- Private GH Packages publish workflow retired; `public-release-preflight.yml` is non-publishing (dry-run only)
+- **CORE SOURCE CHANGE REQUIRED: NO** — `packages/core/src/**` not modified
+- **Did not:** make PUBLIC; real npm publish; tag; Release; enable PVR; create npm tokens; start Phase 4F
+
 ## History
 
 This repository has fresh history only. The source repository was not imported as git history.
 
 ## Publish / visibility
 
-Not authorized for public release, npmjs publish, tags, GitHub Releases, or merging a public release. Manual private GitHub Packages publish remains `workflow_dispatch` only and is not triggered by Phase 4D.1 docs.
+Repository remains PRIVATE. npmjs publish, tags, and GitHub Releases are **not** authorized in Phase 4E. The private GitHub Packages publish workflow is retired; do not unpublish `0.0.0-phase3.e17b4b5`. Active non-publishing gate: `.github/workflows/public-release-preflight.yml` (dry-run only).
 
 ## Gate results (local)
 
@@ -91,7 +102,7 @@ Not authorized for public release, npmjs publish, tags, GitHub Releases, or merg
 | typecheck | PASS |
 | unit tests | PASS |
 | build (`dist` + `.d.ts`) | PASS |
-| `npm pack` | PASS (`hello-ai-company-editor-core-0.0.0-phase3.e17b4b5.tgz`) |
+| `npm pack` | PASS (`hello-ai-company-editor-core-0.1.0.tgz`) |
 | tarball inspect (allowlist / denylist / no host leakage) | PASS |
 | isolated consumer install + typecheck + runtime | PASS |
 | API contract (installed tarball) | PASS |

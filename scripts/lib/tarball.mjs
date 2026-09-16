@@ -3,9 +3,11 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 
 export const AUTHORIZED_NAME = "@hello-ai-company/editor-core";
-export const AUTHORIZED_VERSION = "0.0.0-phase3.e17b4b5";
-export const AUTHORIZED_REGISTRY = "https://npm.pkg.github.com";
-export const AUTHORIZED_LICENSE = "UNLICENSED";
+export const AUTHORIZED_VERSION = "0.1.0";
+export const AUTHORIZED_REGISTRY = "https://registry.npmjs.org";
+export const AUTHORIZED_LICENSE = "MIT";
+export const AUTHORIZED_ACCESS = "public";
+export const AUTHORIZED_COPYRIGHT = "Copyright (c) 2026 Yuki Shibata";
 export const TARBALL_PREFIX = "hello-ai-company-editor-core-";
 
 export function findTarball(root) {

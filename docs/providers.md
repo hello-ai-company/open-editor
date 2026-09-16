@@ -1,7 +1,5 @@
 # Providers
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
-
 Every provider on `EditorProviders` is optional. Method names are allowlisted so host-specific actions cannot re-enter the standalone core.
 
 ## Allowlisted methods

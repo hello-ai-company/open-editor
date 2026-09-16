@@ -1,8 +1,22 @@
 {
   "name": "@hello-ai-company/editor-core",
-  "version": "0.0.0-phase3.e17b4b5",
-  "license": "UNLICENSED",
-  "description": "Private standalone editor document model, serialization, and provider seams.",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Portable TypeScript document model, JSON serialization, and optional provider types. A small host-neutral document layer - not a rich-text editor.",
+  "keywords": [
+    "document-model",
+    "serialization",
+    "typescript",
+    "json",
+    "editor-core",
+    "portable-document",
+    "schema"
+  ],
+  "homepage": "https://github.com/hello-ai-company/open-editor/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/hello-ai-company/open-editor/issues"
+  },
+  "author": "Yuki Shibata",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,7 +28,8 @@
   },
   "files": [
     "dist",
-    "LICENSE"
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -27,7 +42,8 @@
     "directory": "packages/core"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
   },
   "devDependencies": {
     "typescript": "^5.9.2",
