@@ -62,7 +62,7 @@ Public runtime and type lists: see `docs/public-api.md` in this repository (priv
 
 ## Contributing / security
 
-Drafts: [CONTRIBUTING.md](./CONTRIBUTING.md), [SECURITY.md](./SECURITY.md). Preferred future channel: GitHub Private Vulnerability Reporting (**OWNER ACTION REQUIRED** to enable; no invented email).
+Drafts: [CONTRIBUTING.md](./CONTRIBUTING.md), [SECURITY.md](./SECURITY.md). Preferred future channel: GitHub Private Vulnerability Reporting (D11 **PREPARED** — enable during public transition; no invented email).
 
 ## Support (optional)
 
@@ -74,4 +74,4 @@ If the owner later offers voluntary GitHub Sponsors or donations, that support w
 
 ## License
 
-**OWNER-SELECTED FUTURE LICENSE = MIT. APPLIED: NO.** Live files `LICENSE` and `packages/core/LICENSE` remain proprietary `UNLICENSED`. This draft must not be copied to the repo root until an owner applies MIT in an authorized phase (after D3 + D19). **Do not make the repository public while UNLICENSED.**
+**OWNER-SELECTED FUTURE LICENSE = MIT. APPLIED: NO.** Live files `LICENSE` and `packages/core/LICENSE` remain proprietary `UNLICENSED`. Recorded copyright line `Copyright (c) 2026 Yuki Shibata` must **not** be copied to `LICENSE` until an authorized application phase. This draft must not be copied to the repo root until then. **Do not make the repository public while UNLICENSED.**

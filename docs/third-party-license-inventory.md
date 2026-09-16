@@ -15,7 +15,7 @@ Inventory date context: lockfile at `origin/main` `c87bf79b7454079bb31b31e283c53
 | Third-party code in the published tarball | **None** (allowlist: `package.json`, `LICENSE`, `dist/*`) |
 | Copyleft (GPL/AGPL/LGPL) in the lockfile | **None found** |
 | Third-party license uncertainty **blocker** for the artifact | **No** |
-| Remaining legal question | Chain-of-title for the `personal-ai` extract — owner/legal (not npm) |
+| Remaining legal question | Chain-of-title for the `personal-ai` extract — D19 **CLOSED** (owner representation, not legal advice); MIT still not applied |
 
 ## First-party license (not third-party)
 
@@ -26,7 +26,7 @@ Inventory date context: lockfile at `origin/main` `c87bf79b7454079bb31b31e283c53
 | Root `package.json` `"license"` | `UNLICENSED` | Workspace is `"private": true` |
 | `packages/core/package.json` `"license"` | `UNLICENSED` | Publishable package identity |
 
-Copyright holder legal name is **not** stated in those files. **COPYRIGHT HOLDER — OWNER ACTION REQUIRED.** Placeholder form only (not in LICENSE): `Copyright (c) 2026 <LEGAL ENTITY NAME — OWNER ACTION REQUIRED>`.
+Copyright holder is recorded in Phase 4D.1 as `Copyright (c) 2026 Yuki Shibata` and is **not** stated in those files. **DO NOT write into LICENSE yet.**
 
 ## Production (published package)
 
@@ -77,7 +77,7 @@ If Apache-2.0 is later chosen for **this** project, NOTICE is still optional for
 
 No copyright headers, SPDX tags, or vendored snippets. Test fixture block type `"vendorPluginBlock"` is a string used to prove unknown types round-trip — not third-party code.
 
-Provenance (internal, not an npm dep): extracted from `hello-ai-company/personal-ai` approved `apps/web/src/editorCore/*` paths. Relicensing that extract is **D19** in [public-release-decision.md](./public-release-decision.md).
+Provenance (internal, not an npm dep): extracted from `hello-ai-company/personal-ai` approved `apps/web/src/editorCore/*` paths. Relicensing that extract is **D19 CLOSED** (owner representation) in [public-release-decision.md](./public-release-decision.md).
 
 ## GitHub Actions (not redistributed)
 
@@ -118,4 +118,4 @@ Would require, at minimum:
 4. Update `AUTHORIZED_LICENSE` in `scripts/lib/tarball.mjs` and tests/scripts that assert `UNLICENSED`
 5. Optional NOTICE, per-file headers, CLA/DCO
 
-That work is **LICENSE APPLICATION REQUIRED** and is **out of scope for Phase 4D**. See [license-recommendation.md](./license-recommendation.md) (OWNER-SELECTED MIT — **not applied**).
+That work is **LICENSE APPLICATION REQUIRED** and is **out of scope for Phase 4D.1**. See [license-recommendation.md](./license-recommendation.md) (OWNER-SELECTED MIT — **not applied**). Use copyright line `Copyright (c) 2026 Yuki Shibata` when applying — **not in this phase**.

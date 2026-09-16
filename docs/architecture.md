@@ -22,7 +22,17 @@
 - Providers are optional. A consumer can hold a document with zero integrations.
 - Native host I/O is generic: `ready` / `change` / `commit` / `error` / `hostRequest` / `hostResponse`.
 
-## Non-goals (Phase 2)
+## OSS product direction (Phase 4D.1 — record only)
+
+Public shape: a **portable document layer** as **Small Core + Adapters + Docs + Examples**.
+
+- **Small Core** is this package (document + serialization + optional provider types).
+- **Adapters** (including any future BlockNote adapter) are separate packages, not created here.
+- **Docs + Examples** are later public-facing material.
+
+This phase does **not** add adapter packages and does **not** change the frozen core API.
+
+## Non-goals (Phase 2; still true)
 
 - BlockNote or any editor UI
 - Host note adapters, domain models, or REST clients

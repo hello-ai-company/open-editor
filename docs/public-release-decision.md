@@ -2,22 +2,23 @@
 
 **PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
 
-**Case:** ENG-20260913-007 Phase 4D / PA-20260916-004  
+**Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
 **Role of this document:** Human decision package for a *possible future* OSS release of `@hello-ai-company/editor-core`.  
 **This document does not authorize release.** Completing private gates, recording OSS **intent**, and reading this package do **not** make the repository public, apply a license, publish, tag, or bump a version.
 
-Phase 4D records **OWNER-SELECTED FUTURE LICENSE = MIT** (**APPLIED TO LICENSE FILES: NO**). Philosophy rows remain OWNER-CONFIRMED from Phase 4C. D3 / D6 / D11 / D19 are classified honestly and are **not** closed. License **application**, visibility, npmjs, tags, and Releases remain unauthorized. Master closure: [release-gate-closure.md](./release-gate-closure.md).
+Phase 4D.1 records owner confirmations: D2/D3/D6/D19 **CLOSED**; D11 **PREPARED** (enable GitHub PVR during public transition); D1-EXEC **PENDING EXECUTION AUTHORIZATION**. **OWNER-SELECTED FUTURE LICENSE = MIT** (**APPLIED TO LICENSE FILES: NO**). Philosophy rows remain OWNER-CONFIRMED from Phase 4C. License **application**, visibility, npmjs, tags, and Releases remain unauthorized. Master closure: [release-gate-closure.md](./release-gate-closure.md). Confirmations: [owner-release-confirmations.md](./owner-release-confirmations.md).
 
 ## Companion documents
 
 | Document | Purpose |
 | --- | --- |
-| [release-gate-closure.md](./release-gate-closure.md) | Phase 4D gate classifications (D2 CLOSED selection-only; D3/D6/D11/D19 not closed) |
+| [owner-release-confirmations.md](./owner-release-confirmations.md) | Phase 4D.1 owner confirmations (D2/D3/D6/D19 CLOSED; D11 PREPARED; D1-EXEC PENDING) |
+| [release-gate-closure.md](./release-gate-closure.md) | Canonical gate classifications |
 | [owner-oss-policy.md](./owner-oss-policy.md) | OWNER-CONFIRMED mission, free OSS, sponsorship, cost principle; D2 selected MIT **not applied** |
 | [license-recommendation.md](./license-recommendation.md) | OWNER-SELECTED MIT / FALLBACK Apache-2.0 — **not applied** |
-| [chain-of-title-evidence.md](./chain-of-title-evidence.md) | D19 provenance; **CHAIN-OF-TITLE — OWNER/LEGAL CONFIRMATION REQUIRED** |
-| [npm-publication-readiness.md](./npm-publication-readiness.md) | D6 read-only npm audit; **NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED** |
-| [security-release-gate.md](./security-release-gate.md) | D11; prefer GitHub Private Vulnerability Reporting; **not enabled** |
+| [chain-of-title-evidence.md](./chain-of-title-evidence.md) | D19 provenance; **CLOSED** (owner representation, not legal advice) |
+| [npm-publication-readiness.md](./npm-publication-readiness.md) | D6 **CLOSED** by owner confirmation; no npm mutations |
+| [security-release-gate.md](./security-release-gate.md) | D11 **PREPARED**; prefer GitHub PVR; **ENABLE DURING PUBLIC TRANSITION**; not enabled |
 | [public-release-change-map.md](./public-release-change-map.md) | Future prep files; **CORE SOURCE CHANGE REQUIRED: NO** |
 | [third-party-license-inventory.md](./third-party-license-inventory.md) | Production (none) + dev/CI third-party licenses |
 | [distribution-options.md](./distribution-options.md) | Scoped/unscoped naming; GitHub Packages vs npmjs |
@@ -25,7 +26,7 @@ Phase 4D records **OWNER-SELECTED FUTURE LICENSE = MIT** (**APPLIED TO LICENSE F
 | [public-release-runbook.md](./public-release-runbook.md) | Human-gated private→public steps; do not execute; do not make public while UNLICENSED |
 | [public-drafts/README.md](./public-drafts/README.md) | Future public README (draft only; optional Support section) |
 | [public-drafts/CONTRIBUTING.md](./public-drafts/CONTRIBUTING.md) | Future contributing guide (draft only) |
-| [public-drafts/SECURITY.md](./public-drafts/SECURITY.md) | Future security policy (GitHub PVR preferred; **OWNER ACTION REQUIRED**) |
+| [public-drafts/SECURITY.md](./public-drafts/SECURITY.md) | Future security policy (GitHub PVR preferred; D11 **PREPARED**; not enabled) |
 | [license-decision.md](./license-decision.md) | Comparison; MIT is now owner-selected but **not applied** |
 | [public-release-checklist.md](./public-release-checklist.md) | Private gates vs still-unchecked public actions |
 | [versioning.md](./versioning.md) | Frozen identity and compatibility policy |
@@ -35,10 +36,10 @@ Root `README.md` retains private warnings. Drafts under `docs/public-drafts/` mu
 
 ## Canonical start (frozen)
 
-| Field | Value | Changed in Phase 4D |
+| Field | Value | Changed in Phase 4D.1 |
 | --- | --- | --- |
 | Repository | `hello-ai-company/open-editor` | NO |
-| `origin/main` | `1f8466ebc3191e05bfb5ac72799a406d840ae5a9` | NO (Phase 4D base; identity unchanged) |
+| `origin/main` | `8d6b66a51219044e2e8a068443f11c7eb132beca` | NO (Phase 4D.1 base; identity unchanged) |
 | Package name | `@hello-ai-company/editor-core` | NO |
 | Package version | `0.0.0-phase3.e17b4b5` | NO |
 | License | `UNLICENSED` (all rights reserved) | NO |
@@ -58,15 +59,15 @@ Rows marked **CONFIRMED** are philosophy/intent only unless noted. They do **not
 | D1 | Public OSS **intent** | Remain private extraction workspace forever / Public OSS | Public OSS; genuinely useful core | **CONFIRMED: YES** — intent only; **not** execution |
 | D1-EXEC | Public **execution** (visibility / npmjs / tag / Release) | Remain private until later gated phase / Execute public actions | Remain private until written execution approval | **PENDING EXECUTION AUTHORIZATION** |
 | D2 | License | Remain `UNLICENSED` / MIT / Apache-2.0 / GPL family / BUSL or other source-available | **OWNER-SELECTED FUTURE LICENSE = MIT**; Apache-2.0 remains fallback recommendation only. See [license-recommendation.md](./license-recommendation.md) | **CLOSED** (selection) — SELECTED YES / **APPLIED TO LICENSE FILES NO**; **LICENSE APPLICATION REQUIRED** later |
-| D3 | Copyright holder + year | Legal entity name + year range | Name the owning entity in LICENSE/NOTICE | **OWNER ACTION REQUIRED** — **COPYRIGHT HOLDER — OWNER ACTION REQUIRED**; placeholder form only, not in LICENSE |
+| D3 | Copyright holder + year | Legal entity name + year range | Name the owning entity in LICENSE/NOTICE | **CLOSED** — `Copyright (c) 2026 Yuki Shibata`; **DO NOT write into LICENSE yet** |
 | D4 | SPDX / NOTICE / CLA or DCO | SPDX id; NOTICE yes/no; CLA vs DCO vs neither | SPDX + DCO is lighter than CLA for a small library | **PENDING** |
 | D5 | Package name | Keep `@hello-ai-company/editor-core` / unscoped `editor-core` / other scope | Keep current scoped name **if** npm org `@hello-ai-company` is owned | **PENDING** |
-| D6 | npm org / scope ownership | Confirm `@hello-ai-company` on npmjs / choose another scope | Verify org ownership before any npmjs publish | **OWNER ACTION REQUIRED** — **NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED** (org does not exist on npmjs; not registered) |
+| D6 | npm org / scope ownership | Confirm `@hello-ai-company` on npmjs / choose another scope | Verify org ownership before any npmjs publish | **CLOSED** — owner controls npm org `hello-ai-company` / scope `@hello-ai-company` / target `@hello-ai-company/editor-core`; **no npm mutations** |
 | D7 | Registry | GitHub Packages only / npmjs.org / dual-publish | npmjs.org for public OSS; keep GH Packages private line until cutover | **PENDING** |
 | D8 | First public version | Keep `0.0.0-phase3.e17b4b5` / `0.1.0` / `1.0.0` / other | Do **not** reuse `0.0.0-phase3.e17b4b5`; prefer **`0.1.0`** (0.x early) | **PENDING** |
 | D9 | Repository visibility | Remain PRIVATE / make public | Remain PRIVATE until D1-EXEC + license application | **PENDING** |
 | D10 | Repository / package rename | Keep `open-editor` + current package name / rename | Not required if D5 keeps the scoped name | **PENDING** |
-| D11 | Security contact | Email / GitHub private vulnerability reporting / both / none | Prefer GitHub Private Vulnerability Reporting; do not invent email | **OWNER ACTION REQUIRED** — preferred method recorded; **not enabled**; no invented email |
+| D11 | Security contact | Email / GitHub private vulnerability reporting / both / none | Prefer GitHub Private Vulnerability Reporting; do not invent email | **PREPARED** — GitHub PVR; **ENABLE DURING PUBLIC TRANSITION**; **not enabled**; no invented email |
 | D12 | CODEOWNERS / reviewers | Owners list | Required before public contribution | **PENDING** |
 | D13 | Branch protection | Current (unknown/internal) / recommended public rules | Require PR + `verify` on `main`; no force-push | **PENDING** |
 | D14 | CI on pull request | Keep phase-4a workflow / merge into `ci.yml` | Unify `npm run verify` on every PR to `main` | **PENDING** |
@@ -74,7 +75,7 @@ Rows marked **CONFIRMED** are philosophy/intent only unless noted. They do **not
 | D16 | `personal-ai` consumer path | Stay on GH Packages pin / switch to npmjs / dual period | Pin until public semver exists; do not edit personal-ai from this repo | **PENDING** |
 | D17 | Public README / CoC / templates | Keep private banners / apply drafts in `docs/public-drafts/` | Apply drafts only after D1-EXEC | **PENDING** |
 | D18 | Tags / GitHub Releases | None / tag after first public version | No tag or Release until D8 is applied | **PENDING** |
-| D19 | Provenance / chain-of-title from `personal-ai` extract | Confirm Hello AI Company may relicense this extract | Legal confirmation before OSS terms | **OWNER/LEGAL CONFIRMATION REQUIRED** — **CHAIN-OF-TITLE — OWNER/LEGAL CONFIRMATION REQUIRED** |
+| D19 | Provenance / chain-of-title from `personal-ai` extract | Confirm the owner may relicense this extract | Owner confirmation before OSS terms | **CLOSED** — owner Yuki Shibata confirms relicensing authority under MIT (owner representation, not legal advice) |
 | D20 | Business model | Open-core SaaS / paid tiers / **free core + optional sponsorship** | Free core + optional sponsorship only | **CONFIRMED: FREE + OPTIONAL SPONSORSHIP** |
 | D21 | Paid Cloud / Enterprise / feature paywall / commercial plugin (initial launch) | Yes / No | No | **CONFIRMED: NO** |
 | D22 | Mandatory payment to install / use / modify / fork / self-host / commercially use | Yes / No | No (subject to eventual license) | **CONFIRMED: NO** |
@@ -98,7 +99,7 @@ Rows marked **CONFIRMED** are philosophy/intent only unless noted. They do **not
 
 Rename is **not required** for a public release if the owner keeps the current scope and owns it on the target registry.
 
-**NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED.** Registry probes in Phase 4D (read-only, 2026-09-16): `GET https://registry.npmjs.org/@hello-ai-company%2feditor-core` → 404; `GET https://registry.npmjs.org/-/org/hello-ai-company` → org does not exist; `npm whoami` → `ENEEDAUTH`. GitHub org membership does **not** reserve the npm scope. Do **not** register the org from this phase. Fallback names: [npm-publication-readiness.md](./npm-publication-readiness.md) (document only).
+**D6 CLOSED** by owner confirmation (npm org `hello-ai-company` / scope `@hello-ai-company` / target `@hello-ai-company/editor-core`). Phase 4D.1 performed **no** npm login, token, publish, or register. Historical Phase 4D read-only probes (2026-09-16): `GET https://registry.npmjs.org/@hello-ai-company%2feditor-core` → 404; `GET https://registry.npmjs.org/-/org/hello-ai-company` → org does not exist; `npm whoami` → `ENEEDAUTH`. GitHub org membership does **not** reserve the npm scope. Fallback names: [npm-publication-readiness.md](./npm-publication-readiness.md) (document only; **not selected**).
 
 ## License analysis (summary)
 
@@ -116,7 +117,7 @@ See [license-recommendation.md](./license-recommendation.md), [license-decision.
 - `packages/core/src/**`: original extract; intra-package imports only.
 - Dev/CI licenses (TypeScript Apache-2.0, Vitest MIT, Actions MIT, plus MIT/ISC/BSD-3/Apache-2.0 transitives) do **not** ship in the tarball.
 - **No third-party npm license uncertainty blocker** for the published artifact.
-- Remaining legal question is **chain-of-title** from `hello-ai-company/personal-ai` (D19) — owner/legal, not a dependency-scan fail. **CHAIN-OF-TITLE — OWNER/LEGAL CONFIRMATION REQUIRED.** Does not block Phase 4D docs merge; **does** block public release. See [chain-of-title-evidence.md](./chain-of-title-evidence.md).
+- Remaining legal question was **chain-of-title** from `hello-ai-company/personal-ai` (D19). Phase 4D.1: **CLOSED** by owner Yuki Shibata confirmation of relicensing authority under MIT (**owner representation, not legal advice**). MIT is still **not applied**. See [chain-of-title-evidence.md](./chain-of-title-evidence.md).
 
 ## Distribution (summary)
 
@@ -136,7 +137,7 @@ See [versioning.md](./versioning.md).
 
 ## Public API (unchanged)
 
-See [public-api.md](./public-api.md). Phase 4C does **not** alter the freeze.
+See [public-api.md](./public-api.md). Phase 4D.1 does **not** alter the freeze.
 
 - 13 stable runtime exports; 5 stable document types; remaining provider types experimental.
 - Entry `"."` only; ESM; Node `>=20`; no runtime dependencies.
@@ -162,14 +163,20 @@ See [public-release-runbook.md](./public-release-runbook.md).
 - This repository **must not** edit `hello-ai-company/personal-ai`.
 - After a public package exists, options are: keep GH Packages pin, switch to npmjs, or a dual-install window. All **PENDING**.
 
-## What Phase 4D did / did not do
+## OSS product direction (Phase 4D.1 — record only)
 
-**Did:** record OWNER-SELECTED FUTURE LICENSE = MIT (**not applied**); add gate-closure companions (chain-of-title, npm readiness, security gate, change map); classify D3/D6/D11/D19 honestly; keep `FUNDING.yml` absent; keep visibility PRIVATE.
+Portable document layer. Public shape: **Small Core + Adapters + Docs + Examples**. No adapter packages in this phase. No core API change. **CORE SOURCE CHANGE REQUIRED: NO.**
 
-**Did not:** publish, tag, Release, apply MIT, change visibility, rename, bump version, register npm, edit `personal-ai`, modify `packages/core/src/**`, change package identity, alter frozen API, add runtime deps, configure secrets/trusted publishing/Sponsors, invent a security email or sponsor URL, enable Private Vulnerability Reporting, change branch protection, or start Phase 4E / public release.
+## What Phase 4D / 4D.1 did / did not do
+
+**Phase 4D did:** record OWNER-SELECTED FUTURE LICENSE = MIT (**not applied**); add gate-closure companions; classify D3/D6/D11/D19 honestly as then-open; keep `FUNDING.yml` absent; keep visibility PRIVATE.
+
+**Phase 4D.1 did:** record owner confirmations (D2/D3/D6/D19 **CLOSED**; D11 **PREPARED**; D1-EXEC **PENDING**); record OSS product direction; classify **READY FOR PUBLIC RELEASE PREPARATION** / **not READY TO PUBLISH NOW**.
+
+**Neither phase did:** publish, tag, Release, apply MIT, write copyright into `LICENSE`, change visibility, rename, bump version, register npm, edit `personal-ai`, modify `packages/core/src/**`, change package identity, alter frozen API, add runtime deps, configure secrets/trusted publishing/Sponsors, invent a security email or sponsor URL, enable Private Vulnerability Reporting, change branch protection, or start Phase 4E / public release.
 
 ## Next
 
-D2 selection is closed. Remaining before public-release **preparation**: D3 copyright holder, D6 npm scope, D11 GitHub PVR enablement, D19 chain-of-title. D1-EXEC stays **PENDING EXECUTION AUTHORIZATION**. **Do not start Phase 4E / public release** from this document. **Do not make public while UNLICENSED.**
+Confirmation gates D2/D3/D6/D19 are **CLOSED**. D11 is **PREPARED** (enable PVR during public transition). D1-EXEC stays **PENDING EXECUTION AUTHORIZATION**. Classification: **READY FOR PUBLIC RELEASE PREPARATION** — **not READY TO PUBLISH NOW**. **Do not start Phase 4E / public release** from this document. **Do not make public while UNLICENSED.**
 
-**STOP — OWNER ACTION REQUIRED BEFORE PUBLIC RELEASE PREPARATION**
+**STOP — READY FOR CHATGPT REVIEW BEFORE PHASE 4E**

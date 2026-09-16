@@ -1,48 +1,47 @@
-# Security release gate (Phase 4D)
+# Security release gate (Phase 4D / 4D.1)
 
 **PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
 
-**Case:** ENG-20260913-007 Phase 4D / PA-20260916-004  
+**Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
 **Role:** Classify the public-security-contact gate. **Do not** invent an email. **Do not** enable GitHub security settings, Private Vulnerability Reporting, or a live `SECURITY.md` in this phase.
 
-Gate **D11** classification: **OWNER ACTION REQUIRED**.
+Gate **D11** classification: **PREPARED** — **ENABLE DURING PUBLIC TRANSITION**.
 
 ## Preference (record only; not enabled)
 
-**Preferred future disclosure channel:** GitHub **Private Vulnerability Reporting** (repository Security advisories / private reporting), once the owner enables it in GitHub settings in an authorized later phase.
+**Preferred future disclosure channel:** GitHub **Private Vulnerability Reporting** (repository Security advisories / private reporting).
 
 Rationale: no validated public `security@` address exists. Inventing `security@hello-ai-company.com` (or similar) would publish a fake contact. GitHub PVR keeps reports inside GitHub without requiring a new mailbox.
 
 Preference ≠ configuration. This phase **did not** enable PVR.
 
-## Honest current state (2026-09-16, read-only)
+## Honest current state
 
 | Check | Result |
 | --- | --- |
 | Root `SECURITY.md` | Absent |
 | `docs/public-drafts/SECURITY.md` | Draft only; **not in effect** |
 | In-repo security email | **None** — none invented |
-| GitHub `isSecurityPolicyEnabled` | `false` |
-| GitHub `securityPolicyUrl` | empty |
-| `GET …/private-vulnerability-reporting` | 404 Not Found |
-| `security_and_analysis` | `null` |
+| GitHub Private Vulnerability Reporting | **Not enabled** |
 | Latest GitHub Release | none |
 | Tags | none |
 | `.github/FUNDING.yml` | absent (unrelated; must stay absent) |
 | `docs/security-boundary.md` | Tarball / host-leakage boundary — **not** a disclosure policy |
 
-## Why D11 is not CLOSED
+Phase 4D read-only GitHub checks (2026-09-16): `isSecurityPolicyEnabled` false; private-vulnerability-reporting API 404; `security_and_analysis` null. Settings were **not** changed in 4D.1 either.
 
-1. Preferred method is recorded, but GitHub Private Vulnerability Reporting is **not enabled**.
-2. No owner-supplied email exists to list as a backup contact.
-3. Enabling settings is **forbidden** in Phase 4D.
-4. Public visibility without a working disclosure path would leave researchers with **no documented destination**.
+## Why D11 is PREPARED (not CLOSED, not OWNER ACTION REQUIRED)
 
-**OWNER ACTION REQUIRED:** owner enables GitHub Private Vulnerability Reporting on `hello-ai-company/open-editor` (and, if desired later, supplies a real email). Then a later authorized phase may promote a real root `SECURITY.md`.
+1. Preferred method is recorded: GitHub Private Vulnerability Reporting.
+2. No owner-supplied email exists; none invented.
+3. Enabling settings is **forbidden** in Phase 4D.1.
+4. Owner instruction: **enable during public transition**, not now.
+
+D11 is therefore **PREPARED**. Enablement is an execution step of public transition (after written D1-EXEC), not a remaining confirmation blocker.
 
 ## Recommended future SECURITY.md (do not install now)
 
-When D11 is actually enabled by the owner:
+When D11 is actually enabled during public transition:
 
 1. Keep GitHub Private Vulnerability Reporting as the primary channel.
 2. List an email **only** if the owner provides a real, monitored address — never invent one.

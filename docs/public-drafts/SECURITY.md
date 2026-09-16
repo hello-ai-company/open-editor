@@ -4,23 +4,23 @@
 
 ## Preferred future channel (not enabled)
 
-**GitHub Private Vulnerability Reporting** is the preferred future disclosure method. It is **not enabled** on this private repository. Do not invent a `security@` address.
+**GitHub Private Vulnerability Reporting** is the preferred future disclosure method. It is **PREPARED** and **not enabled**. Enable during public transition. Do not invent a `security@` address.
 
-## SECURITY CONTACT — OWNER ACTION REQUIRED
+## SECURITY CONTACT — PREPARED
 
-No security contact exists in this repository today:
+No live security contact exists in this repository today:
 
 - No root `SECURITY.md`
 - No `security@…` address in-repo
 - No GitHub Private Vulnerability Reporting **enabled** (preference recorded in [security-release-gate.md](../security-release-gate.md); settings unchanged)
 - `docs/security-boundary.md` is a **tarball / host-leakage** boundary, not a disclosure policy
 
-**Do not publish the repository or invite external researchers until the owner fills the table below and publishes a real `SECURITY.md` at the repository root.**
+**Do not publish the repository or invite external researchers until GitHub Private Vulnerability Reporting is enabled during public transition and a real `SECURITY.md` is published at the repository root.**
 
 | Field | Value |
 | --- | --- |
 | Contact email | **None invented.** Supply a real address later only if the owner has one. Do not invent. |
-| GitHub private vulnerability reporting | **Preferred.** **OWNER ACTION REQUIRED** to enable in GitHub settings (not enabled in Phase 4D) |
+| GitHub private vulnerability reporting | **Preferred.** D11 **PREPARED** — **ENABLE DURING PUBLIC TRANSITION** (not enabled in Phase 4D.1) |
 | PGP / alternative | **OWNER DECISION REQUIRED** |
 | Supported versions (once public) | **OWNER DECISION REQUIRED** |
 | Target first response | **OWNER DECISION REQUIRED** |
@@ -47,7 +47,7 @@ While the repo is private, treat findings as internal:
 
 1. Do not file a public GitHub issue.
 2. Do not include secrets in tickets.
-3. Use the owner contact once D11 in `docs/public-release-decision.md` is filled.
+3. Use GitHub Private Vulnerability Reporting once D11 is enabled during public transition (`docs/owner-release-confirmations.md`).
 
 ## Please do not
 
