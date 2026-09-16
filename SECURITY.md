@@ -1,24 +1,17 @@
 # Security policy
 
-Please report vulnerabilities in `@hello-ai-company/editor-core` through **GitHub Private Vulnerability Reporting** on this repository.
+Report vulnerabilities in `@hello-ai-company/editor-core` through **GitHub Private Vulnerability Reporting** on this repository **once that feature is enabled**.
 
-## Current status (D11)
+This repository is still **private**. GitHub Private Vulnerability Reporting is a **public-repository** feature and is **not enabled**. There is no invented `security@` address. Do not file a public issue for an unfixed vulnerability.
 
-| Field | Value |
-| --- | --- |
-| Preferred channel | GitHub Private Vulnerability Reporting |
-| Enabled now | **NO** |
-| When to enable | **DURING PUBLIC TRANSITION** |
-| Email | **None invented.** Do not invent a `security@` address. |
+When the repository is made public, enable Private Vulnerability Reporting immediately and use it as the preferred channel.
 
-**D11 PREPARED — ENABLE DURING PUBLIC TRANSITION.** This file documents the path. It does not enable GitHub security settings. Private Vulnerability Reporting must be turned on in the GitHub UI as part of making the repository public. Do not file a public issue for an unfixed vulnerability.
-
-## Supported versions (once public)
+## Supported versions
 
 | Version | Supported |
 | --- | --- |
-| `0.1.0` (prepared public line) | Yes |
-| `0.0.0-phase3.e17b4b5` (historical private GitHub Packages prerelease) | Internal only; not a public line |
+| `0.1.0` | Yes (prepared public line; not yet published to npmjs) |
+| `0.0.0-phase3.e17b4b5` | Historical private GitHub Packages prerelease only |
 
 ## What this package handles
 

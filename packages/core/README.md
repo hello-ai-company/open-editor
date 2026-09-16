@@ -60,7 +60,7 @@ if (roundTrip.schemaVersion !== EDITOR_DOCUMENT_SCHEMA_VERSION) {
 - Not a host app, sync layer, or HTTP client
 - Not an adapter package (host integrations belong in later separate packages)
 
-Public runtime and type lists: [docs/public-api.md](../../docs/public-api.md).
+Public runtime and type lists: [docs/public-api.md](https://github.com/hello-ai-company/open-editor/blob/main/docs/public-api.md).
 
 ## License
 

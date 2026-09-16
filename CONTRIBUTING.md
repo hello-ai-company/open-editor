@@ -2,7 +2,7 @@
 
 Thanks for considering a contribution to OpenEditor (`@hello-ai-company/editor-core`).
 
-v0.1.0 does **not** require a CLA or DCO. By opening a pull request you license your contribution under the MIT License (Copyright (c) 2026 Yuki Shibata).
+v0.1.0 does **not** require a CLA or DCO. Contributors **retain copyright** in their contributions unless a separate written agreement says otherwise. By opening a pull request you license that contribution for distribution under the MIT License. This does **not** transfer copyright to Yuki Shibata. The existing project LICENSE notice (`Copyright (c) 2026 Yuki Shibata`) is the project's own notice, not an assignment of your copyright.
 
 ## Prerequisites
 
