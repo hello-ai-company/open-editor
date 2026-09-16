@@ -1,6 +1,6 @@
 # Owner OSS policy (philosophy — not a release)
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. Philosophy record. MIT is **applied** in Phase 4E; D1-EXEC remains pending; repo stays PRIVATE.
 
 **Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
 **Status:** **OWNER-CONFIRMED** philosophy (Phase 4C) plus **OWNER-SELECTED FUTURE LICENSE = MIT** (Phase 4D; **not applied**) plus Phase 4D.1 owner confirmations (D3/D6/D19 **CLOSED**; D11 **PREPARED**).  
@@ -62,7 +62,7 @@ If a later product wants hosted services, that is a **separate** system — not 
 
 ### Confirmed in Phase 4D (selection only — not applied)
 
-- OWNER-SELECTED FUTURE LICENSE = **MIT** (`LICENSE` files remain `UNLICENSED`)
+- OWNER-SELECTED LICENSE = **MIT** (**applied** in Phase 4E)
 
 ### Confirmed in Phase 4D.1 (record only — not applied / not enabled)
 

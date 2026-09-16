@@ -1,8 +1,8 @@
 # Architecture
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
-
 `@hello-ai-company/editor-core` is a host-neutral document seam. It describes typed block trees, JSON serialization, and optional provider contracts. It does not render UI, talk to a backend, or import host application modules.
+
+Public shape: a **portable document layer** as **Small Core + Adapters + Docs + Examples**. This package is the Small Core. Adapters (including any future BlockNote adapter) are separate packages, not shipped in v0.1.0.
 
 ## Package surface
 
@@ -16,24 +16,14 @@
 ## Invariants
 
 - Production sources stay inside `packages/core/src`.
-- No React, BlockNote, XL, CSS, Swift, or host adapters.
+- No React, BlockNote, XL, CSS, Swift, or host adapters in this package.
 - `schemaVersion` is the positive integer `1` only.
 - Document props and content are `JsonValue`.
 - Providers are optional. A consumer can hold a document with zero integrations.
 - Native host I/O is generic: `ready` / `change` / `commit` / `error` / `hostRequest` / `hostResponse`.
 
-## OSS product direction (Phase 4D.1 — record only)
+## Non-goals (v0.1.0)
 
-Public shape: a **portable document layer** as **Small Core + Adapters + Docs + Examples**.
-
-- **Small Core** is this package (document + serialization + optional provider types).
-- **Adapters** (including any future BlockNote adapter) are separate packages, not created here.
-- **Docs + Examples** are later public-facing material.
-
-This phase does **not** add adapter packages and does **not** change the frozen core API.
-
-## Non-goals (Phase 2; still true)
-
-- BlockNote or any editor UI
+- Shipping an editor UI
 - Host note adapters, domain models, or REST clients
-- npm publish, public visibility, tags, or releases
+- Paid Cloud / Enterprise SKUs

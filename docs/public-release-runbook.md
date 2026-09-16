@@ -1,58 +1,68 @@
-# Public release runbook (do not execute)
+# Public release runbook
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document.
 
-Human-gated plan for a **possible** private→public transition of `@hello-ai-company/editor-core`. **Phase 4D.1 must not execute any step below.** Every destructive or legally binding action has a **HUMAN GATE**. Do not check license-application / visibility / publish items in [public-release-checklist.md](./public-release-checklist.md) from this runbook.
+**Case:** ENG-20260913-007 Phase 4E R1 / PA-20260917-002  
+Human-gated plan for a later private→public **execution**. This file does **not** authorize D1-EXEC. Do not make PUBLIC, publish, tag, or Release from this document.
 
-Companion: [public-release-decision.md](./public-release-decision.md), [release-gate-closure.md](./release-gate-closure.md), [owner-release-confirmations.md](./owner-release-confirmations.md). Philosophy rows (D1, D20–D25) are OWNER-CONFIRMED; D2 **selection** is MIT (**not applied**); D3/D6/D19 confirmations are **CLOSED**; D11 is **PREPARED**. Execution (D1-EXEC, D2 application, D9, D18, …) remains unauthorized. **Do not make the repository public while UNLICENSED.**
+Companion: [public-release-decision.md](./public-release-decision.md), [first-public-publish-bootstrap.md](./first-public-publish-bootstrap.md).
 
-## Preconditions (already true; not a release)
+## Current (Phase 4E HEAD) — unify with the tree
 
-Private readiness on `origin/main` `8d6b66a51219044e2e8a068443f11c7eb132beca` (Phase 4A gates unchanged; Phase 4B/4C/4D/4D.1 docs only):
-
-- SoT `packages/core`; API + provider contracts; tarball inspect; isolated consumer; security scan; identity lock `@hello-ai-company/editor-core@0.0.0-phase3.e17b4b5` `UNLICENSED` on `npm.pkg.github.com`
-- `personal-ai` consumer baseline (docs only): `c2bd73f80ddb2752215acc01d78d26322068fcae` — **do not edit that repo from here**
-
-These gates **do not** authorize npmjs, tags, Releases, license application, or visibility change.
-
-## Stop — do not start these from Phase 4D.1
-
-| Action | Gate |
+| Field | State |
 | --- | --- |
-| Make the GitHub repository public | HUMAN GATE — D1-EXEC + D9 |
-| Apply MIT/Apache/GPL/other to `LICENSE` / package.json | HUMAN GATE — D2 application (**LICENSE APPLICATION REQUIRED**; MIT is **selected**, files still `UNLICENSED`) |
-| Rename package or repository | HUMAN GATE — D5/D10 |
-| Register npm org / unscoped name | HUMAN GATE — D6 |
-| `npm publish` to npmjs or a new GitHub Packages version | HUMAN GATE — D7/D8 |
-| Version bump away from `0.0.0-phase3.e17b4b5` | HUMAN GATE — D8 |
-| Git tag | HUMAN GATE — D18 |
-| GitHub Release | HUMAN GATE — D18 |
-| Configure npm trusted publishing / secrets | HUMAN GATE — D15 |
-| Change branch protection or org settings | HUMAN GATE — D13 |
-| Edit `hello-ai-company/personal-ai` | Never from this repo — consumer owners only |
-| Modify `packages/core/src/**` for “release polish” | Out of scope unless a later phase says CORE SOURCE CHANGE REQUIRED |
+| MIT | **APPLIED** |
+| `Copyright (c) 2026 Yuki Shibata` | **APPLIED** |
+| Version `0.1.0` | **PREPARED** (package identity on this branch) |
+| Registry | npmjs **PREPARED** |
+| Access | public **PREPARED** |
+| Public README / SECURITY / CONTRIBUTING / CODEOWNERS | **PREPARED** |
+| Old private publish workflow (`publish-private-core.yml`) | **RETIRED** |
+| Repository visibility | **PRIVATE** |
+| npm publication | **NO** |
+| GitHub Private Vulnerability Reporting | **NO** (not enabled). PVR is for public repos; enable immediately **after** PUBLIC |
+| D1-EXEC | **PENDING** |
+| READY FOR PUBLIC RELEASE PREPARATION | **YES** |
+| READY TO PUBLISH NOW | **NO** |
+| READY TO MAKE PUBLIC NOW | **NO** |
 
-## Suggested order **after** owner actions + written public-approval
+Identity lock: `@hello-ai-company/editor-core@0.1.0` MIT, `publishConfig` `https://registry.npmjs.org` + `access: public`. Root workspace `"private": true`. **CORE SOURCE CHANGE REQUIRED: NO.**
 
-Do not perform the list. It exists so an owner can see coupling. **Never make the GitHub repository public while the tree is still `UNLICENSED`.**
+`personal-ai` consumer baseline (docs only): `c2bd73f80ddb2752215acc01d78d26322068fcae` — **do not edit that repo from here**.
 
-1. **HUMAN GATE:** D19 chain-of-title — **CLOSED** as owner representation (Yuki Shibata confirms relicensing authority under MIT; not legal advice). Re-open only if a later counsel review contradicts the owner record.
-2. **HUMAN GATE:** D3 copyright holder — **CLOSED** as `Copyright (c) 2026 Yuki Shibata`. Stop — this line must not be copied into `LICENSE` until the license-application step.
-3. **HUMAN GATE:** D6 npm org — **CLOSED** as owner-confirmed control of `hello-ai-company` / `@hello-ai-company` / `@hello-ai-company/editor-core`. Do not register/login/publish from a docs phase.
-4. **HUMAN GATE:** D11 — **PREPARED**. Owner enables GitHub Private Vulnerability Reporting **during public transition** (preferred; do not invent email). Stop if still disabled when going public.
-5. **HUMAN GATE:** Written **D1-EXEC** approval (ticket/email) to execute public actions. D1 intent YES + D2 MIT selection + 4D.1 confirmations are **not** enough. Stop if missing.
-6. **HUMAN GATE:** D2 **application** of MIT + D7 registry + D8 first public version string. D3/D19 confirmations are recorded; still **do not apply files** until this authorized identity-change step. **Do not publish or open the repo while UNLICENSED.**
-7. Engineering (later phase, **not 4D.1**; see [public-release-change-map.md](./public-release-change-map.md)): update `LICENSE` files, `"license"` fields, `AUTHORIZED_*`, tests, docs banners; run `npm ci && npm run verify`. **CORE SOURCE CHANGE REQUIRED: NO** unless a later phase proves otherwise.
-8. **HUMAN GATE:** Confirm verify + identity gates match the **new** licensed identity (never republish `0.0.0-phase3.e17b4b5` under a new license/registry).
-9. **HUMAN GATE:** Publish command (new workflow or dispatch). Treat npmjs publish as **largely irreversible** (unpublish is not a rollback plan).
-10. **HUMAN GATE:** Repository visibility (D9) **only after** MIT is applied so the public tree is not `UNLICENSED` + public-by-accident.
-11. **HUMAN GATE:** Tag + GitHub Release (D18) only after the published version exists.
-12. **HUMAN GATE:** Promote `docs/public-drafts/*` to root; CoC; templates; CODEOWNERS; branch protection (D12–D14, D17).
-13. Notify **personal-ai owners** (separate repo) to choose D16. This repo still does not edit personal-ai.
+## Remaining execution (after written D1-EXEC — do not run now)
+
+Canonical order is in [first-public-publish-bootstrap.md](./first-public-publish-bootstrap.md):
+
+```
+D1-EXEC
+→ PRIVATE main final verify
+→ GitHub repository PUBLIC
+→ immediately enable PVR + protections
+→ bootstrap publish 0.1.0 once (only)
+→ confirm package exists on npm
+→ configure npm Trusted Publisher
+→ subsequent releases via OIDC template
+```
+
+| Action | Gate | Now |
+| --- | --- | --- |
+| Make the GitHub repository public | HUMAN GATE — D1-EXEC + D9 | NO |
+| Bootstrap `npm publish` of `0.1.0` (exactly once) | HUMAN GATE — D1-EXEC + D7/D8 | NO |
+| Configure npm Trusted Publisher / OIDC | HUMAN GATE — D15; package must already exist | NO |
+| Git tag / GitHub Release | HUMAN GATE — D18; after the published version exists | NO |
+| Enable GitHub PVR | After PUBLIC (not while PRIVATE) | NO |
+| Change branch protection | HUMAN GATE — D13; with PUBLIC | NO |
+| Edit `hello-ai-company/personal-ai` | Never from this repo | NO |
+| Modify `packages/core/src/**` for “release polish” | Out of scope | NO |
+| Re-enable retired GH Packages publish workflow | Forbidden | NO |
+| Republish `0.0.0-phase3.e17b4b5` or republish `0.1.0` | Forbidden | NO |
+
+MIT application, `0.1.0` identity, npmjs/public metadata, public docs, CODEOWNERS, and CI unification are **already done** on this branch. Do not repeat them as if still pending.
 
 ## personal-ai consumer options (after a public artifact exists)
 
-Baseline: `c2bd73f80ddb2752215acc01d78d26322068fcae` already consumes the **private** GitHub Packages package.
+Baseline: `c2bd73f80ddb2752215acc01d78d26322068fcae` already consumes the **historical private** GitHub Packages prerelease.
 
 | Option | Meaning | Who changes personal-ai |
 | --- | --- | --- |
@@ -61,7 +71,7 @@ Baseline: `c2bd73f80ddb2752215acc01d78d26322068fcae` already consumes the **priv
 | Dual period | Validate npmjs tarball in CI while runtime stays on GH Packages | personal-ai maintainers |
 | Pin vs range | Exact version vs `^` after public semver policy | personal-ai maintainers |
 
-**Owner Decision: PENDING.** Do not execute.
+**Owner Decision: PENDING.** Do not execute from this repo.
 
 ## Rollback if a public attempt is started then aborted
 
@@ -71,28 +81,39 @@ Baseline: `c2bd73f80ddb2752215acc01d78d26322068fcae` already consumes the **priv
 | OSS license applied and published | Copies already taken keep that grant for **that version**. New versions can differ; you cannot claw back. |
 | npmjs publish | **Assume irreversible.** Deprecate + publish a newer fix. Do not plan on unpublish. |
 | Version `0.0.0-phase3.e17b4b5` on GH Packages | **Leave immutable.** Do not reuse. |
+| `0.1.0` on npmjs | **Leave immutable.** Do not republish. |
 | personal-ai pointed at npmjs | Revert **in personal-ai** to the GH Packages pin. Not this repo. |
-| Identity gates loosened | Revert git on `open-editor` to restore `AUTHORIZED_*` = current private identity. |
 
-## Destructive-step checklist (all remain NO in Phase 4D.1)
+## Destructive-step checklist (Phase 4E / R1)
 
-| Step | Executed in 4D.1 |
+| Step | Executed now |
 | --- | --- |
 | Make public | NO |
-| Apply license | NO |
-| Rename | NO |
-| Register npm | NO |
-| Publish | NO |
-| Version bump | NO |
+| Apply MIT | **YES** (source tree) |
+| Write copyright into LICENSE | **YES** |
+| Prepare `0.1.0` + npmjs public metadata | **YES** |
+| Register npm / login / token | NO |
+| Publish to npmjs | NO |
 | Tag | NO |
 | GitHub Release | NO |
+| Enable PVR | NO |
 | Edit personal-ai | NO |
-| Change protection/secrets | NO |
+| Change protection / secrets / Trusted Publisher | NO |
 | Configure GitHub Sponsors | NO |
 | Add `.github/FUNDING.yml` | NO |
 
-## Phase 4E / public release
+## Historical snapshot (Phase 4D.1 — not current)
 
-Do **not** start Phase 4E or any public release from this runbook. Phase 4D.1 recorded owner confirmations and classified **READY FOR PUBLIC RELEASE PREPARATION** / **not READY TO PUBLISH NOW**. Next:
+The following described `origin/main` at Phase 4D.1 (`8d6b66a51219044e2e8a068443f11c7eb132beca`) **before** Phase 4E applied MIT and `0.1.0`. It is **not** the current package identity:
 
-**STOP — READY FOR CHATGPT REVIEW BEFORE PHASE 4E**
+- Then: `@hello-ai-company/editor-core@0.0.0-phase3.e17b4b5` `UNLICENSED` on `npm.pkg.github.com`
+- Then: MIT selected, **not applied**; copyright line recorded, **not written** into `LICENSE`
+- Then: “Do not start Phase 4E” — **obsolete**; Phase 4E preparation is this branch
+
+That private prerelease remains immutable on GitHub Packages. It is not the prepared public line.
+
+## Classification
+
+**READY FOR PUBLIC RELEASE PREPARATION** — **not READY TO PUBLISH NOW** — **not READY TO MAKE PUBLIC NOW**.
+
+**STOP — READY FOR CHATGPT PUBLIC RELEASE REVIEW R1**

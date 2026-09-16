@@ -1,6 +1,6 @@
 # Release gate closure (Phase 4D / 4D.1)
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. Gate classifications. Phase 4E applied MIT; D1-EXEC still pending; repo PRIVATE.
 
 **Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
 **Role:** Canonical public-release **gate classifications**. Phase 4D classified remaining gates honestly. Phase 4D.1 records owner confirmations.  

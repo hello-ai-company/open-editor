@@ -2,8 +2,8 @@
   "name": "open-editor",
   "version": "0.0.0-private",
   "private": true,
-  "license": "UNLICENSED",
-  "description": "PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE",
+  "license": "MIT",
+  "description": "OpenEditor workspace. The public package is @hello-ai-company/editor-core; this root is never published.",
   "workspaces": [
     "packages/*"
   ],
@@ -17,6 +17,7 @@
     "verify:isolated": "node scripts/isolated-consumer.mjs",
     "security:scan": "node scripts/security-scan.mjs",
     "verify:api": "node scripts/api-contract.mjs",
+    "publish:dry-run": "npm publish -w @hello-ai-company/editor-core --access public --registry=https://registry.npmjs.org --dry-run",
     "verify": "npm run typecheck && npm test && npm run build && npm run pack:core && npm run inspect:tarball && npm run verify:isolated && npm run security:scan && npm run verify:api"
   },
   "engines": {

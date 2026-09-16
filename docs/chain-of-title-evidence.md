@@ -1,6 +1,6 @@
 # Chain-of-title evidence (Phase 4D / 4D.1)
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. Provenance record. MIT applied in Phase 4E; owner representation for D19 is unchanged.
 
 **Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
 **Role:** Engineering provenance audit plus Phase 4D.1 owner confirmation. **Not legal advice.**  

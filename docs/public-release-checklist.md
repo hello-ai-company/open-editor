@@ -1,6 +1,6 @@
 # Public release checklist (planning only)
 
-**PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
+**INTERNAL EVIDENCE** — not a public product document. Planning checklist. License application is done in Phase 4E; visibility/publish/tag remain unchecked.
 
 This is a future planning list. Completing a private gate, or recording OSS **intent**, does **not** authorize a public release.
 
@@ -14,8 +14,8 @@ This is a future planning list. Completing a private gate, or recording OSS **in
 - [x] Isolated consumer install from tarball (typecheck + runtime)
 - [x] Security scan of src + dist + tarball
 - [x] Machine-verified API contract against the installed tarball
-- [x] Identity lock: `@hello-ai-company/editor-core@0.0.0-phase3.e17b4b5` UNLICENSED on `npm.pkg.github.com`
-- [x] README private banner retained
+- [x] Identity lock: `@hello-ai-company/editor-core@0.1.0` MIT on `registry.npmjs.org` (public access prepared; **not published**)
+- [x] Public README (portable document layer; repo remains PRIVATE)
 
 ## Owner philosophy (Phase 4C — recorded, not a release)
 
@@ -28,12 +28,12 @@ These checks record **OWNER-CONFIRMED** intent. They are **not** license applica
 - [x] No hosted SaaS / open-core redesign at initial launch
 - [x] Sponsors get no exclusive core functionality
 - [x] OSS usage must not create owner hosting/API costs
-- [x] License **selection** recorded (OWNER-SELECTED FUTURE LICENSE = **MIT**) — **not applied** (`LICENSE` stays `UNLICENSED`)
+- [x] License **selection** recorded (OWNER-SELECTED FUTURE LICENSE = **MIT**) — **applied in Phase 4E**
 
 ## Phase 4D.1 owner confirmations (docs only)
 
-- [x] D2 selection **CLOSED** (MIT); application still required later
-- [x] D3 copyright holder **CLOSED** — `Copyright (c) 2026 Yuki Shibata`; **not written into LICENSE**
+- [x] D2 selection **CLOSED** (MIT); **applied in Phase 4E**
+- [x] D3 copyright holder **CLOSED** — `Copyright (c) 2026 Yuki Shibata`; **written into LICENSE in Phase 4E**
 - [x] D6 npm scope **CLOSED** — owner controls `hello-ai-company` / `@hello-ai-company` / `@hello-ai-company/editor-core`; **no npm mutations**
 - [x] D11 GitHub Private Vulnerability Reporting **PREPARED** — **ENABLE DURING PUBLIC TRANSITION**; **not enabled**; no invented email
 - [x] D19 chain-of-title **CLOSED** — owner Yuki Shibata confirms relicensing authority under MIT (owner representation, not legal advice)
@@ -42,25 +42,21 @@ These checks record **OWNER-CONFIRMED** intent. They are **not** license applica
 ## Still required before any public action (UNCHECKED)
 
 - [ ] **public-approval** — written authorization to **execute** visibility change or publish outside the private GitHub Packages identity (D1-EXEC; **PENDING EXECUTION AUTHORIZATION**; intent ≠ execution)
-- [ ] **license-application** — apply MIT to `LICENSE` / package.json / identity gates (**LICENSE APPLICATION REQUIRED**; D2 selection is CLOSED; files still `UNLICENSED`; use D3 line `Copyright (c) 2026 Yuki Shibata`)
-- [ ] **visibility** — repository remains PRIVATE until an authorized visibility change; **do not make public while UNLICENSED**
-- [x] **chain-of-title** — owner confirmation recorded (D19 **CLOSED**; not legal advice; MIT still not applied)
-- [x] **copyright-holder** — recorded (D3 **CLOSED**); **DO NOT write into LICENSE yet**
+- [x] **license-application** — MIT applied in Phase 4E (`LICENSE`, package.json, identity gates) with `Copyright (c) 2026 Yuki Shibata`
+- [ ] **visibility** — repository remains PRIVATE until an authorized visibility change (D1-EXEC)
+- [x] **chain-of-title** — owner confirmation recorded (D19 **CLOSED**; not legal advice); MIT applied in Phase 4E
+- [x] **copyright-holder** — recorded (D3 **CLOSED**) and written into `LICENSE` in Phase 4E
 - [ ] **security-contact** — enable GitHub Private Vulnerability Reporting **during public transition** (D11 **PREPARED**; no invented email; settings not enabled)
 - [x] **npm-scope** — owner-confirmed (D6 **CLOSED**); **no npm login/token/publish/register**
 - [ ] **sponsor-destination** — **SPONSOR LINK — OWNER SETUP REQUIRED** (no `FUNDING.yml` until then)
 
-## Explicitly out of scope here
+## Explicitly out of scope (still)
 
-- npmjs.org publish
+- Real npmjs.org publish (dry-run only)
 - Git tags / GitHub Releases
-- Version bump away from `0.0.0-phase3.e17b4b5`
-- Applying MIT, Apache-2.0, or any other SPDX to `LICENSE` files
 - Making the GitHub repository public
-- Public fork / public merge of a release
 - Editing `hello-ai-company/personal-ai`
 - Auto-publish on push
-- Configuring GitHub Sponsors or adding `.github/FUNDING.yml` with a fake URL
-- Phase 4E / public release execution
-- Writing the copyright line into `LICENSE` in this phase
-- Enabling GitHub Private Vulnerability Reporting in this phase
+- Configuring GitHub Sponsors or adding `.github/FUNDING.yml`
+- Enabling GitHub Private Vulnerability Reporting
+- Phase 4F / public execution
