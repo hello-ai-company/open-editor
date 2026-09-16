@@ -4,7 +4,7 @@
 
 This note compares common options for a **future** human decision. It does **not** select a license. `LICENSE` and `packages/core/LICENSE` remain **UNLICENSED**. All rights reserved.
 
-Phase 4D: **OWNER-SELECTED FUTURE LICENSE = MIT**. **APPLIED TO LICENSE FILES: NO.** Apache-2.0 remains a documented fallback only. See [license-recommendation.md](./license-recommendation.md). D2 **selection** is **CLOSED**; application is later.
+Phase 4D.1: **OWNER-SELECTED FUTURE LICENSE = MIT**. **APPLIED TO LICENSE FILES: NO.** Copyright line recorded (`Copyright (c) 2026 Yuki Shibata`) but **not written into LICENSE**. Apache-2.0 remains a documented fallback only. See [license-recommendation.md](./license-recommendation.md). D2 **selection** is **CLOSED**; application is later.
 
 | Option | What it would mean | Not selected |
 | --- | --- | --- |

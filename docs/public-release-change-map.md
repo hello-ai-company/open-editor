@@ -2,8 +2,8 @@
 
 **PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
 
-**Case:** ENG-20260913-007 Phase 4D / PA-20260916-004  
-**Role:** List files a **later** authorized phase would touch. **Do not execute.** Phase 4D changes documentation/policy only.
+**Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
+**Role:** List files a **later** authorized phase would touch. **Do not execute.** Phase 4D.1 changes documentation/policy only.
 
 ## CORE SOURCE CHANGE REQUIRED: NO
 
@@ -11,7 +11,7 @@
 
 No gap was proven that would require changing document/serialization/provider TypeScript for gate closure. Identity, license text, banners, and registry live **outside** `src/`.
 
-Do not modify `packages/core/src/**` in Phase 4D. Do not modify it for “release polish” unless a later phase proves **CORE SOURCE CHANGE REQUIRED: YES**.
+Do not modify `packages/core/src/**` in Phase 4D.1. Do not modify it for “release polish” unless a later phase proves **CORE SOURCE CHANGE REQUIRED: YES**. No adapter packages.
 
 ## Frozen identity (must stay until a later identity-change phase)
 
@@ -26,17 +26,17 @@ Do not modify `packages/core/src/**` in Phase 4D. Do not modify it for “releas
 | Private publish workflow | `.github/workflows/publish-private-core.yml` |
 | Proprietary license text | `LICENSE`, `packages/core/LICENSE` |
 
-Phase 4D **must not** change those files.
+Phase 4D.1 **must not** change those files.
 
 ## Future file map (after owner gates + written D1-EXEC)
 
 Order is in [public-release-runbook.md](./public-release-runbook.md). **Do not make the repository public while `UNLICENSED`.**
 
-### A. License application (after D2 already selected MIT + D3 + D19)
+### A. License application (D2 already selected MIT; D3/D19 confirmations recorded; still not applied)
 
 | Path | Future change |
 | --- | --- |
-| `LICENSE` | Replace UNLICENSED text with MIT + owner copyright line |
+| `LICENSE` | Replace UNLICENSED text with MIT + `Copyright (c) 2026 Yuki Shibata` |
 | `packages/core/LICENSE` | Same (this file **ships in the tarball**) |
 | `package.json` `"license"` | `MIT` |
 | `packages/core/package.json` `"license"` | `MIT` |
@@ -46,7 +46,7 @@ Order is in [public-release-runbook.md](./public-release-runbook.md). **Do not m
 | Root `README.md` | Stop claiming UNLICENSED **after** files actually change |
 | Docs banners | Align with applied MIT |
 
-### B. First public version + registry (after D6, D7, D8)
+### B. First public version + registry (D6 owner-confirmed; D7/D8 still PENDING)
 
 | Path | Future change |
 | --- | --- |
@@ -56,7 +56,7 @@ Order is in [public-release-runbook.md](./public-release-runbook.md). **Do not m
 | `packages/core/contracts/*.json` | Version field if they echo package version |
 | `.github/workflows/publish-private-core.yml` or a **new** dispatch workflow | Human-gated public publish; no auto-publish on push |
 
-### C. Disclosure and community files (after D11 enabled by owner)
+### C. Disclosure and community files (D11 PREPARED; enable PVR during public transition)
 
 | Path | Future change |
 | --- | --- |
@@ -81,11 +81,11 @@ Order is in [public-release-runbook.md](./public-release-runbook.md). **Do not m
 | `hello-ai-company/personal-ai` | **Do not edit** from `open-editor` |
 | Secrets, OIDC npm tokens, branch protection | Owner/ops in GitHub UI; not this docs phase |
 
-## Phase 4D allowed surface
+## Phase 4D.1 allowed surface
 
 | Path | Role now |
 | --- | --- |
-| `docs/**` | Gate-closure records |
+| `docs/**` | Owner confirmation + gate-closure records |
 | Root `README.md` | Links to new docs; **private warnings intact** |
 
-If a later diff includes `packages/core/src/**`, `LICENSE`, package identity, lockfile, or workflows, that is a **STOP — PHASE 4D SCOPE VIOLATION**.
+If a later diff includes `packages/core/src/**`, `LICENSE`, package identity, lockfile, or workflows, that is a **STOP — PHASE 4D.1 SCOPE VIOLATION**.

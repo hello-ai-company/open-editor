@@ -13,7 +13,7 @@
 | Personal AI consumer baseline | `c2bd73f80ddb2752215acc01d78d26322068fcae` |
 | Personal AI migration | **Done** (consumer uses published `@hello-ai-company/editor-core`; this repo does not modify personal-ai) |
 | Local `editorCore` | **Retired** (SoT is `packages/core` in this private workspace) |
-| Ticket | ENG-20260913-007 Phase 4D / PA-20260916-004 |
+| Ticket | ENG-20260913-007 Phase 4D.1 / PA-20260917-001 |
 
 Approved source files only (original extract):
 
@@ -59,11 +59,21 @@ Approved source files only (original extract):
 ## Phase 4D release-gate closure (docs only)
 
 - OWNER-SELECTED FUTURE LICENSE = **MIT**; **APPLIED TO LICENSE FILES NO**
-- D3 / D6 / D11 / D19 classified honestly and **not** closed
+- D3 / D6 / D11 / D19 classified honestly and **not** closed at that time
 - D1-EXEC **PENDING EXECUTION AUTHORIZATION**
 - Companions: `docs/release-gate-closure.md`, `docs/chain-of-title-evidence.md`, `docs/npm-publication-readiness.md`, `docs/security-release-gate.md`, `docs/public-release-change-map.md`
 - **CORE SOURCE CHANGE REQUIRED: NO**
 - **Not** a public OSS release. No FUNDING.yml, no Sponsors, no LICENSE file changes, no npm register, no security-setting changes.
+
+## Phase 4D.1 owner gate confirmation (docs only)
+
+- D2/D3/D6/D19 **CLOSED**; D11 **PREPARED** (enable GitHub PVR during public transition); D1-EXEC **PENDING EXECUTION AUTHORIZATION**
+- Copyright line recorded: `Copyright (c) 2026 Yuki Shibata` — **not written into LICENSE**
+- npm org `hello-ai-company` owner-confirmed — **no npm mutations**
+- OSS product direction: portable document layer; Small Core + Adapters + Docs + Examples — **no adapter packages, no core API change**
+- Classification: **READY FOR PUBLIC RELEASE PREPARATION** / **not READY TO PUBLISH NOW**
+- Companion: `docs/owner-release-confirmations.md`
+- **Not** a public OSS release. No FUNDING.yml, no LICENSE file changes, no npm register, no PVR enablement.
 
 ## History
 
@@ -71,7 +81,7 @@ This repository has fresh history only. The source repository was not imported a
 
 ## Publish / visibility
 
-Not authorized for public release, npmjs publish, tags, GitHub Releases, or merging a public release. Manual private GitHub Packages publish remains `workflow_dispatch` only and is not triggered by Phase 4D docs.
+Not authorized for public release, npmjs publish, tags, GitHub Releases, or merging a public release. Manual private GitHub Packages publish remains `workflow_dispatch` only and is not triggered by Phase 4D.1 docs.
 
 ## Gate results (local)
 
@@ -86,4 +96,4 @@ Not authorized for public release, npmjs publish, tags, GitHub Releases, or merg
 | isolated consumer install + typecheck + runtime | PASS |
 | API contract (installed tarball) | PASS |
 | security scan (`src` + `dist` + tarball) | PASS (0 production vulnerabilities) |
-| git history | fresh only: Initial commit → baseline → Phase 2 extract → Phase 3 publish prep → Phase 4A readiness → Phase 4B decision package → Phase 4C OSS policy → Phase 4D gate closure (docs) |
+| git history | fresh only: Initial commit → baseline → Phase 2 extract → Phase 3 publish prep → Phase 4A readiness → Phase 4B decision package → Phase 4C OSS policy → Phase 4D gate closure (docs) → Phase 4D.1 owner confirmations (docs) |

@@ -2,11 +2,11 @@
 
 **PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
 
-**Case:** ENG-20260913-007 Phase 4D / PA-20260916-004  
+**Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
 **Role:** Record **OWNER-SELECTED FUTURE LICENSE = MIT**. **Not legal advice.**  
 **SELECTED: YES (MIT). APPLIED TO LICENSE FILES: NO.** `LICENSE`, `packages/core/LICENSE`, and `"license": "UNLICENSED"` fields are **unchanged**.
 
-This note does **not** authorize rewriting license files. Comparison context: [license-decision.md](./license-decision.md). Third-party inventory: [third-party-license-inventory.md](./third-party-license-inventory.md). Gate closure: [release-gate-closure.md](./release-gate-closure.md).
+This note does **not** authorize rewriting license files. Comparison context: [license-decision.md](./license-decision.md). Third-party inventory: [third-party-license-inventory.md](./third-party-license-inventory.md). Gate closure: [release-gate-closure.md](./release-gate-closure.md). Confirmations: [owner-release-confirmations.md](./owner-release-confirmations.md).
 
 ## Owner selection vs application
 
@@ -18,7 +18,7 @@ This note does **not** authorize rewriting license files. Comparison context: [l
 | BUSL / other source-available | Incompatible with confirmed “genuine OSS” intent | NO | **NO** |
 | Remain `UNLICENSED` | Current private state | status quo files | **YES** (files unchanged) |
 
-D2 **selection** is **CLOSED**. D2 **application** is **LICENSE APPLICATION REQUIRED** in a later phase (after D3 + D19). Do **not** apply MIT in Phase 4D.
+D2 **selection** is **CLOSED**. D2 **application** is **LICENSE APPLICATION REQUIRED** in a later phase. D3 and D19 confirmation gates are **CLOSED** in Phase 4D.1; the copyright line must still **not** be written into `LICENSE` until that application phase. Do **not** apply MIT in Phase 4D.1.
 
 ## PRIMARY — MIT
 
@@ -58,9 +58,15 @@ For an **embeddable library** meant to sit inside diverse hosts — including pr
 
 ## What applying a license would require later (do not do now)
 
-**LICENSE APPLICATION REQUIRED** as a separate authorized phase, after D3 + D19 (D2 selection is already MIT):
+**LICENSE APPLICATION REQUIRED** as a separate authorized phase (D2 selection is already MIT; D3/D19 confirmations recorded; D1-EXEC still pending):
 
-1. Replace root `LICENSE` and `packages/core/LICENSE` (the latter **ships in the npm tarball**).
+1. Replace root `LICENSE` and `packages/core/LICENSE` (the latter **ships in the npm tarball**) using:
+
+   ```
+   Copyright (c) 2026 Yuki Shibata
+   ```
+
+   Do **not** write that line in Phase 4D.1.
 2. Change `"license"` in root and `packages/core` `package.json` (lockfile metadata follows — that is a later lockfile change, forbidden in Phase 4C).
 3. Update `AUTHORIZED_LICENSE` in `scripts/lib/tarball.mjs` and assertions in inspect/publish-gate/isolated-consumer scripts.
 4. Optional: `NOTICE`, per-file SPDX headers, DCO vs CLA (D4).

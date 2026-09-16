@@ -1,22 +1,23 @@
-# Chain-of-title evidence (Phase 4D)
+# Chain-of-title evidence (Phase 4D / 4D.1)
 
 **PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
 
-**Case:** ENG-20260913-007 Phase 4D / PA-20260916-004  
-**Role:** Engineering provenance audit for a **future** MIT application. **Not legal advice.**  
+**Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
+**Role:** Engineering provenance audit plus Phase 4D.1 owner confirmation. **Not legal advice.**  
 **This document does not relicense anything.**
 
-Gate **D19** classification: **CHAIN-OF-TITLE — OWNER/LEGAL CONFIRMATION REQUIRED**.
+Gate **D19** classification: **CLOSED** — owner Yuki Shibata confirms relicensing authority under MIT (**owner representation, not legal advice**).
 
 ## Verdict
 
 | Layer | Result |
 | --- | --- |
 | Engineering provenance of this extract | **ENGINEERING EVIDENCE SUPPORTS** an internal, documented extract into a fresh-history private repository with **zero** production third-party source in `packages/core/src/**` |
-| Legal authority to relicense as MIT / name a copyright holder | **Not proven** |
-| D19 gate | **CHAIN-OF-TITLE — OWNER/LEGAL CONFIRMATION REQUIRED** |
+| Owner confirmation to relicense as MIT | **CLOSED** — Yuki Shibata (owner representation) |
+| Legal advice / counsel memo | **Not claimed** |
+| D19 gate | **CLOSED** (confirmation). MIT still **not applied** |
 
-Engineering support is **not** owner/legal confirmation. Do not treat this file as a license, assignment, or CLA.
+Owner confirmation is **not** a license, assignment, or CLA. Do not apply MIT in this phase.
 
 ## What was examined
 
@@ -27,21 +28,21 @@ Engineering support is **not** owner/legal confirmation. Do not treat this file 
 | `packages/core/src/**` | Four first-party modules (`index.ts`, `model.ts`, `serialization.ts`, `providers.ts`). Intra-package imports only. No SPDX/copyright headers. No vendored third-party snippets. |
 | Production dependencies | None ([third-party-license-inventory.md](./third-party-license-inventory.md)) |
 | Published tarball allowlist | `package.json`, `LICENSE`, `dist/*` only |
-| `LICENSE` / `packages/core/LICENSE` | Proprietary `UNLICENSED`. No copyright-holder legal name. |
+| `LICENSE` / `packages/core/LICENSE` | Proprietary `UNLICENSED`. Copyright line **not written in** (D3 recorded separately). |
 | GitHub org `hello-ai-company` | `login` only. `name`, `email`, `company`, `blog` empty. `is_verified`: false. |
-| `hello-ai-company/personal-ai` from this auditor | **Inaccessible** (GitHub API 404 with current credentials). Source LICENSE, authors, and commit `b29c4df…` could **not** be re-verified here. |
+| `hello-ai-company/personal-ai` from the Phase 4D auditor | **Inaccessible** (GitHub API 404 with those credentials). Source LICENSE, authors, and commit `b29c4df…` could **not** be re-verified there. |
 | Assignment / work-for-hire / CLA / DCO | **None found** in this repository |
 
 ## Authors present in *this* repository (not a legal conclusion)
 
-`git shortlog -sne --all` on `open-editor`:
+`git shortlog -sne --all` on `open-editor` (Phase 4D snapshot):
 
 | Commits (approx.) | Author |
 | --- | --- |
 | 9 | Cursor Agent `<cursoragent@cursor.com>` |
 | 6 | yuki-s-code `<68765118+yuki-s-code@users.noreply.github.com>` |
 
-These are git identities, not a copyright holder of record. Cursor Agent commits do not prove tool-vendor ownership of the extract. `yuki-s-code` noreply email is not a legal entity name.
+These are git identities, not a copyright holder of record by themselves. Phase 4D.1 records the owner-confirmed copyright line as `Copyright (c) 2026 Yuki Shibata` (not written into `LICENSE`).
 
 ## What engineering evidence supports
 
@@ -53,46 +54,42 @@ These are git identities, not a copyright holder of record. Cursor Agent commits
 
 ## What engineering evidence does not prove
 
-1. The **legal name** of the copyright holder (jurisdiction, entity type, official name).
-2. That Hello AI Company (or any named entity) **owns** the `personal-ai` `editorCore` copyright and **may relicense** it under MIT.
-3. Contributor / contractor / employee / AI-assistance ownership of every line.
-4. Patent non-encumbrance.
-5. Current contents and license of `personal-ai` (not readable from this auditor).
-6. That informal phrases “Hello AI Company” in docs are the correct LICENSE copyright line.
+1. A registered company legal name (jurisdiction, entity type). D3 names an **individual**: Yuki Shibata.
+2. Patent non-encumbrance.
+3. Current contents and license of `personal-ai` (not re-verified from this auditor).
+4. That a law firm reviewed the extract.
 
-## COPYRIGHT HOLDER — OWNER ACTION REQUIRED
+## D3 copyright line (CLOSED; not in LICENSE)
 
-Placeholder form **only**. Do **not** write this into `LICENSE` or `packages/core/LICENSE` in Phase 4D.
+Recorded for later MIT application. **DO NOT write into `LICENSE` or `packages/core/LICENSE` in Phase 4D.1.**
 
 ```
-Copyright (c) 2026 <LEGAL ENTITY NAME — OWNER ACTION REQUIRED>
+Copyright (c) 2026 Yuki Shibata
 ```
 
-Replace both the year and the angle-bracket name with owner/legal values before any MIT application. Year `2026` is an engineering default from repository creation, not a legal determination.
+## Owner confirmation checklist (Phase 4D.1)
 
-## Owner / legal checklist (UNCHECKED)
+Checked by the **owner** as representation, not by counsel:
 
-These boxes must be checked by the **owner or counsel**, not by this phase:
+- [x] Confirm the **name** that will appear in MIT `LICENSE` files — **Yuki Shibata**
+- [x] Confirm the **copyright year** — **2026**
+- [x] Confirm that person **owns or is exclusively licensed** the `personal-ai` `editorCore` extract listed in [extraction-status.md](./extraction-status.md)
+- [x] Confirm that person **may relicense** that extract as **MIT** to the public
+- [x] Confirm no third-party or employee/contractor claim requires extra permission or NOTICE — **owner representation**
+- [x] Confirm AI-assisted commits in `open-editor` do not block the chosen copyright line — **owner representation**
+- [ ] Optional counsel note on patents (Apache-2.0 remains the documented fallback; **MIT is owner-selected**) — **not obtained; not required to close D19 as owner representation**
+- [x] Written confirmation stored in [owner-release-confirmations.md](./owner-release-confirmations.md)
 
-- [ ] Confirm the **legal entity name** (and jurisdiction) that will appear in MIT `LICENSE` files
-- [ ] Confirm the **copyright year or year range**
-- [ ] Confirm that entity **owns or is exclusively licensed** the `personal-ai` `editorCore` extract listed in [extraction-status.md](./extraction-status.md)
-- [ ] Confirm that entity **may relicense** that extract as **MIT** to the public
-- [ ] Confirm no third-party or employee/contractor claim requires extra permission or NOTICE
-- [ ] Confirm AI-assisted commits in `open-editor` do not block the chosen copyright line
-- [ ] Optional counsel note on patents (Apache-2.0 was the fallback if patent grant is desired; **MIT is owner-selected**)
-- [ ] Written confirmation stored outside this checklist (ticket/email) before license application
-
-Until every required box is checked, D19 stays **CHAIN-OF-TITLE — OWNER/LEGAL CONFIRMATION REQUIRED**.
+D19 is **CLOSED** as an owner-confirmation gate. It is **not** legal advice.
 
 ## Relation to other gates
 
 | Gate | Relation |
 | --- | --- |
-| D2 | MIT is **OWNER-SELECTED** but must not be applied until D19 (and D3) are satisfied |
-| D3 | Copyright line content — **COPYRIGHT HOLDER — OWNER ACTION REQUIRED** |
+| D2 | MIT is **OWNER-SELECTED** but must not be applied until a later authorized identity-change phase |
+| D3 | Copyright line **CLOSED** — `Copyright (c) 2026 Yuki Shibata` — **not in LICENSE** |
 | D1-EXEC | Even after D19, public execution needs separate written authorization |
 
 ## What this phase did not do
 
-Did not edit `hello-ai-company/personal-ai`. Did not apply MIT. Did not invent a legal name. Did not treat GitHub org slug as a copyright holder.
+Did not edit `hello-ai-company/personal-ai`. Did not apply MIT. Did not write the copyright line into `LICENSE`. Did not treat GitHub org slug as a copyright holder.

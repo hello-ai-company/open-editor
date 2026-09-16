@@ -30,24 +30,24 @@ These checks record **OWNER-CONFIRMED** intent. They are **not** license applica
 - [x] OSS usage must not create owner hosting/API costs
 - [x] License **selection** recorded (OWNER-SELECTED FUTURE LICENSE = **MIT**) — **not applied** (`LICENSE` stays `UNLICENSED`)
 
-## Phase 4D gate closure (docs only)
+## Phase 4D.1 owner confirmations (docs only)
 
 - [x] D2 selection **CLOSED** (MIT); application still required later
-- [ ] D3 copyright holder (**COPYRIGHT HOLDER — OWNER ACTION REQUIRED**)
-- [ ] D6 npm scope (**NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED**)
-- [ ] D11 GitHub Private Vulnerability Reporting enabled (**OWNER ACTION REQUIRED**)
-- [ ] D19 chain-of-title (**CHAIN-OF-TITLE — OWNER/LEGAL CONFIRMATION REQUIRED**)
+- [x] D3 copyright holder **CLOSED** — `Copyright (c) 2026 Yuki Shibata`; **not written into LICENSE**
+- [x] D6 npm scope **CLOSED** — owner controls `hello-ai-company` / `@hello-ai-company` / `@hello-ai-company/editor-core`; **no npm mutations**
+- [x] D11 GitHub Private Vulnerability Reporting **PREPARED** — **ENABLE DURING PUBLIC TRANSITION**; **not enabled**; no invented email
+- [x] D19 chain-of-title **CLOSED** — owner Yuki Shibata confirms relicensing authority under MIT (owner representation, not legal advice)
 - [ ] D1-EXEC (**PENDING EXECUTION AUTHORIZATION**)
 
 ## Still required before any public action (UNCHECKED)
 
 - [ ] **public-approval** — written authorization to **execute** visibility change or publish outside the private GitHub Packages identity (D1-EXEC; **PENDING EXECUTION AUTHORIZATION**; intent ≠ execution)
-- [ ] **license-application** — apply MIT to `LICENSE` / package.json / identity gates (**LICENSE APPLICATION REQUIRED**; D2 selection is CLOSED; files still `UNLICENSED`)
+- [ ] **license-application** — apply MIT to `LICENSE` / package.json / identity gates (**LICENSE APPLICATION REQUIRED**; D2 selection is CLOSED; files still `UNLICENSED`; use D3 line `Copyright (c) 2026 Yuki Shibata`)
 - [ ] **visibility** — repository remains PRIVATE until an authorized visibility change; **do not make public while UNLICENSED**
-- [ ] **chain-of-title** — owner/legal confirmation the extract may be relicensed (**CHAIN-OF-TITLE — OWNER/LEGAL CONFIRMATION REQUIRED**)
-- [ ] **copyright-holder** — legal entity name + year (**COPYRIGHT HOLDER — OWNER ACTION REQUIRED**; placeholder form only, not in LICENSE)
-- [ ] **security-contact** — enable GitHub Private Vulnerability Reporting (**OWNER ACTION REQUIRED**; no invented email; settings not enabled in 4D)
-- [ ] **npm-scope** — **NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED**
+- [x] **chain-of-title** — owner confirmation recorded (D19 **CLOSED**; not legal advice; MIT still not applied)
+- [x] **copyright-holder** — recorded (D3 **CLOSED**); **DO NOT write into LICENSE yet**
+- [ ] **security-contact** — enable GitHub Private Vulnerability Reporting **during public transition** (D11 **PREPARED**; no invented email; settings not enabled)
+- [x] **npm-scope** — owner-confirmed (D6 **CLOSED**); **no npm login/token/publish/register**
 - [ ] **sponsor-destination** — **SPONSOR LINK — OWNER SETUP REQUIRED** (no `FUNDING.yml` until then)
 
 ## Explicitly out of scope here
@@ -62,3 +62,5 @@ These checks record **OWNER-CONFIRMED** intent. They are **not** license applica
 - Auto-publish on push
 - Configuring GitHub Sponsors or adding `.github/FUNDING.yml` with a fake URL
 - Phase 4E / public release execution
+- Writing the copyright line into `LICENSE` in this phase
+- Enabling GitHub Private Vulnerability Reporting in this phase

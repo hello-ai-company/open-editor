@@ -4,7 +4,7 @@
 
 Comparison of **future** naming and registry choices for `@hello-ai-company/editor-core`. This phase does **not** rename the package, register an npm organization, change `publishConfig`, or publish.
 
-Owner decisions: **D5, D6, D7, D8, D10** in [public-release-decision.md](./public-release-decision.md). D6 is **OWNER ACTION REQUIRED** (not applied). Phase 4D **recommendation** (evaluate only): keep `@hello-ai-company/editor-core` on **npmjs.org** at first public version **`0.1.0`** *after* the owner owns the npm org. See [npm-publication-readiness.md](./npm-publication-readiness.md).
+Owner decisions: **D5, D6, D7, D8, D10** in [public-release-decision.md](./public-release-decision.md). D6 is **CLOSED** by owner confirmation (no npm mutations). Phase 4D **recommendation** (evaluate only): keep `@hello-ai-company/editor-core` on **npmjs.org** at first public version **`0.1.0`** *after* written D1-EXEC. See [npm-publication-readiness.md](./npm-publication-readiness.md).
 
 ## Current authorized distribution
 
@@ -28,15 +28,15 @@ Owner decisions: **D5, D6, D7, D8, D10** in [public-release-decision.md](./publi
 | Cons | Public npmjs publish needs the **npm org** `@hello-ai-company` (independent of GitHub org membership) |
 | Rename required? | **No**, if that npm scope is owned and the owner wants this brand |
 
-Non-binding lean: **A**, after D6 confirms npm org ownership.
+Non-binding lean: **A**. D6 is owner-confirmed in Phase 4D.1.
 
-**NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED.** Phase 4D read-only registry probes (2026-09-16):
+**D6 CLOSED** by owner confirmation (npm org `hello-ai-company` / scope `@hello-ai-company` / target `@hello-ai-company/editor-core`). Phase 4D.1 performed **no** npm login, token, publish, or register. Historical Phase 4D read-only registry probes (2026-09-16):
 
 - `GET https://registry.npmjs.org/@hello-ai-company%2feditor-core` → 404
 - `GET https://registry.npmjs.org/-/org/hello-ai-company` → org does not exist
 - `npm whoami --registry=https://registry.npmjs.org` → `ENEEDAUTH`
 
-GitHub org `hello-ai-company` does **not** reserve the npm scope. Do **not** register the org in this phase. Fallback names (document only): [npm-publication-readiness.md](./npm-publication-readiness.md). Unscoped `editor-core` has unpublished history (2019) — **do not use**.
+GitHub org `hello-ai-company` does **not** reserve the npm scope. Do **not** register the org in this phase. Fallback names (document only; **not selected**): [npm-publication-readiness.md](./npm-publication-readiness.md). Unscoped `editor-core` has unpublished history (2019) — **do not use**.
 
 ### B. Unscoped `editor-core`
 
@@ -54,7 +54,7 @@ Rename **would** be required. Not recommended unless branding demands it.
 | Pros | Public brand can diverge from GitHub org; allows parallel private `@hello-ai-company/editor-core` during transition |
 | Cons | Still a **rename**; two scopes to document and authenticate |
 
-Use only if D6 finds `@hello-ai-company` unavailable or inappropriate for public npm.
+Use only if `@hello-ai-company` is later unavailable or inappropriate for public npm (not the owner-confirmed target).
 
 ## Registry options
 

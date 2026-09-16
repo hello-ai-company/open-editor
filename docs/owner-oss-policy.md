@@ -2,17 +2,19 @@
 
 **PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
 
-**Case:** ENG-20260913-007 Phase 4D / PA-20260916-004  
-**Status:** **OWNER-CONFIRMED** philosophy (Phase 4C) plus **OWNER-SELECTED FUTURE LICENSE = MIT** (Phase 4D; **not applied**).  
-**This document does not authorize release.** Recording intent or license **selection** does **not** make the repository public, apply a license, publish, tag, bump a version, or configure GitHub Sponsors.
+**Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
+**Status:** **OWNER-CONFIRMED** philosophy (Phase 4C) plus **OWNER-SELECTED FUTURE LICENSE = MIT** (Phase 4D; **not applied**) plus Phase 4D.1 owner confirmations (D3/D6/D19 **CLOSED**; D11 **PREPARED**).  
+**This document does not authorize release.** Recording intent, license **selection**, or owner confirmations does **not** make the repository public, apply a license, publish, tag, bump a version, or configure GitHub Sponsors.
 
-Companion: [license-recommendation.md](./license-recommendation.md) (MIT selected, **APPLIED: NO**), [release-gate-closure.md](./release-gate-closure.md), [public-release-decision.md](./public-release-decision.md).
+Companion: [owner-release-confirmations.md](./owner-release-confirmations.md), [license-recommendation.md](./license-recommendation.md) (MIT selected, **APPLIED: NO**), [release-gate-closure.md](./release-gate-closure.md), [public-release-decision.md](./public-release-decision.md).
 
 ## Mission
 
 OpenEditor (`@hello-ai-company/editor-core`) should become **genuinely useful open-source software**. Anyone may use the **core** without paying — install, use, modify, fork, self-host, and (subject to the eventual license) use it commercially.
 
 The product is a host-neutral TypeScript document model, JSON serialization, and optional provider **types**. It is not a hosted editor, not a Cloud product, and not an Enterprise SKU.
+
+OSS product direction (Phase 4D.1, record only): a **portable document layer** shaped as **Small Core + Adapters + Docs + Examples**. Adapters are future packages outside core. This phase creates **no adapter packages** and makes **no core API change**.
 
 Do **not** redesign this project into an open-core SaaS.
 
@@ -62,21 +64,29 @@ If a later product wants hosted services, that is a **separate** system — not 
 
 - OWNER-SELECTED FUTURE LICENSE = **MIT** (`LICENSE` files remain `UNLICENSED`)
 
-### Still needing owner / legal / ops approval (blocks public release, not this docs merge)
+### Confirmed in Phase 4D.1 (record only — not applied / not enabled)
+
+- D3 copyright line = `Copyright (c) 2026 Yuki Shibata` (**not written into `LICENSE`**)
+- D6 owner controls npm org `hello-ai-company` / scope `@hello-ai-company` / target `@hello-ai-company/editor-core` (**no npm mutations**)
+- D19 owner Yuki Shibata confirms relicensing authority under MIT (**owner representation, not legal advice**)
+- D11 GitHub Private Vulnerability Reporting **PREPARED** — enable during public transition (**not enabled now**)
+- OSS product direction: portable document layer; Small Core + Adapters + Docs + Examples
+
+### Still needing later authorization (blocks publish, not this docs merge)
 
 | Item | Flag |
 | --- | --- |
 | License **application** (`LICENSE` files, `package.json`, identity gates) | **LICENSE APPLICATION REQUIRED** — later phase; **APPLIED TO LICENSE FILES NO** |
-| Copyright holder legal name + year (D3) | **OWNER ACTION REQUIRED** — **COPYRIGHT HOLDER — OWNER ACTION REQUIRED** |
+| Copyright holder legal name + year (D3) | **CLOSED** — line recorded; **DO NOT write into LICENSE yet** |
 | SPDX / NOTICE / CLA or DCO (D4) | PENDING |
-| npm org `@hello-ai-company` on npmjs (D6) | **OWNER ACTION REQUIRED** — **NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED** |
-| Security contact (D11) | **OWNER ACTION REQUIRED** — prefer GitHub Private Vulnerability Reporting; **not enabled**; no invented email |
-| Chain-of-title for the `personal-ai` extract (D19) | **OWNER/LEGAL CONFIRMATION REQUIRED** — **CHAIN-OF-TITLE — OWNER/LEGAL CONFIRMATION REQUIRED** |
-| Visibility, npmjs publish, version bump, tag, GitHub Release | PENDING — irreversible; later phase |
+| npm org `@hello-ai-company` on npmjs (D6) | **CLOSED** — owner-confirmed control; **no npm login/token/publish/register** |
+| Security contact (D11) | **PREPARED** — prefer GitHub Private Vulnerability Reporting; **ENABLE DURING PUBLIC TRANSITION**; **not enabled**; no invented email |
+| Chain-of-title for the `personal-ai` extract (D19) | **CLOSED** — owner representation, not legal advice |
+| Visibility, npmjs publish, version bump, tag, GitHub Release | **PENDING EXECUTION AUTHORIZATION** (D1-EXEC) |
 | Trusted publishing / provenance (D15) | PENDING — do not configure secrets now |
 | `personal-ai` consumer migration (D16) | PENDING — **do not edit** that repo from here |
 | GitHub Sponsors / FUNDING.yml destination | **SPONSOR LINK — OWNER SETUP REQUIRED** |
 
-## What Phase 4D did not do
+## What Phase 4D.1 did not do
 
-Did not publish, tag, Release, apply MIT/Apache/GPL, change visibility, rename, bump version, register an npm org, edit `personal-ai`, modify `packages/core/src/**`, change `LICENSE` files, add `.github/FUNDING.yml`, invent a sponsor URL or security email, enable GitHub security settings, or start Phase 4E / public release.
+Did not publish, tag, Release, apply MIT/Apache/GPL, write the copyright line into `LICENSE`, change visibility, rename, bump version, register an npm org, edit `personal-ai`, modify `packages/core/src/**`, change `LICENSE` files, add `.github/FUNDING.yml`, invent a sponsor URL or security email, enable GitHub security settings, create adapter packages, or start Phase 4E / public release.

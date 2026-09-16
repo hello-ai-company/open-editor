@@ -1,11 +1,11 @@
-# npm publication readiness (Phase 4D)
+# npm publication readiness (Phase 4D / 4D.1)
 
 **PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
 
-**Case:** ENG-20260913-007 Phase 4D / PA-20260916-004  
-**Role:** Read-only npm registry audit. **Never** `npm login`, `npm adduser`, `npm org`, `npm publish`, or register a scope from this phase.
+**Case:** ENG-20260913-007 Phase 4D.1 / PA-20260917-001  
+**Role:** Record D6 owner confirmation. **Never** `npm login`, `npm adduser`, `npm org`, `npm publish`, or register a scope from this phase.
 
-Gate **D6** classification: **NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED**.
+Gate **D6** classification: **CLOSED** — owner controls npm org `hello-ai-company` / scope `@hello-ai-company` / target `@hello-ai-company/editor-core`. **No npm mutations.**
 
 ## Current authorized package (unchanged)
 
@@ -19,28 +19,39 @@ Gate **D6** classification: **NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED**.
 
 `publishConfig.registry` remains GitHub Packages. `packages/core/test/publish-gate.test.ts` still fails if the registry is `https://registry.npmjs.org`.
 
-## Read-only probes (2026-09-16)
+## Owner confirmation (Phase 4D.1)
 
-No credentials were sent to npmjs. `npm whoami --registry=https://registry.npmjs.org` → `ENEEDAUTH` (not logged in; expected).
+| Item | Owner-confirmed |
+| --- | --- |
+| npm org | `hello-ai-company` |
+| Scope | `@hello-ai-company` |
+| Target package | `@hello-ai-company/editor-core` |
+| Fallback names | **Not selected** |
 
-| URL / command | HTTP / result | Meaning |
+This phase did **not**: `npm login`, create/use an npm token, `npm publish`, or register an org/scope.
+
+## Historical read-only probes (Phase 4D, 2026-09-16)
+
+No credentials were sent to npmjs. `npm whoami --registry=https://registry.npmjs.org` → `ENEEDAUTH` (not logged in; expected). These probes are **historical**. They do not reopen D6.
+
+| URL / command | HTTP / result | Meaning at that time |
 | --- | --- | --- |
 | `GET https://registry.npmjs.org/@hello-ai-company%2feditor-core` | 404 `Not found` | Package name unused on npmjs |
-| `GET https://registry.npmjs.org/-/org/hello-ai-company` | 404 org does not exist | **npm org `@hello-ai-company` is not proven / does not exist** |
-| `GET https://registry.npmjs.org/-/org/hello-ai-company/package` | 404 `Scope not found` | Scope unowned on npmjs |
+| `GET https://registry.npmjs.org/-/org/hello-ai-company` | 404 org does not exist | npm org not observed on npmjs that day |
+| `GET https://registry.npmjs.org/-/org/hello-ai-company/package` | 404 `Scope not found` | Scope not observed on npmjs that day |
 | GitHub org `hello-ai-company` | exists (this private repo) | Does **not** reserve npm scope |
 
-**NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED.** Ownership is unproven. Do not publish to npmjs. Do not register the org from this phase.
+If creating or claiming the org on npmjs is still operationally required at publish time, that is a later public-transition step — **not** this phase.
 
-## Fallback names (document only — do not register)
+## Fallback names (document only — not selected — do not register)
 
-Keep `@hello-ai-company/editor-core` **if** the owner later creates and owns npm org `hello-ai-company`. If that scope cannot be obtained, owner may later choose a **documented** alternative. These probes are availability snapshots, not reservations:
+Keep `@hello-ai-company/editor-core`. If that scope cannot be obtained at publish time, owner may later choose a **documented** alternative. These probes are availability snapshots from Phase 4D, not reservations:
 
 | Candidate | Probe | Snapshot |
 | --- | --- | --- |
-| `@hello-ai-company/editor-core` (preferred if org owned) | 404 | Unused package; **org missing** |
-| `@hello-ai-company/core` | 404 | Unused; same missing org |
-| `@hello-ai-company/open-editor` | 404 | Unused; same missing org |
+| `@hello-ai-company/editor-core` (owner-confirmed target) | 404 | Unused package at 2026-09-16 snapshot |
+| `@hello-ai-company/core` | 404 | Unused; same scope |
+| `@hello-ai-company/open-editor` | 404 | Unused |
 | `@open-editor/core` | 404 | Unused; org `@open-editor` not shown to exist |
 | `@open-editor/editor-core` | 404 | Unused |
 | `open-editor-core` | 404 | Unused unscoped name |
@@ -53,22 +64,22 @@ Keep `@hello-ai-company/editor-core` **if** the owner later creates and owns npm
 
 Fallback names are **not selected**. Recording them does not rename the package and does not authorize `npm publish`.
 
-## Why D6 is not CLOSED
+## Why D6 is CLOSED (confirmation, not publication)
 
-1. The npm org required by the frozen scoped name **does not exist**.
-2. This auditor is **not logged in** to npm and must not log in.
-3. GitHub Packages publication of the private identity is a different registry and does not prove npmjs org ownership.
-4. Creating the org would be a **forbidden** register step in Phase 4D.
+1. Owner confirms control of org `hello-ai-company`, scope `@hello-ai-company`, and target `@hello-ai-company/editor-core`.
+2. This phase is **not logged in** to npm and must not log in.
+3. GitHub Packages publication of the private identity is a different registry and does not prove npmjs publication.
+4. Creating or claiming the org would be a **forbidden** register step in Phase 4D.1.
 
-## What would still be required after the owner owns a scope
+## What would still be required after this confirmation
 
-Even with D6 resolved, npmjs publication also needs (all later; none done here):
+Even with D6 closed as a confirmation gate, npmjs publication also needs (all later; none done here):
 
 - D2 **application** of MIT (selection is already MIT; files still `UNLICENSED`)
-- D3 copyright holder
-- D19 chain-of-title
+- D3 copyright line written into `LICENSE` (`Copyright (c) 2026 Yuki Shibata` — **not written yet**)
 - D7 registry choice
 - D8 first public version (**not** `0.0.0-phase3.e17b4b5`)
+- D11 enable GitHub PVR during public transition
 - D1-EXEC written execution authorization
 - Identity-lock updates (`AUTHORIZED_*`, publish-gate, workflow)
 - Trusted publishing / provenance — **do not configure secrets now**

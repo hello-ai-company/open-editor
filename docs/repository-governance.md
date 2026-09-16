@@ -2,7 +2,7 @@
 
 **PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
 
-Recommendations for a **future** public OSS posture. **No GitHub settings, branch protection, secrets, visibility, Sponsors, or workflow files were changed in Phase 4D.**
+Recommendations for a **future** public OSS posture. **No GitHub settings, branch protection, secrets, visibility, Sponsors, or workflow files were changed in Phase 4D.1.**
 
 Related drafts: [public-drafts/README.md](./public-drafts/README.md), [public-drafts/CONTRIBUTING.md](./public-drafts/CONTRIBUTING.md), [public-drafts/SECURITY.md](./public-drafts/SECURITY.md).
 
@@ -18,7 +18,7 @@ Related drafts: [public-drafts/README.md](./public-drafts/README.md), [public-dr
 | Issue / PR templates | Missing (`.github/` contains workflows only) |
 | Dependabot | Missing |
 | Publish | `publish-private-core.yml` on `workflow_dispatch` only; `--access restricted --provenance=false` |
-| Security contact | **None enabled** — prefer GitHub Private Vulnerability Reporting; **OWNER ACTION REQUIRED** (not enabled; no invented email) |
+| Security contact | **None enabled** — prefer GitHub Private Vulnerability Reporting; D11 **PREPARED** (enable during public transition; not enabled; no invented email) |
 | Funding | **No** `.github/FUNDING.yml` — **SPONSOR LINK — OWNER SETUP REQUIRED** |
 
 ## File checklist vs typical public OSS
@@ -28,7 +28,7 @@ Related drafts: [public-drafts/README.md](./public-drafts/README.md), [public-dr
 | Root README | Private banner | Replace with reviewed `docs/public-drafts/README.md` | NO |
 | LICENSE (OSS) | Proprietary UNLICENSED | Apply selected SPDX | NO |
 | CONTRIBUTING.md | Absent | Promote draft to root | NO |
-| SECURITY.md | Absent | Promote draft **after** D11 contact is filled | NO |
+| SECURITY.md | Absent | Promote draft **after** D11 is enabled during public transition | NO |
 | CODE_OF_CONDUCT.md | Absent | Add Contributor Covenant or org CoC | NO |
 | `.github/CODEOWNERS` | Absent | Require review from named owners | NO |
 | `.github/ISSUE_TEMPLATE/*` | Absent | Bug / feature; block “please publish” noise | NO |
@@ -57,7 +57,7 @@ Related drafts: [public-drafts/README.md](./public-drafts/README.md), [public-dr
 6. When Phase 4A workflow is retired, **merge** its PR coverage into `ci.yml` first or PRs lose CI.
 7. Optional later: `npm audit` / OSV **in addition to** `scripts/security-scan.mjs` (leakage scan is not a CVE scanner substitute).
 
-Phase 4D CI: documentation-only. Do not expand workflow branch lists unless a later authorized phase says so.
+Phase 4D.1 CI: documentation-only. Do not expand workflow branch lists unless a later authorized phase says so.
 
 ## Branch protection (recommend only — do not click settings)
 
@@ -74,11 +74,11 @@ For `main` after public authorization:
 | Restrict who can edit rules | Separate from everyday maintainers |
 | Signed commits | Optional |
 
-Unknown current protection is fine for a private extraction repo; **do not change settings in Phase 4D**.
+Unknown current protection is fine for a private extraction repo; **do not change settings in Phase 4D.1**.
 
 ## Permissions and secrets
 
-| Item | Phase 4D |
+| Item | Phase 4D.1 |
 | --- | --- |
 | Repository visibility | Stay PRIVATE |
 | `GITHUB_TOKEN` packages write | Only on the existing dispatch publish workflow |
@@ -92,7 +92,7 @@ Recommend a CoC before external contributors. Selection of text (Contributor Cov
 
 ## Owner decisions that block “looking like OSS”
 
-- D11 GitHub Private Vulnerability Reporting enablement (**OWNER ACTION REQUIRED**; preferred method recorded, not enabled)
+- D11 GitHub Private Vulnerability Reporting enablement (**PREPARED**; enable during public transition; preferred method recorded, not enabled)
 - D12 CODEOWNERS names
 - D13 branch protection
 - D14 CI unification
