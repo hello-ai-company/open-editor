@@ -26,7 +26,7 @@ Inventory date context: lockfile at `origin/main` `c87bf79b7454079bb31b31e283c53
 | Root `package.json` `"license"` | `UNLICENSED` | Workspace is `"private": true` |
 | `packages/core/package.json` `"license"` | `UNLICENSED` | Publishable package identity |
 
-Copyright holder legal name is **not** stated in those files. **OWNER DECISION PENDING.**
+Copyright holder legal name is **not** stated in those files. **COPYRIGHT HOLDER — OWNER ACTION REQUIRED.** Placeholder form only (not in LICENSE): `Copyright (c) 2026 <LEGAL ENTITY NAME — OWNER ACTION REQUIRED>`.
 
 ## Production (published package)
 
@@ -118,4 +118,4 @@ Would require, at minimum:
 4. Update `AUTHORIZED_LICENSE` in `scripts/lib/tarball.mjs` and tests/scripts that assert `UNLICENSED`
 5. Optional NOTICE, per-file headers, CLA/DCO
 
-That work is **LICENSE APPLICATION REQUIRED** and is **out of scope for Phase 4C**. See [license-recommendation.md](./license-recommendation.md) (PRIMARY MIT / FALLBACK Apache-2.0 — **not applied**).
+That work is **LICENSE APPLICATION REQUIRED** and is **out of scope for Phase 4D**. See [license-recommendation.md](./license-recommendation.md) (OWNER-SELECTED MIT — **not applied**).

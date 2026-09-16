@@ -1,24 +1,24 @@
-# License recommendation (not applied)
+# License recommendation (MIT owner-selected; not applied)
 
 **PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
 
-**Case:** ENG-20260913-007 Phase 4C / PA-20260916-003  
-**Role:** Engineering assessment for a **future** owner/legal choice. **Not legal advice.**  
-**APPLIED: NO.** `LICENSE`, `packages/core/LICENSE`, and `"license": "UNLICENSED"` fields are **unchanged**.
+**Case:** ENG-20260913-007 Phase 4D / PA-20260916-004  
+**Role:** Record **OWNER-SELECTED FUTURE LICENSE = MIT**. **Not legal advice.**  
+**SELECTED: YES (MIT). APPLIED TO LICENSE FILES: NO.** `LICENSE`, `packages/core/LICENSE`, and `"license": "UNLICENSED"` fields are **unchanged**.
 
-This note does **not** select a license in the legal sense and does **not** authorize rewriting license files. Comparison context: [license-decision.md](./license-decision.md). Third-party inventory: [third-party-license-inventory.md](./third-party-license-inventory.md).
+This note does **not** authorize rewriting license files. Comparison context: [license-decision.md](./license-decision.md). Third-party inventory: [third-party-license-inventory.md](./third-party-license-inventory.md). Gate closure: [release-gate-closure.md](./release-gate-closure.md).
 
-## Recommendation (owner still must choose)
+## Owner selection vs application
 
-| Role | SPDX | Applied now |
-| --- | --- | --- |
-| **PRIMARY** | **MIT** | **NO** |
-| **FALLBACK** | **Apache-2.0** | **NO** |
-| GPL family (GPL / LGPL / AGPL) | Not recommended for this library | **NO** |
-| BUSL / other source-available | Incompatible with confirmed “genuine OSS” intent | **NO** |
-| Remain `UNLICENSED` | Current private state | **YES** (status quo) |
+| Role | SPDX | Owner-selected | Applied now |
+| --- | --- | --- | --- |
+| **OWNER-SELECTED FUTURE LICENSE** | **MIT** | **YES** | **NO** |
+| Documented fallback (not selected) | **Apache-2.0** | NO | **NO** |
+| GPL family (GPL / LGPL / AGPL) | Not recommended for this library | NO | **NO** |
+| BUSL / other source-available | Incompatible with confirmed “genuine OSS” intent | NO | **NO** |
+| Remain `UNLICENSED` | Current private state | status quo files | **YES** (files unchanged) |
 
-Owner Decision **D2 remains PENDING** until the owner (typically with counsel) picks PRIMARY or FALLBACK — or rejects both — **and** a later authorized phase applies files.
+D2 **selection** is **CLOSED**. D2 **application** is **LICENSE APPLICATION REQUIRED** in a later phase (after D3 + D19). Do **not** apply MIT in Phase 4D.
 
 ## PRIMARY — MIT
 
@@ -58,7 +58,7 @@ For an **embeddable library** meant to sit inside diverse hosts — including pr
 
 ## What applying a license would require later (do not do now)
 
-**LICENSE APPLICATION REQUIRED** as a separate authorized phase, after D2 + D3 (+ D19):
+**LICENSE APPLICATION REQUIRED** as a separate authorized phase, after D3 + D19 (D2 selection is already MIT):
 
 1. Replace root `LICENSE` and `packages/core/LICENSE` (the latter **ships in the npm tarball**).
 2. Change `"license"` in root and `packages/core` `package.json` (lockfile metadata follows — that is a later lockfile change, forbidden in Phase 4C).
@@ -66,4 +66,4 @@ For an **embeddable library** meant to sit inside diverse hosts — including pr
 4. Optional: `NOTICE`, per-file SPDX headers, DCO vs CLA (D4).
 5. Update private banners and public drafts so they no longer claim `UNLICENSED`.
 
-Until that phase: identity remains `@hello-ai-company/editor-core@0.0.0-phase3.e17b4b5` **UNLICENSED** on `npm.pkg.github.com`.
+Until that phase: identity remains `@hello-ai-company/editor-core@0.0.0-phase3.e17b4b5` **UNLICENSED** on `npm.pkg.github.com`. **Do not make the repository public while UNLICENSED.**

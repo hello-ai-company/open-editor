@@ -2,11 +2,11 @@
 
 **PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
 
-**Case:** ENG-20260913-007 Phase 4C / PA-20260916-003  
-**Status:** **OWNER-CONFIRMED** philosophy recorded in this private repository.  
-**This document does not authorize release.** Recording intent does **not** make the repository public, apply a license, publish, tag, bump a version, or configure GitHub Sponsors.
+**Case:** ENG-20260913-007 Phase 4D / PA-20260916-004  
+**Status:** **OWNER-CONFIRMED** philosophy (Phase 4C) plus **OWNER-SELECTED FUTURE LICENSE = MIT** (Phase 4D; **not applied**).  
+**This document does not authorize release.** Recording intent or license **selection** does **not** make the repository public, apply a license, publish, tag, bump a version, or configure GitHub Sponsors.
 
-Companion: [license-recommendation.md](./license-recommendation.md) (not applied), [public-release-decision.md](./public-release-decision.md).
+Companion: [license-recommendation.md](./license-recommendation.md) (MIT selected, **APPLIED: NO**), [release-gate-closure.md](./release-gate-closure.md), [public-release-decision.md](./public-release-decision.md).
 
 ## Mission
 
@@ -58,22 +58,25 @@ If a later product wants hosted services, that is a **separate** system — not 
 - No sponsor-only exclusive core functionality
 - Cost principle: OSS use must not bill the owner’s hosting/API
 
+### Confirmed in Phase 4D (selection only — not applied)
+
+- OWNER-SELECTED FUTURE LICENSE = **MIT** (`LICENSE` files remain `UNLICENSED`)
+
 ### Still needing owner / legal / ops approval (blocks public release, not this docs merge)
 
 | Item | Flag |
 | --- | --- |
-| SPDX license **selection** (D2) | PENDING — see [license-recommendation.md](./license-recommendation.md); **not applied** |
-| License **application** (`LICENSE` files, `package.json`, identity gates) | **LICENSE APPLICATION REQUIRED** — later phase |
-| Copyright holder legal name + year (D3) | PENDING |
+| License **application** (`LICENSE` files, `package.json`, identity gates) | **LICENSE APPLICATION REQUIRED** — later phase; **APPLIED TO LICENSE FILES NO** |
+| Copyright holder legal name + year (D3) | **OWNER ACTION REQUIRED** — **COPYRIGHT HOLDER — OWNER ACTION REQUIRED** |
 | SPDX / NOTICE / CLA or DCO (D4) | PENDING |
-| npm org `@hello-ai-company` on npmjs (D6) | **NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED** |
-| Security contact (D11) | **SECURITY CONTACT — OWNER DECISION REQUIRED** |
-| Chain-of-title for the `personal-ai` extract (D19) | **CHAIN-OF-TITLE — OWNER/LEGAL CONFIRMATION REQUIRED** |
+| npm org `@hello-ai-company` on npmjs (D6) | **OWNER ACTION REQUIRED** — **NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED** |
+| Security contact (D11) | **OWNER ACTION REQUIRED** — prefer GitHub Private Vulnerability Reporting; **not enabled**; no invented email |
+| Chain-of-title for the `personal-ai` extract (D19) | **OWNER/LEGAL CONFIRMATION REQUIRED** — **CHAIN-OF-TITLE — OWNER/LEGAL CONFIRMATION REQUIRED** |
 | Visibility, npmjs publish, version bump, tag, GitHub Release | PENDING — irreversible; later phase |
 | Trusted publishing / provenance (D15) | PENDING — do not configure secrets now |
 | `personal-ai` consumer migration (D16) | PENDING — **do not edit** that repo from here |
 | GitHub Sponsors / FUNDING.yml destination | **SPONSOR LINK — OWNER SETUP REQUIRED** |
 
-## What Phase 4C did not do
+## What Phase 4D did not do
 
-Did not publish, tag, Release, apply MIT/Apache/GPL, change visibility, rename, bump version, register an npm org, edit `personal-ai`, modify `packages/core/src/**`, change `LICENSE` files, add `.github/FUNDING.yml`, invent a sponsor URL, or start a public release phase.
+Did not publish, tag, Release, apply MIT/Apache/GPL, change visibility, rename, bump version, register an npm org, edit `personal-ai`, modify `packages/core/src/**`, change `LICENSE` files, add `.github/FUNDING.yml`, invent a sponsor URL or security email, enable GitHub security settings, or start Phase 4E / public release.

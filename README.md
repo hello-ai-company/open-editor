@@ -19,7 +19,9 @@ This repository is a private, internal extraction workspace for a standalone edi
 - JSON serialization
 - optional provider seams
 
-See `docs/architecture.md`, `docs/providers.md`, `docs/public-api.md`, `docs/versioning.md`, `docs/security-boundary.md`, `docs/public-release-checklist.md`, `docs/extraction-status.md`, `docs/owner-oss-policy.md`, and `docs/public-release-decision.md`.
+See `docs/architecture.md`, `docs/providers.md`, `docs/public-api.md`, `docs/versioning.md`, `docs/security-boundary.md`, `docs/public-release-checklist.md`, `docs/extraction-status.md`, `docs/owner-oss-policy.md`, `docs/public-release-decision.md`, and `docs/release-gate-closure.md`.
+
+Phase 4D is documentation only. Remaining public-release gates: copyright holder, npm scope ownership, GitHub Private Vulnerability Reporting enablement, and chain-of-title. The repository must stay **private** and **UNLICENSED**.
 
 ## Local gates
 
