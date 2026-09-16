@@ -4,7 +4,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
-import { collectExportedTypeNames, collectProviderMethodsFromAst } from "./lib/provider-methods.mjs";
+import { collectProviderMethodsFromAst } from "./lib/provider-methods.mjs";
+import { collectTypeExportNames, diffTypeExports } from "./lib/type-exports.mjs";
 import { ensureTarball } from "./lib/tarball.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -104,16 +105,11 @@ try {
   }
 
   const indexDts = readFileSync(join(installedRoot, installedPackage.exports["."].types), "utf8");
-  const exportedTypes = uniqueSorted(collectExportedTypeNames(indexDts));
+  const exportedTypes = uniqueSorted(collectTypeExportNames(indexDts, "index.d.ts"));
   const expectedTypes = uniqueSorted(publicApi.typeExports);
-  const missingTypes = expectedTypes.filter((name) => !exportedTypes.includes(name) && !indexDts.includes(name));
-  if (missingTypes.length > 0) {
-    fail(`Type export mismatch. missing=${JSON.stringify(missingTypes)}`);
-  }
-  for (const name of ["EditorDocument", "EditorBlock", "EditorBlockProps", "JsonValue", "NativeBridge", "EditorProviders"]) {
-    if (!indexDts.includes(name)) {
-      fail(`Installed .d.ts missing intended type contract: ${name}`);
-    }
+  const typeDiff = diffTypeExports(exportedTypes, expectedTypes);
+  if (typeDiff.missing.length > 0 || typeDiff.extra.length > 0) {
+    fail(`Type export mismatch. missing=${JSON.stringify(typeDiff.missing)} extra=${JSON.stringify(typeDiff.extra)}`);
   }
 
   const providersDts = readFileSync(join(installedRoot, "dist/providers.d.ts"), "utf8");
@@ -136,6 +132,7 @@ try {
 
   console.log("API contract passed against the installed tarball:");
   console.log(`  runtime exports: ${runtimeKeys.join(", ")}`);
+  console.log(`  type exports: ${exportedTypes.join(", ")}`);
   console.log(`  provider methods: ${methods.join(", ")}`);
   console.log("  missing/extra/forbidden: none");
 } finally {

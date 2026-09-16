@@ -84,22 +84,3 @@ export function collectProviderMethodsByPattern(source) {
   }
   return [...names];
 }
-
-export function collectExportedTypeNames(source) {
-  const names = new Set();
-  const typeExportBlock = /export\s+type\s*\{([^}]+)\}/g;
-  const namedExportBlock = /export\s*\{([^}]+)\}/g;
-  for (const expression of [typeExportBlock, namedExportBlock]) {
-    for (const match of source.matchAll(expression)) {
-      const body = match[1];
-      if (!body) continue;
-      for (const part of body.split(",")) {
-        const identifier = part.replace(/\btype\b/g, "").replace(/\bas\b[\s\S]*/g, "").trim();
-        if (identifier && /^[A-Za-z][A-Za-z0-9]*$/.test(identifier)) {
-          names.add(identifier);
-        }
-      }
-    }
-  }
-  return [...names];
-}

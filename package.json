@@ -9,7 +9,8 @@
   ],
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present && npm run test:type-exports",
+    "test:type-exports": "node --test scripts/lib/type-exports.test.mjs",
     "build": "npm run build --workspaces --if-present",
     "pack:core": "npm pack -w @hello-ai-company/editor-core",
     "inspect:tarball": "node scripts/inspect-tarball.mjs",
