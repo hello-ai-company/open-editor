@@ -1,29 +1,19 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { cpSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdtempSync, readFileSync, readlinkSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensureTarball } from "./lib/tarball.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-
-function findTarball() {
-  const directories = [root, join(root, "packages/core")];
-  for (const directory of directories) {
-    const match = readdirSync(directory).find((name) => name.startsWith("hello-ai-company-editor-core-") && name.endsWith(".tgz"));
-    if (match) return join(directory, match);
-  }
-  return undefined;
-}
-
-const tarball = findTarball();
-
-if (!tarball) {
-  console.error("No @hello-ai-company/editor-core tarball found. Run npm pack -w @hello-ai-company/editor-core first.");
-  process.exit(1);
-}
-
+const tarball = resolve(ensureTarball(root));
 const workdir = mkdtempSync(join(tmpdir(), "editor-core-isolated-"));
+
+function fail(message) {
+  throw new Error(message);
+}
+
 try {
   cpSync(join(root, "tests/isolated-consumer"), workdir, { recursive: true });
   execFileSync("npm", ["install", "--omit=dev", tarball], {
@@ -34,11 +24,36 @@ try {
     cwd: workdir,
     stdio: "inherit"
   });
+
+  const installed = join(workdir, "node_modules/@hello-ai-company/editor-core");
+  if (!existsSync(installed)) {
+    fail("Isolated consumer did not install @hello-ai-company/editor-core.");
+  }
+  if (lstatSync(installed).isSymbolicLink()) {
+    fail(`Installed package is a symlink to ${readlinkSync(installed)}; tarball extract required.`);
+  }
+  if (existsSync(join(installed, "src"))) {
+    fail("Installed package contains src/; workspace/source install is forbidden.");
+  }
+
+  const lock = JSON.parse(readFileSync(join(workdir, "package-lock.json"), "utf8"));
+  const resolved = lock.packages?.["node_modules/@hello-ai-company/editor-core"]?.resolved ?? "";
+  if (!resolved.includes(".tgz")) {
+    fail(`Installed package resolved to ${resolved || "<missing>"}; tarball required.`);
+  }
+  if (resolved.includes("packages/core") || resolved.includes("workspace:")) {
+    fail(`Installed package resolved to workspace source: ${resolved}`);
+  }
+
   execFileSync("npx", ["tsc", "--noEmit", "-p", "tsconfig.json"], {
     cwd: workdir,
     stdio: "inherit"
   });
-  console.log("Isolated consumer installed the tarball and typechecked successfully.");
+  execFileSync(process.execPath, ["src/runtime.mjs"], {
+    cwd: workdir,
+    stdio: "inherit"
+  });
+  console.log("Isolated consumer installed the tarball, typechecked, and ran create/serialize/deserialize.");
 } finally {
   rmSync(workdir, { recursive: true, force: true });
 }

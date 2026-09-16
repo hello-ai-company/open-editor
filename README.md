@@ -19,7 +19,7 @@ This repository is a private, internal extraction workspace for a standalone edi
 - JSON serialization
 - optional provider seams
 
-See `docs/architecture.md`, `docs/providers.md`, and `docs/extraction-status.md`.
+See `docs/architecture.md`, `docs/providers.md`, `docs/public-api.md`, `docs/versioning.md`, `docs/security-boundary.md`, `docs/public-release-checklist.md`, and `docs/extraction-status.md`.
 
 ## Local gates
 
@@ -32,4 +32,5 @@ npm pack -w @hello-ai-company/editor-core
 node scripts/inspect-tarball.mjs
 node scripts/isolated-consumer.mjs
 node scripts/security-scan.mjs
+node scripts/api-contract.mjs
 ```

@@ -1,25 +1,14 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { findLeakageHits, hasPrivateAbsolutePath } from "./lib/leakage-patterns.mjs";
+import { findTarball, listTarballFiles, readTarballFile } from "./lib/tarball.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const srcRoot = join(root, "packages/core/src");
-
-const forbidden = [
-  { name: "personal-ai", pattern: /personal-ai/i },
-  { name: "openEmployees", pattern: /openEmployees/ },
-  { name: "NoteRichEditor", pattern: /NoteRichEditor/ },
-  { name: "noteBlockSync", pattern: /noteBlockSync/ },
-  { name: "editorAdapters", pattern: /editorAdapters/ },
-  { name: "__PAI_", pattern: /__PAI_/ },
-  { name: "@blocknote", pattern: /@blocknote/ },
-  { name: "supabase", pattern: /supabase/i },
-  { name: "Secretary", pattern: /\bSecretary\b/ },
-  { name: "AgentTask", pattern: /\bAgentTask\b/ },
-  { name: "react", pattern: /from ["']react["']/ }
-];
+const distRoot = join(root, "packages/core/dist");
 
 function walk(directory) {
   const files = [];
@@ -34,13 +23,37 @@ function walk(directory) {
   return files;
 }
 
+function scanText(label, text, violations) {
+  for (const name of findLeakageHits(text)) {
+    violations.push(`${label}: ${name}`);
+  }
+  if (hasPrivateAbsolutePath(text)) {
+    violations.push(`${label}: private absolute path`);
+  }
+}
+
 const violations = [];
+
+if (!existsSync(srcRoot)) {
+  console.error("packages/core/src is missing.");
+  process.exit(1);
+}
+
 for (const file of walk(srcRoot)) {
-  const source = readFileSync(file, "utf8");
-  for (const { name, pattern } of forbidden) {
-    if (pattern.test(source)) {
-      violations.push(`${relative(root, file)}: ${name}`);
-    }
+  scanText(relative(root, file), readFileSync(file, "utf8"), violations);
+}
+
+if (existsSync(distRoot)) {
+  for (const file of walk(distRoot)) {
+    scanText(relative(root, file), readFileSync(file, "utf8"), violations);
+  }
+}
+
+const tarball = findTarball(root);
+if (tarball) {
+  for (const file of listTarballFiles(tarball)) {
+    if (file.endsWith("/")) continue;
+    scanText(`tarball:${file}`, readTarballFile(tarball, file), violations);
   }
 }
 
@@ -54,4 +67,6 @@ const audit = execFileSync("npm", ["audit", "--omit=dev", "--audit-level=high"],
   encoding: "utf8"
 });
 console.log(audit);
-console.log("Security scan passed for packages/core/src (no host leakage).");
+console.log(
+  `Security scan passed for packages/core/src${existsSync(distRoot) ? " + dist" : ""}${tarball ? " + tarball contents" : ""} (no host leakage).`
+);

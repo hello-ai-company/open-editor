@@ -7,12 +7,15 @@
 | Item | Value |
 | --- | --- |
 | Target repo | `hello-ai-company/open-editor` (PRIVATE) |
-| Source repo | `hello-ai-company/personal-ai` (read-only) |
-| Source SHA | `b29c4df72c59244523f29dd5949d35f6882048ff` |
+| Source repo | `hello-ai-company/personal-ai` (read-only; **do not edit**) |
+| Original extract SHA | `b29c4df72c59244523f29dd5949d35f6882048ff` |
 | Source branch (at extract time) | `grokbot/phase-1-editor-oss-boundary-foundation` @ same SHA |
-| Ticket | ENG-20260913-006 Phase 2 |
+| Personal AI consumer baseline | `c2bd73f80ddb2752215acc01d78d26322068fcae` |
+| Personal AI migration | **Done** (consumer uses published `@hello-ai-company/editor-core`; this repo does not modify personal-ai) |
+| Local `editorCore` | **Retired** (SoT is `packages/core` in this private workspace) |
+| Ticket | ENG-20260913-007 Phase 4A / PA-20260916-001 |
 
-Approved source files only:
+Approved source files only (original extract):
 
 - `apps/web/src/editorCore/model.ts`
 - `apps/web/src/editorCore/serialization.ts`
@@ -34,13 +37,27 @@ Approved source files only:
 - `schemaVersion` must be the positive integer `1` (reject `-1`, `0`, `1.5`, `2`)
 - Allowlist parsing uses TypeScript AST plus `method?(` / `method?:` / `method()` patterns
 
+## Phase 3 private package
+
+- Identity: `@hello-ai-company/editor-core@0.0.0-phase3.e17b4b5`
+- Registry: `https://npm.pkg.github.com`
+- License: `UNLICENSED`
+
+## Phase 4A private release-readiness
+
+- Public API freeze documented and machine-verified from the installed tarball
+- Provider contract lives in `packages/core/contracts/provider-contract.json`
+- Isolated consumer typechecks and executes create / serialize / deserialize
+- Tarball allowlist / denylist and src+dist+tarball security scan
+- **Not** a public OSS release. No version bump, tag, Release, license selection, or visibility change.
+
 ## History
 
 This repository has fresh history only. The source repository was not imported as git history.
 
 ## Publish / visibility
 
-Not authorized for public release, npm publish, tags, or a public PR.
+Not authorized for public release, npmjs publish, tags, GitHub Releases, or a public PR. Manual private GitHub Packages publish remains `workflow_dispatch` only and is not triggered by Phase 4A CI.
 
 ## Gate results (local)
 
@@ -48,10 +65,11 @@ Not authorized for public release, npm publish, tags, or a public PR.
 | --- | --- |
 | `npm ci` | PASS |
 | typecheck | PASS |
-| unit tests (14) | PASS |
+| unit tests | PASS |
 | build (`dist` + `.d.ts`) | PASS |
 | `npm pack` | PASS (`hello-ai-company-editor-core-0.0.0-phase3.e17b4b5.tgz`) |
-| tarball inspect (no host leakage) | PASS |
-| isolated consumer install + typecheck | PASS |
-| security scan (`packages/core/src` + `npm audit --omit=dev`) | PASS (0 production vulnerabilities) |
-| git history | fresh only: Initial commit → baseline → Phase 2 extract |
+| tarball inspect (allowlist / denylist / no host leakage) | PASS |
+| isolated consumer install + typecheck + runtime | PASS |
+| API contract (installed tarball) | PASS |
+| security scan (`src` + `dist` + tarball) | PASS (0 production vulnerabilities) |
+| git history | fresh only: Initial commit → baseline → Phase 2 extract → Phase 3 publish prep → Phase 4A readiness |
