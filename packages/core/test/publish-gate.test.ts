@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import packageJsonSource from "../package.json?raw";
+import rootPackageJsonSource from "../../../package.json?raw";
 
 const AUTHORIZED_NAME = "@hello-ai-company/editor-core";
 const AUTHORIZED_REGISTRY = "https://registry.npmjs.org";
@@ -21,9 +19,7 @@ const pkg = JSON.parse(packageJsonSource) as {
   repository?: { directory?: string; type?: string; url?: string };
 };
 
-const rootPkg = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../../package.json"), "utf8")
-) as { private?: boolean; license?: string };
+const rootPkg = JSON.parse(rootPackageJsonSource) as { private?: boolean; license?: string };
 
 describe("public npmjs publish gate", () => {
   it("fails unless publishConfig is npmjs.org with public access", () => {
@@ -47,7 +43,7 @@ describe("public npmjs publish gate", () => {
     expect(pkg.license).toBe(AUTHORIZED_LICENSE);
     expect(pkg.repository).toEqual({
       type: "git",
-      url: "https://github.com/hello-ai-company/open-editor.git",
+      url: "git+https://github.com/hello-ai-company/open-editor.git",
       directory: "packages/core"
     });
   });
