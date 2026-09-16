@@ -1,8 +1,5 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const contractsDir = join(dirname(fileURLToPath(import.meta.url)), "../contracts");
+import publicApiSource from "../contracts/public-api.json?raw";
+import providerContractSource from "../contracts/provider-contract.json?raw";
 
 export type PublicApiContract = {
   packageName: string;
@@ -22,14 +19,10 @@ export type ProviderContract = {
   providers: Record<string, string[]>;
 };
 
-function readContract<T>(fileName: string): T {
-  return JSON.parse(readFileSync(join(contractsDir, fileName), "utf8")) as T;
-}
-
 export function loadPublicApiContract(): PublicApiContract {
-  return readContract<PublicApiContract>("public-api.json");
+  return JSON.parse(publicApiSource) as PublicApiContract;
 }
 
 export function loadProviderContract(): ProviderContract {
-  return readContract<ProviderContract>("provider-contract.json");
+  return JSON.parse(providerContractSource) as ProviderContract;
 }

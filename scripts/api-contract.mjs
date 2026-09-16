@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
-import { collectExportedTypeNames, collectProviderMethodsByPattern } from "./lib/provider-methods.mjs";
+import { collectExportedTypeNames, collectProviderMethodsFromAst } from "./lib/provider-methods.mjs";
 import { ensureTarball } from "./lib/tarball.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -117,7 +117,7 @@ try {
   }
 
   const providersDts = readFileSync(join(installedRoot, "dist/providers.d.ts"), "utf8");
-  const methods = uniqueSorted(collectProviderMethodsByPattern(providersDts));
+  const methods = uniqueSorted(collectProviderMethodsFromAst(providersDts));
   const allowed = uniqueSorted(providerContract.allowedMethods);
   const forbidden = providerContract.forbiddenMethods;
   const missing = allowed.filter((name) => !methods.includes(name));
