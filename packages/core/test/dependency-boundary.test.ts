@@ -8,6 +8,9 @@ import {
   collectProviderMethodsByPattern,
   collectProviderMethodsFromAst
 } from "./providerAllowlist.js";
+import { loadProviderContract } from "./loadContracts.js";
+
+const providerContract = loadProviderContract();
 
 const productionSources: Record<string, string> = {
   "index.ts": indexSource,
@@ -43,49 +46,8 @@ const forbiddenSourcePatterns: Array<{ name: string; pattern: RegExp }> = [
   { name: "AgentTask identifier", pattern: /\bAgentTask\b/ }
 ];
 
-const allowedProviderMethods = new Set([
-  "edit",
-  "listRows",
-  "getRow",
-  "createRow",
-  "updateRow",
-  "deleteRow",
-  "restoreRow",
-  "reorderRows",
-  "list",
-  "add",
-  "update",
-  "delete",
-  "save",
-  "restore",
-  "rename",
-  "upload",
-  "insertCloud",
-  "search",
-  "listLinks",
-  "createChildPage",
-  "openPage",
-  "ready",
-  "change",
-  "commit",
-  "error",
-  "hostRequest",
-  "hostResponse"
-]);
-
-const forbiddenProviderMethods = [
-  "openEmployees",
-  "openAIEmployees",
-  "openStyleGallery",
-  "setDocumentStyle",
-  "resolveFetch",
-  "postMessage",
-  "onReady",
-  "onChange",
-  "onCommit",
-  "ack",
-  "reload"
-];
+const allowedProviderMethods = new Set(providerContract.allowedMethods);
+const forbiddenProviderMethods = providerContract.forbiddenMethods;
 
 describe("editorCore dependency boundary", () => {
   it("keeps production files inside the src directory", () => {
@@ -138,6 +100,9 @@ describe("editorCore dependency boundary", () => {
     expect(unexpected).toEqual([]);
     expect(missingForbidden).toEqual([]);
     expect(new Set(methods)).toEqual(allowedProviderMethods);
+
+    const fromProviders = new Set(Object.values(providerContract.providers).flat());
+    expect(fromProviders).toEqual(allowedProviderMethods);
   });
 
   it("parses method? / method?: / method() shapes via AST and pattern fallback", () => {

@@ -15,7 +15,8 @@
     "inspect:tarball": "node scripts/inspect-tarball.mjs",
     "verify:isolated": "node scripts/isolated-consumer.mjs",
     "security:scan": "node scripts/security-scan.mjs",
-    "verify": "npm run typecheck && npm test && npm run build && npm run pack:core && npm run inspect:tarball && npm run verify:isolated && npm run security:scan"
+    "verify:api": "node scripts/api-contract.mjs",
+    "verify": "npm run typecheck && npm test && npm run build && npm run pack:core && npm run inspect:tarball && npm run verify:isolated && npm run security:scan && npm run verify:api"
   },
   "engines": {
     "node": ">=20"
