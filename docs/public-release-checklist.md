@@ -28,15 +28,25 @@ These checks record **OWNER-CONFIRMED** intent. They are **not** license applica
 - [x] No hosted SaaS / open-core redesign at initial launch
 - [x] Sponsors get no exclusive core functionality
 - [x] OSS usage must not create owner hosting/API costs
-- [x] License **recommendation** recorded (PRIMARY MIT / FALLBACK Apache-2.0) — **not applied**
+- [x] License **selection** recorded (OWNER-SELECTED FUTURE LICENSE = **MIT**) — **not applied** (`LICENSE` stays `UNLICENSED`)
+
+## Phase 4D gate closure (docs only)
+
+- [x] D2 selection **CLOSED** (MIT); application still required later
+- [ ] D3 copyright holder (**COPYRIGHT HOLDER — OWNER ACTION REQUIRED**)
+- [ ] D6 npm scope (**NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED**)
+- [ ] D11 GitHub Private Vulnerability Reporting enabled (**OWNER ACTION REQUIRED**)
+- [ ] D19 chain-of-title (**CHAIN-OF-TITLE — OWNER/LEGAL CONFIRMATION REQUIRED**)
+- [ ] D1-EXEC (**PENDING EXECUTION AUTHORIZATION**)
 
 ## Still required before any public action (UNCHECKED)
 
-- [ ] **public-approval** — written authorization to **execute** visibility change or publish outside the private GitHub Packages identity (D1-EXEC; intent ≠ execution)
-- [ ] **license** — human **selection and application** of an OSS license (`LICENSE` stays `UNLICENSED` until then)
-- [ ] **visibility** — repository remains PRIVATE until an authorized visibility change
+- [ ] **public-approval** — written authorization to **execute** visibility change or publish outside the private GitHub Packages identity (D1-EXEC; **PENDING EXECUTION AUTHORIZATION**; intent ≠ execution)
+- [ ] **license-application** — apply MIT to `LICENSE` / package.json / identity gates (**LICENSE APPLICATION REQUIRED**; D2 selection is CLOSED; files still `UNLICENSED`)
+- [ ] **visibility** — repository remains PRIVATE until an authorized visibility change; **do not make public while UNLICENSED**
 - [ ] **chain-of-title** — owner/legal confirmation the extract may be relicensed (**CHAIN-OF-TITLE — OWNER/LEGAL CONFIRMATION REQUIRED**)
-- [ ] **security-contact** — **SECURITY CONTACT — OWNER DECISION REQUIRED**
+- [ ] **copyright-holder** — legal entity name + year (**COPYRIGHT HOLDER — OWNER ACTION REQUIRED**; placeholder form only, not in LICENSE)
+- [ ] **security-contact** — enable GitHub Private Vulnerability Reporting (**OWNER ACTION REQUIRED**; no invented email; settings not enabled in 4D)
 - [ ] **npm-scope** — **NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED**
 - [ ] **sponsor-destination** — **SPONSOR LINK — OWNER SETUP REQUIRED** (no `FUNDING.yml` until then)
 
@@ -51,4 +61,4 @@ These checks record **OWNER-CONFIRMED** intent. They are **not** license applica
 - Editing `hello-ai-company/personal-ai`
 - Auto-publish on push
 - Configuring GitHub Sponsors or adding `.github/FUNDING.yml` with a fake URL
-- Phase 4D / public release execution
+- Phase 4E / public release execution

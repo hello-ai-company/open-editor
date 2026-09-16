@@ -2,7 +2,7 @@
 
 **PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
 
-Recommendations for a **future** public OSS posture. **No GitHub settings, branch protection, secrets, visibility, Sponsors, or workflow files were changed in Phase 4C.**
+Recommendations for a **future** public OSS posture. **No GitHub settings, branch protection, secrets, visibility, Sponsors, or workflow files were changed in Phase 4D.**
 
 Related drafts: [public-drafts/README.md](./public-drafts/README.md), [public-drafts/CONTRIBUTING.md](./public-drafts/CONTRIBUTING.md), [public-drafts/SECURITY.md](./public-drafts/SECURITY.md).
 
@@ -18,12 +18,12 @@ Related drafts: [public-drafts/README.md](./public-drafts/README.md), [public-dr
 | Issue / PR templates | Missing (`.github/` contains workflows only) |
 | Dependabot | Missing |
 | Publish | `publish-private-core.yml` on `workflow_dispatch` only; `--access restricted --provenance=false` |
-| Security contact | **None** — **SECURITY CONTACT — OWNER DECISION REQUIRED** |
+| Security contact | **None enabled** — prefer GitHub Private Vulnerability Reporting; **OWNER ACTION REQUIRED** (not enabled; no invented email) |
 | Funding | **No** `.github/FUNDING.yml` — **SPONSOR LINK — OWNER SETUP REQUIRED** |
 
 ## File checklist vs typical public OSS
 
-| Artifact | Now | Recommendation when public is authorized | Apply in 4C? |
+| Artifact | Now | Recommendation when public is authorized | Apply in 4D? |
 | --- | --- | --- | --- |
 | Root README | Private banner | Replace with reviewed `docs/public-drafts/README.md` | NO |
 | LICENSE (OSS) | Proprietary UNLICENSED | Apply selected SPDX | NO |
@@ -57,7 +57,7 @@ Related drafts: [public-drafts/README.md](./public-drafts/README.md), [public-dr
 6. When Phase 4A workflow is retired, **merge** its PR coverage into `ci.yml` first or PRs lose CI.
 7. Optional later: `npm audit` / OSV **in addition to** `scripts/security-scan.mjs` (leakage scan is not a CVE scanner substitute).
 
-Phase 4C CI: documentation-only. Do not expand workflow branch lists unless a later authorized phase says so.
+Phase 4D CI: documentation-only. Do not expand workflow branch lists unless a later authorized phase says so.
 
 ## Branch protection (recommend only — do not click settings)
 
@@ -74,11 +74,11 @@ For `main` after public authorization:
 | Restrict who can edit rules | Separate from everyday maintainers |
 | Signed commits | Optional |
 
-Unknown current protection is fine for a private extraction repo; **do not change settings in Phase 4C**.
+Unknown current protection is fine for a private extraction repo; **do not change settings in Phase 4D**.
 
 ## Permissions and secrets
 
-| Item | Phase 4C |
+| Item | Phase 4D |
 | --- | --- |
 | Repository visibility | Stay PRIVATE |
 | `GITHUB_TOKEN` packages write | Only on the existing dispatch publish workflow |
@@ -92,7 +92,7 @@ Recommend a CoC before external contributors. Selection of text (Contributor Cov
 
 ## Owner decisions that block “looking like OSS”
 
-- D11 security contact (**required**)
+- D11 GitHub Private Vulnerability Reporting enablement (**OWNER ACTION REQUIRED**; preferred method recorded, not enabled)
 - D12 CODEOWNERS names
 - D13 branch protection
 - D14 CI unification

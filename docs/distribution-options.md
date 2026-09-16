@@ -4,7 +4,7 @@
 
 Comparison of **future** naming and registry choices for `@hello-ai-company/editor-core`. This phase does **not** rename the package, register an npm organization, change `publishConfig`, or publish.
 
-Owner decisions: **D5, D6, D7, D8, D10** in [public-release-decision.md](./public-release-decision.md) — still **PENDING** (not applied). Phase 4C **recommendation** (evaluate only): keep `@hello-ai-company/editor-core` on **npmjs.org** at first public version **`0.1.0`**.
+Owner decisions: **D5, D6, D7, D8, D10** in [public-release-decision.md](./public-release-decision.md). D6 is **OWNER ACTION REQUIRED** (not applied). Phase 4D **recommendation** (evaluate only): keep `@hello-ai-company/editor-core` on **npmjs.org** at first public version **`0.1.0`** *after* the owner owns the npm org. See [npm-publication-readiness.md](./npm-publication-readiness.md).
 
 ## Current authorized distribution
 
@@ -30,12 +30,13 @@ Owner decisions: **D5, D6, D7, D8, D10** in [public-release-decision.md](./publi
 
 Non-binding lean: **A**, after D6 confirms npm org ownership.
 
-**NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED.** Phase 4C read-only registry probes:
+**NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED.** Phase 4D read-only registry probes (2026-09-16):
 
 - `GET https://registry.npmjs.org/@hello-ai-company%2feditor-core` → 404
 - `GET https://registry.npmjs.org/-/org/hello-ai-company` → org does not exist
+- `npm whoami --registry=https://registry.npmjs.org` → `ENEEDAUTH`
 
-GitHub org `hello-ai-company` does **not** reserve the npm scope. Do **not** register the org in this phase.
+GitHub org `hello-ai-company` does **not** reserve the npm scope. Do **not** register the org in this phase. Fallback names (document only): [npm-publication-readiness.md](./npm-publication-readiness.md). Unscoped `editor-core` has unpublished history (2019) — **do not use**.
 
 ### B. Unscoped `editor-core`
 

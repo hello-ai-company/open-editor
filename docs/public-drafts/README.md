@@ -14,7 +14,7 @@ This draft assumes a later owner-authorized public release. **No such release ha
 
 | Item | Placeholder (OWNER DECISION PENDING) |
 | --- | --- |
-| License | Not applied — live package is `UNLICENSED` |
+| License | OWNER-SELECTED MIT — **not applied**; live package is `UNLICENSED` |
 | npmjs | Not published |
 | GitHub visibility | PRIVATE |
 | Version | Not the private prerelease `0.0.0-phase3.e17b4b5` — first public version is an owner decision |
@@ -62,7 +62,7 @@ Public runtime and type lists: see `docs/public-api.md` in this repository (priv
 
 ## Contributing / security
 
-Drafts: [CONTRIBUTING.md](./CONTRIBUTING.md), [SECURITY.md](./SECURITY.md). Security contact is **OWNER DECISION REQUIRED**.
+Drafts: [CONTRIBUTING.md](./CONTRIBUTING.md), [SECURITY.md](./SECURITY.md). Preferred future channel: GitHub Private Vulnerability Reporting (**OWNER ACTION REQUIRED** to enable; no invented email).
 
 ## Support (optional)
 
@@ -74,4 +74,4 @@ If the owner later offers voluntary GitHub Sponsors or donations, that support w
 
 ## License
 
-**Not selected.** Live files `LICENSE` and `packages/core/LICENSE` remain proprietary `UNLICENSED`. This draft must not be copied to the repo root until an owner applies an SPDX license in an authorized phase.
+**OWNER-SELECTED FUTURE LICENSE = MIT. APPLIED: NO.** Live files `LICENSE` and `packages/core/LICENSE` remain proprietary `UNLICENSED`. This draft must not be copied to the repo root until an owner applies MIT in an authorized phase (after D3 + D19). **Do not make the repository public while UNLICENSED.**

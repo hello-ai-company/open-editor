@@ -2,21 +2,25 @@
 
 > **DRAFT — NOT IN EFFECT.** Stored at `docs/public-drafts/SECURITY.md`. This is not a live GitHub Security Policy. The repository remains PRIVATE and `UNLICENSED`.
 
-## SECURITY CONTACT — OWNER DECISION REQUIRED
+## Preferred future channel (not enabled)
+
+**GitHub Private Vulnerability Reporting** is the preferred future disclosure method. It is **not enabled** on this private repository. Do not invent a `security@` address.
+
+## SECURITY CONTACT — OWNER ACTION REQUIRED
 
 No security contact exists in this repository today:
 
 - No root `SECURITY.md`
 - No `security@…` address in-repo
-- No GitHub Private Vulnerability Reporting configuration documented here
+- No GitHub Private Vulnerability Reporting **enabled** (preference recorded in [security-release-gate.md](../security-release-gate.md); settings unchanged)
 - `docs/security-boundary.md` is a **tarball / host-leakage** boundary, not a disclosure policy
 
 **Do not publish the repository or invite external researchers until the owner fills the table below and publishes a real `SECURITY.md` at the repository root.**
 
 | Field | Value |
 | --- | --- |
-| Contact email | **OWNER DECISION REQUIRED** |
-| GitHub private vulnerability reporting | **OWNER DECISION REQUIRED** (enable / do not enable) |
+| Contact email | **None invented.** Supply a real address later only if the owner has one. Do not invent. |
+| GitHub private vulnerability reporting | **Preferred.** **OWNER ACTION REQUIRED** to enable in GitHub settings (not enabled in Phase 4D) |
 | PGP / alternative | **OWNER DECISION REQUIRED** |
 | Supported versions (once public) | **OWNER DECISION REQUIRED** |
 | Target first response | **OWNER DECISION REQUIRED** |

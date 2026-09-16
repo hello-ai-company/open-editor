@@ -13,7 +13,7 @@
 | Personal AI consumer baseline | `c2bd73f80ddb2752215acc01d78d26322068fcae` |
 | Personal AI migration | **Done** (consumer uses published `@hello-ai-company/editor-core`; this repo does not modify personal-ai) |
 | Local `editorCore` | **Retired** (SoT is `packages/core` in this private workspace) |
-| Ticket | ENG-20260913-007 Phase 4C / PA-20260916-003 |
+| Ticket | ENG-20260913-007 Phase 4D / PA-20260916-004 |
 
 Approved source files only (original extract):
 
@@ -54,9 +54,16 @@ Approved source files only (original extract):
 ## Phase 4C owner OSS policy (docs only)
 
 - Recorded OWNER-CONFIRMED free-OSS + optional-sponsorship philosophy (`docs/owner-oss-policy.md`)
-- License **recommendation** only: PRIMARY MIT / FALLBACK Apache-2.0 (`docs/license-recommendation.md`) — **not applied**
-- Decision matrix: philosophy rows CONFIRMED; D2/D3/D6/D11/D19 and execution gates remain PENDING
-- **Not** a public OSS release. No FUNDING.yml, no Sponsors configuration, no license files changed.
+- License **recommendation** only at that time: PRIMARY MIT / FALLBACK Apache-2.0 — **not applied**
+
+## Phase 4D release-gate closure (docs only)
+
+- OWNER-SELECTED FUTURE LICENSE = **MIT**; **APPLIED TO LICENSE FILES NO**
+- D3 / D6 / D11 / D19 classified honestly and **not** closed
+- D1-EXEC **PENDING EXECUTION AUTHORIZATION**
+- Companions: `docs/release-gate-closure.md`, `docs/chain-of-title-evidence.md`, `docs/npm-publication-readiness.md`, `docs/security-release-gate.md`, `docs/public-release-change-map.md`
+- **CORE SOURCE CHANGE REQUIRED: NO**
+- **Not** a public OSS release. No FUNDING.yml, no Sponsors, no LICENSE file changes, no npm register, no security-setting changes.
 
 ## History
 
@@ -64,7 +71,7 @@ This repository has fresh history only. The source repository was not imported a
 
 ## Publish / visibility
 
-Not authorized for public release, npmjs publish, tags, GitHub Releases, or merging a public release. Manual private GitHub Packages publish remains `workflow_dispatch` only and is not triggered by Phase 4C docs.
+Not authorized for public release, npmjs publish, tags, GitHub Releases, or merging a public release. Manual private GitHub Packages publish remains `workflow_dispatch` only and is not triggered by Phase 4D docs.
 
 ## Gate results (local)
 
@@ -79,4 +86,4 @@ Not authorized for public release, npmjs publish, tags, GitHub Releases, or merg
 | isolated consumer install + typecheck + runtime | PASS |
 | API contract (installed tarball) | PASS |
 | security scan (`src` + `dist` + tarball) | PASS (0 production vulnerabilities) |
-| git history | fresh only: Initial commit → baseline → Phase 2 extract → Phase 3 publish prep → Phase 4A readiness → Phase 4B decision package |
+| git history | fresh only: Initial commit → baseline → Phase 2 extract → Phase 3 publish prep → Phase 4A readiness → Phase 4B decision package → Phase 4C OSS policy → Phase 4D gate closure (docs) |
