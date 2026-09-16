@@ -19,7 +19,7 @@ This repository is a private, internal extraction workspace for a standalone edi
 - JSON serialization
 - optional provider seams
 
-See `docs/architecture.md`, `docs/providers.md`, `docs/public-api.md`, `docs/versioning.md`, `docs/security-boundary.md`, `docs/public-release-checklist.md`, and `docs/extraction-status.md`.
+See `docs/architecture.md`, `docs/providers.md`, `docs/public-api.md`, `docs/versioning.md`, `docs/security-boundary.md`, `docs/public-release-checklist.md`, `docs/extraction-status.md`, `docs/owner-oss-policy.md`, and `docs/public-release-decision.md`.
 
 ## Local gates
 

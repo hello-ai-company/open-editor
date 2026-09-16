@@ -118,4 +118,4 @@ Would require, at minimum:
 4. Update `AUTHORIZED_LICENSE` in `scripts/lib/tarball.mjs` and tests/scripts that assert `UNLICENSED`
 5. Optional NOTICE, per-file headers, CLA/DCO
 
-That work is **LICENSE APPLICATION REQUIRED** and is **out of scope for Phase 4B**.
+That work is **LICENSE APPLICATION REQUIRED** and is **out of scope for Phase 4C**. See [license-recommendation.md](./license-recommendation.md) (PRIMARY MIT / FALLBACK Apache-2.0 — **not applied**).

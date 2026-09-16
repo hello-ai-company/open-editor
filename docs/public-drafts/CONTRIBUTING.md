@@ -61,4 +61,6 @@ Choose one before accepting external PRs:
 2. Do not include `dist/` churn unless the change is a release PR in an authorized phase.
 3. Do not publish, tag, or change `packages/core/package.json` identity fields unless the PR is explicitly that authorized release.
 
-Issue and PR templates are recommended in `docs/repository-governance.md` and are **not** installed in `.github/` in Phase 4B.
+Issue and PR templates are recommended in `docs/repository-governance.md` and are **not** installed in `.github/` in Phase 4C.
+
+Sponsorship, if later offered, is **optional** and is never a condition of contributing. See the Support section in [README.md](./README.md). `.github/FUNDING.yml` is absent until **SPONSOR LINK — OWNER SETUP REQUIRED** is resolved.

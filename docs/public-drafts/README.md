@@ -64,6 +64,14 @@ Public runtime and type lists: see `docs/public-api.md` in this repository (priv
 
 Drafts: [CONTRIBUTING.md](./CONTRIBUTING.md), [SECURITY.md](./SECURITY.md). Security contact is **OWNER DECISION REQUIRED**.
 
+## Support (optional)
+
+Using, modifying, forking, self-hosting, and commercially using this core is intended to stay **free** (subject to the eventual license). **Payment is never required.**
+
+If the owner later offers voluntary GitHub Sponsors or donations, that support would help sustain maintenance only. Sponsorship **does not** unlock exclusive core functionality, paid feature flags, Cloud/Enterprise SKUs, or a commercial plugin.
+
+**SPONSOR LINK — OWNER SETUP REQUIRED.** No approved destination exists yet. Do not treat any URL as official. `.github/FUNDING.yml` is **intentionally absent** until the owner supplies a real, approved link.
+
 ## License
 
 **Not selected.** Live files `LICENSE` and `packages/core/LICENSE` remain proprietary `UNLICENSED`. This draft must not be copied to the repo root until an owner applies an SPDX license in an authorized phase.

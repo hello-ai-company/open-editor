@@ -4,7 +4,7 @@
 
 Comparison of **future** naming and registry choices for `@hello-ai-company/editor-core`. This phase does **not** rename the package, register an npm organization, change `publishConfig`, or publish.
 
-Owner decisions: **D5, D6, D7, D8, D10** in [public-release-decision.md](./public-release-decision.md) — all **PENDING**.
+Owner decisions: **D5, D6, D7, D8, D10** in [public-release-decision.md](./public-release-decision.md) — still **PENDING** (not applied). Phase 4C **recommendation** (evaluate only): keep `@hello-ai-company/editor-core` on **npmjs.org** at first public version **`0.1.0`**.
 
 ## Current authorized distribution
 
@@ -29,6 +29,13 @@ Owner decisions: **D5, D6, D7, D8, D10** in [public-release-decision.md](./publi
 | Rename required? | **No**, if that npm scope is owned and the owner wants this brand |
 
 Non-binding lean: **A**, after D6 confirms npm org ownership.
+
+**NPM SCOPE OWNERSHIP — OWNER ACTION REQUIRED.** Phase 4C read-only registry probes:
+
+- `GET https://registry.npmjs.org/@hello-ai-company%2feditor-core` → 404
+- `GET https://registry.npmjs.org/-/org/hello-ai-company` → org does not exist
+
+GitHub org `hello-ai-company` does **not** reserve the npm scope. Do **not** register the org in this phase.
 
 ### B. Unscoped `editor-core`
 
@@ -79,10 +86,10 @@ In-repo files that would need a later authorized identity/registry update (not d
 | Candidate | Fit |
 | --- | --- |
 | `0.0.0-phase3.e17b4b5` | Internal Phase 3 prerelease. **Do not** use as the public OSS debut. |
-| `0.1.0` | Signals usable but evolving (provider types are experimental). Reasonable default. |
+| `0.1.0` | Signals usable but evolving (provider types are experimental). **Recommended first public version** (0.x early). Not applied. |
 | `1.0.0` | Signals stable runtime/document contract. Higher semver expectation. |
 
-**OWNER DECISION PENDING (D8).** `publish-gate.test.ts` currently forbids `0.1.0` and `1.0.0` **for the frozen private package**. Those strings become eligible only after an authorized identity change in a later phase.
+**OWNER DECISION PENDING (D8).** Engineering recommendation: **`0.1.0`**. `publish-gate.test.ts` currently forbids `0.1.0` and `1.0.0` **for the frozen private package**. Those strings become eligible only after an authorized identity change in a later phase.
 
 ## Provenance and trusted publishing (recommend only)
 
