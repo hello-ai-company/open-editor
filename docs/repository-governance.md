@@ -2,7 +2,7 @@
 
 **PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
 
-Recommendations for a **future** public OSS posture. **No GitHub settings, branch protection, secrets, visibility, or workflow files were changed in Phase 4B.**
+Recommendations for a **future** public OSS posture. **No GitHub settings, branch protection, secrets, visibility, Sponsors, or workflow files were changed in Phase 4C.**
 
 Related drafts: [public-drafts/README.md](./public-drafts/README.md), [public-drafts/CONTRIBUTING.md](./public-drafts/CONTRIBUTING.md), [public-drafts/SECURITY.md](./public-drafts/SECURITY.md).
 
@@ -19,10 +19,11 @@ Related drafts: [public-drafts/README.md](./public-drafts/README.md), [public-dr
 | Dependabot | Missing |
 | Publish | `publish-private-core.yml` on `workflow_dispatch` only; `--access restricted --provenance=false` |
 | Security contact | **None** — **SECURITY CONTACT — OWNER DECISION REQUIRED** |
+| Funding | **No** `.github/FUNDING.yml` — **SPONSOR LINK — OWNER SETUP REQUIRED** |
 
 ## File checklist vs typical public OSS
 
-| Artifact | Now | Recommendation when public is authorized | Apply in 4B? |
+| Artifact | Now | Recommendation when public is authorized | Apply in 4C? |
 | --- | --- | --- | --- |
 | Root README | Private banner | Replace with reviewed `docs/public-drafts/README.md` | NO |
 | LICENSE (OSS) | Proprietary UNLICENSED | Apply selected SPDX | NO |
@@ -34,6 +35,7 @@ Related drafts: [public-drafts/README.md](./public-drafts/README.md), [public-dr
 | `.github/pull_request_template.md` | Absent | Checklist: verify, no identity edits | NO |
 | `.github/dependabot.yml` | Absent | npm + GitHub Actions | NO |
 | GitHub Security Policy UI | Unset | Point at SECURITY.md + private reporting | NO |
+| `.github/FUNDING.yml` | Absent | Add **only** with a real owner-approved sponsor URL | NO |
 
 ## CI recommendations
 
@@ -55,7 +57,7 @@ Related drafts: [public-drafts/README.md](./public-drafts/README.md), [public-dr
 6. When Phase 4A workflow is retired, **merge** its PR coverage into `ci.yml` first or PRs lose CI.
 7. Optional later: `npm audit` / OSV **in addition to** `scripts/security-scan.mjs` (leakage scan is not a CVE scanner substitute).
 
-Phase 4B CI: documentation-only. Do not expand workflow branch lists unless a later authorized phase says so.
+Phase 4C CI: documentation-only. Do not expand workflow branch lists unless a later authorized phase says so.
 
 ## Branch protection (recommend only — do not click settings)
 
@@ -72,15 +74,16 @@ For `main` after public authorization:
 | Restrict who can edit rules | Separate from everyday maintainers |
 | Signed commits | Optional |
 
-Unknown current protection is fine for a private extraction repo; **do not change settings in Phase 4B**.
+Unknown current protection is fine for a private extraction repo; **do not change settings in Phase 4C**.
 
 ## Permissions and secrets
 
-| Item | Phase 4B |
+| Item | Phase 4C |
 | --- | --- |
 | Repository visibility | Stay PRIVATE |
 | `GITHUB_TOKEN` packages write | Only on the existing dispatch publish workflow |
 | npmjs trusted publisher / `NPM_TOKEN` | **Do not configure** |
+| GitHub Sponsors / FUNDING.yml | **Do not configure**; no fake URLs |
 | Environments / required reviewers for publish | Recommend for a future public publish workflow; **do not add now** |
 
 ## Code of Conduct / community
@@ -95,4 +98,4 @@ Recommend a CoC before external contributors. Selection of text (Contributor Cov
 - D14 CI unification
 - D17 promoting drafts to root
 
-Until D1 (public authorization) is yes, keep the private README banners.
+Until D1-EXEC (public execution authorization) is yes, keep the private README banners. Optional Support wording lives only in `docs/public-drafts/README.md`.

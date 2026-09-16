@@ -13,7 +13,7 @@
 | Personal AI consumer baseline | `c2bd73f80ddb2752215acc01d78d26322068fcae` |
 | Personal AI migration | **Done** (consumer uses published `@hello-ai-company/editor-core`; this repo does not modify personal-ai) |
 | Local `editorCore` | **Retired** (SoT is `packages/core` in this private workspace) |
-| Ticket | ENG-20260913-007 Phase 4A / PA-20260916-001 |
+| Ticket | ENG-20260913-007 Phase 4C / PA-20260916-003 |
 
 Approved source files only (original extract):
 
@@ -49,7 +49,14 @@ Approved source files only (original extract):
 - Provider contract lives in `packages/core/contracts/provider-contract.json`
 - Isolated consumer typechecks and executes create / serialize / deserialize
 - Tarball allowlist / denylist and src+dist+tarball security scan
-- **Not** a public OSS release. No version bump, tag, Release, license selection, or visibility change.
+- **Not** a public OSS release. No version bump, tag, Release, license **application**, or visibility change.
+
+## Phase 4C owner OSS policy (docs only)
+
+- Recorded OWNER-CONFIRMED free-OSS + optional-sponsorship philosophy (`docs/owner-oss-policy.md`)
+- License **recommendation** only: PRIMARY MIT / FALLBACK Apache-2.0 (`docs/license-recommendation.md`) — **not applied**
+- Decision matrix: philosophy rows CONFIRMED; D2/D3/D6/D11/D19 and execution gates remain PENDING
+- **Not** a public OSS release. No FUNDING.yml, no Sponsors configuration, no license files changed.
 
 ## History
 
@@ -57,7 +64,7 @@ This repository has fresh history only. The source repository was not imported a
 
 ## Publish / visibility
 
-Not authorized for public release, npmjs publish, tags, GitHub Releases, or a public PR. Manual private GitHub Packages publish remains `workflow_dispatch` only and is not triggered by Phase 4A CI.
+Not authorized for public release, npmjs publish, tags, GitHub Releases, or merging a public release. Manual private GitHub Packages publish remains `workflow_dispatch` only and is not triggered by Phase 4C docs.
 
 ## Gate results (local)
 
@@ -72,4 +79,4 @@ Not authorized for public release, npmjs publish, tags, GitHub Releases, or a pu
 | isolated consumer install + typecheck + runtime | PASS |
 | API contract (installed tarball) | PASS |
 | security scan (`src` + `dist` + tarball) | PASS (0 production vulnerabilities) |
-| git history | fresh only: Initial commit → baseline → Phase 2 extract → Phase 3 publish prep → Phase 4A readiness |
+| git history | fresh only: Initial commit → baseline → Phase 2 extract → Phase 3 publish prep → Phase 4A readiness → Phase 4B decision package |

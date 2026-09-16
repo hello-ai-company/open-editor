@@ -2,24 +2,24 @@
 
 **PRIVATE EXTRACTION WORKSPACE — NOT AUTHORIZED FOR PUBLIC RELEASE**
 
-Human-gated plan for a **possible** private→public transition of `@hello-ai-company/editor-core`. **Phase 4B must not execute any step below.** Every destructive or legally binding action has a **HUMAN GATE**. Do not check items in [public-release-checklist.md](./public-release-checklist.md) from this runbook.
+Human-gated plan for a **possible** private→public transition of `@hello-ai-company/editor-core`. **Phase 4C must not execute any step below.** Every destructive or legally binding action has a **HUMAN GATE**. Do not check license-application / visibility / publish items in [public-release-checklist.md](./public-release-checklist.md) from this runbook.
 
-Companion: [public-release-decision.md](./public-release-decision.md) (all Owner Decisions **PENDING**).
+Companion: [public-release-decision.md](./public-release-decision.md). Philosophy rows (D1, D20–D25) are OWNER-CONFIRMED; execution (D1-EXEC, D2 application, D9, D18, …) remains **PENDING**.
 
 ## Preconditions (already true; not a release)
 
-Private Phase 4A readiness on `c87bf79b7454079bb31b31e283c53747aca43c08`:
+Private readiness on `origin/main` `4633bcb57852a73a973475f8fc23b336ccabb6a6` (Phase 4A gates unchanged; Phase 4B/4C docs only):
 
 - SoT `packages/core`; API + provider contracts; tarball inspect; isolated consumer; security scan; identity lock `@hello-ai-company/editor-core@0.0.0-phase3.e17b4b5` `UNLICENSED` on `npm.pkg.github.com`
 - `personal-ai` consumer baseline (docs only): `c2bd73f80ddb2752215acc01d78d26322068fcae` — **do not edit that repo from here**
 
 These gates **do not** authorize npmjs, tags, Releases, license application, or visibility change.
 
-## Stop — do not start these from Phase 4B
+## Stop — do not start these from Phase 4C
 
 | Action | Gate |
 | --- | --- |
-| Make the GitHub repository public | HUMAN GATE — D1 + D9 |
+| Make the GitHub repository public | HUMAN GATE — D1-EXEC + D9 |
 | Apply MIT/Apache/GPL/other to `LICENSE` / package.json | HUMAN GATE — D2 (**LICENSE APPLICATION REQUIRED** as a later phase) |
 | Rename package or repository | HUMAN GATE — D5/D10 |
 | Register npm org / unscoped name | HUMAN GATE — D6 |
@@ -36,12 +36,12 @@ These gates **do not** authorize npmjs, tags, Releases, license application, or 
 
 Do not perform the list. It exists so an owner can see coupling.
 
-1. **HUMAN GATE:** Written D1 approval (ticket/email). Stop if missing.
+1. **HUMAN GATE:** Written **D1-EXEC** approval (ticket/email) to execute public actions. D1 intent YES is **not** enough. Stop if missing.
 2. **HUMAN GATE:** D19 chain-of-title for the `personal-ai` extract. Stop if legal is not satisfied.
 3. **HUMAN GATE:** D2 license + D3 copyright holder. Stop — do not apply files until both are explicit.
 4. **HUMAN GATE:** D11 security contact filled; then a real root `SECURITY.md`. Stop if contact is still “REQUIRED”.
 5. **HUMAN GATE:** D5/D6 name + npm org; D7 registry; D8 first public version string. Stop if any is PENDING.
-6. Engineering (later phase, not 4B): update `AUTHORIZED_*`, tests, workflows, docs banners; run `npm ci && npm run verify`.
+6. Engineering (later phase, **not 4C**): update `AUTHORIZED_*`, tests, workflows, docs banners; run `npm ci && npm run verify`.
 7. **HUMAN GATE:** Confirm verify + identity gates match the **new** identity (never republish `0.0.0-phase3.e17b4b5` under a new license/registry).
 8. **HUMAN GATE:** Publish command (new workflow or dispatch). Treat npmjs publish as **largely irreversible** (unpublish is not a rollback plan).
 9. **HUMAN GATE:** Repository visibility (D9). Prefer publishing a licensed package **before** or **with** visibility change so the public tree is not `UNLICENSED` + public-by-accident.
@@ -73,9 +73,9 @@ Baseline: `c2bd73f80ddb2752215acc01d78d26322068fcae` already consumes the **priv
 | personal-ai pointed at npmjs | Revert **in personal-ai** to the GH Packages pin. Not this repo. |
 | Identity gates loosened | Revert git on `open-editor` to restore `AUTHORIZED_*` = current private identity. |
 
-## Destructive-step checklist (all remain NO in Phase 4B)
+## Destructive-step checklist (all remain NO in Phase 4C)
 
-| Step | Executed in 4B |
+| Step | Executed in 4C |
 | --- | --- |
 | Make public | NO |
 | Apply license | NO |
@@ -87,9 +87,11 @@ Baseline: `c2bd73f80ddb2752215acc01d78d26322068fcae` already consumes the **priv
 | GitHub Release | NO |
 | Edit personal-ai | NO |
 | Change protection/secrets | NO |
+| Configure GitHub Sponsors | NO |
+| Add `.github/FUNDING.yml` | NO |
 
-## Phase 4C
+## Phase 4D / public release
 
-Do **not** start Phase 4C from this runbook. Next line after owner review of the decision package:
+Do **not** start Phase 4D or any public release from this runbook. Phase 4C only recorded OSS philosophy and a license **recommendation**. Next:
 
-**STOP — READY FOR OWNER RELEASE DECISION REVIEW**
+**STOP — READY FOR OWNER LICENSE / RELEASE-GATE REVIEW**
