@@ -7,10 +7,14 @@ import {
   createInlineContentSpec,
   createStyleSpec
 } from "@blocknote/core";
-import { createOpenEditorBlockNoteSchema } from "../src/schema/createOpenEditorBlockNoteSchema.js";
+import {
+  createOpenEditorBlockNoteSchema,
+  createPowerSchema
+} from "../src/schema/createOpenEditorBlockNoteSchema.js";
 
 type Expect<T extends true> = T;
 type Extends<A, B> = A extends B ? true : false;
+type IsNever<T> = [T] extends [never] ? true : false;
 
 const defaultSchema = createOpenEditorBlockNoteSchema();
 type DefaultBlockType = (typeof defaultSchema.Block)["type"];
@@ -83,6 +87,39 @@ type _StillHasText = Expect<Extends<"text", ExtendedInlineType>>;
 type _HasCustomStyle = Expect<Extends<"myHighlight", ExtendedStyleType>>;
 type _StillHasBold = Expect<Extends<"bold", ExtendedStyleType>>;
 
+/** Flag contract: unknown envelope disabled — type must not claim oeUnknownBlock. */
+const withoutUnknown = createPowerSchema({
+  includeUnknownEnvelope: false
+});
+type WithoutUnknownBlockType = (typeof withoutUnknown.Block)["type"];
+type _WithoutUnknownHasCallout = Expect<Extends<"callout", WithoutUnknownBlockType>>;
+type _WithoutUnknownHasStatus = Expect<Extends<"status", WithoutUnknownBlockType>>;
+type _WithoutUnknownHasNoEnvelope = Expect<
+  IsNever<Extract<WithoutUnknownBlockType, "oeUnknownBlock">>
+>;
+
+/**
+ * Flag contract: power blocks off + host inline/style —
+ * custom keys stay fully typed (not dropped to loose BlockNoteSchema.create).
+ */
+const powerOffCustom = createOpenEditorBlockNoteSchema({
+  includePowerBlocks: false,
+  inlineContentSpecs: {
+    myMention: myInlineContent
+  },
+  styleSpecs: {
+    myHighlight: myStyle
+  }
+});
+type PowerOffBlockType = (typeof powerOffCustom.Block)["type"];
+type PowerOffInlineType = keyof typeof powerOffCustom.inlineContentSchema;
+type PowerOffStyleType = keyof typeof powerOffCustom.styleSchema;
+
+type _PowerOffHasUnknown = Expect<Extends<"oeUnknownBlock", PowerOffBlockType>>;
+type _PowerOffNoCallout = Expect<IsNever<Extract<PowerOffBlockType, "callout">>>;
+type _PowerOffHasMention = Expect<Extends<"myMention", PowerOffInlineType>>;
+type _PowerOffHasHighlight = Expect<Extends<"myHighlight", PowerOffStyleType>>;
+
 void 0 as unknown as _HasCallout;
 void 0 as unknown as _HasStatus;
 void 0 as unknown as _HasUnknown;
@@ -93,3 +130,10 @@ void 0 as unknown as _HasCustomInline;
 void 0 as unknown as _StillHasText;
 void 0 as unknown as _HasCustomStyle;
 void 0 as unknown as _StillHasBold;
+void 0 as unknown as _WithoutUnknownHasCallout;
+void 0 as unknown as _WithoutUnknownHasStatus;
+void 0 as unknown as _WithoutUnknownHasNoEnvelope;
+void 0 as unknown as _PowerOffHasUnknown;
+void 0 as unknown as _PowerOffNoCallout;
+void 0 as unknown as _PowerOffHasMention;
+void 0 as unknown as _PowerOffHasHighlight;

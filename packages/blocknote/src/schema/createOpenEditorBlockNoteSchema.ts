@@ -47,6 +47,16 @@ type HostSpecs<
   styleSpecs?: SSpecs;
 };
 
+type HostSpecOptions<
+  BSpecs extends BlockSpecs,
+  ISpecs extends AdditionalInlineContentSpecs,
+  SSpecs extends StyleSpecs
+> = {
+  blockSpecs?: BSpecs;
+  inlineContentSpecs?: ISpecs;
+  styleSpecs?: SSpecs;
+};
+
 function assertNoReservedCollisions(extraKeys: readonly string[]): void {
   for (const key of extraKeys) {
     if (RESERVED_TYPES.has(key)) {
@@ -68,21 +78,74 @@ function createDefaultPowerSchema() {
   });
 }
 
-/**
- * Power blocks + host block / inline / style specs — all three go through .extend().
- */
+/** callout + status + oeUnknownBlock + host specs */
 function createPowerSchemaWithExtras<
   BSpecs extends BlockSpecs,
   ISpecs extends AdditionalInlineContentSpecs,
   SSpecs extends StyleSpecs
 >(extras: HostSpecs<BSpecs, ISpecs, SSpecs>) {
+  return BlockNoteSchema.create()
+    .extend({
+      blockSpecs: {
+        oeUnknownBlock: createUnknownEnvelopeBlockSpec(),
+        callout: createCalloutBlockSpec(),
+        status: createStatusBlockSpec()
+      }
+    })
+    .extend({
+      blockSpecs: extras.blockSpecs,
+      inlineContentSpecs: extras.inlineContentSpecs,
+      styleSpecs: extras.styleSpecs
+    });
+}
+
+/** callout + status + host specs — no oeUnknownBlock */
+function createPowerSchemaWithoutUnknown<
+  BSpecs extends BlockSpecs,
+  ISpecs extends AdditionalInlineContentSpecs,
+  SSpecs extends StyleSpecs
+>(extras: HostSpecs<BSpecs, ISpecs, SSpecs>) {
+  return BlockNoteSchema.create()
+    .extend({
+      blockSpecs: {
+        callout: createCalloutBlockSpec(),
+        status: createStatusBlockSpec()
+      }
+    })
+    .extend({
+      blockSpecs: extras.blockSpecs,
+      inlineContentSpecs: extras.inlineContentSpecs,
+      styleSpecs: extras.styleSpecs
+    });
+}
+
+/** oeUnknownBlock + host specs — no callout/status */
+function createUnknownEnvelopeSchemaWithExtras<
+  BSpecs extends BlockSpecs,
+  ISpecs extends AdditionalInlineContentSpecs,
+  SSpecs extends StyleSpecs
+>(extras: HostSpecs<BSpecs, ISpecs, SSpecs>) {
+  return BlockNoteSchema.create()
+    .extend({
+      blockSpecs: {
+        oeUnknownBlock: createUnknownEnvelopeBlockSpec()
+      }
+    })
+    .extend({
+      blockSpecs: extras.blockSpecs,
+      inlineContentSpecs: extras.inlineContentSpecs,
+      styleSpecs: extras.styleSpecs
+    });
+}
+
+/** Host specs only (no power blocks, no unknown envelope) */
+function createHostOnlySchemaWithExtras<
+  BSpecs extends BlockSpecs,
+  ISpecs extends AdditionalInlineContentSpecs,
+  SSpecs extends StyleSpecs
+>(extras: HostSpecs<BSpecs, ISpecs, SSpecs>) {
   return BlockNoteSchema.create().extend({
-    blockSpecs: {
-      oeUnknownBlock: createUnknownEnvelopeBlockSpec(),
-      callout: createCalloutBlockSpec(),
-      status: createStatusBlockSpec(),
-      ...(extras.blockSpecs ?? ({} as BSpecs))
-    },
+    blockSpecs: extras.blockSpecs,
     inlineContentSpecs: extras.inlineContentSpecs,
     styleSpecs: extras.styleSpecs
   });
@@ -102,31 +165,60 @@ function hasHostExtras(
 export function createOpenEditorBlockNoteSchema(): ReturnType<typeof createDefaultPowerSchema>;
 
 /**
- * When power/unknown defaults are turned off — looser return typing.
- * Listed before the precise generic overload so `includePowerBlocks: false` resolves here.
- */
-export function createOpenEditorBlockNoteSchema(
-  options: SchemaFlags & {
-    blockSpecs?: BlockSpecs;
-    inlineContentSpecs?: AdditionalInlineContentSpecs;
-    styleSpecs?: StyleSpecs;
-  } & ({ includePowerBlocks: false } | { includeUnknownEnvelope: false })
-): ReturnType<typeof BlockNoteSchema.create>;
-
-/**
- * Power schema + custom blockSpecs / inlineContentSpecs / styleSpecs.
- * All provided specs are passed to BlockNoteSchema.extend (not ignored).
- * Precise inference when power blocks stay enabled (default).
+ * Power blocks on, unknown envelope off.
+ * Typed without `oeUnknownBlock`.
  */
 export function createOpenEditorBlockNoteSchema<
   BSpecs extends BlockSpecs = Record<string, never>,
   ISpecs extends AdditionalInlineContentSpecs = Record<string, never>,
   SSpecs extends StyleSpecs = Record<string, never>
 >(
-  options: {
-    blockSpecs?: BSpecs;
-    inlineContentSpecs?: ISpecs;
-    styleSpecs?: SSpecs;
+  options: HostSpecOptions<BSpecs, ISpecs, SSpecs> & {
+    includeUnknownEnvelope: false;
+    includePowerBlocks?: true;
+  }
+): ReturnType<typeof createPowerSchemaWithoutUnknown<BSpecs, ISpecs, SSpecs>>;
+
+/**
+ * Both power blocks and unknown envelope off — host extras only.
+ * Listed before the power-off/unknown-on overload so both-false resolves here.
+ */
+export function createOpenEditorBlockNoteSchema<
+  BSpecs extends BlockSpecs = Record<string, never>,
+  ISpecs extends AdditionalInlineContentSpecs = Record<string, never>,
+  SSpecs extends StyleSpecs = Record<string, never>
+>(
+  options: HostSpecOptions<BSpecs, ISpecs, SSpecs> & {
+    includePowerBlocks: false;
+    includeUnknownEnvelope: false;
+  }
+): ReturnType<typeof createHostOnlySchemaWithExtras<BSpecs, ISpecs, SSpecs>>;
+
+/**
+ * Unknown envelope on, power blocks off.
+ * Typed with host inline/style/block extras; no callout/status.
+ */
+export function createOpenEditorBlockNoteSchema<
+  BSpecs extends BlockSpecs = Record<string, never>,
+  ISpecs extends AdditionalInlineContentSpecs = Record<string, never>,
+  SSpecs extends StyleSpecs = Record<string, never>
+>(
+  options: HostSpecOptions<BSpecs, ISpecs, SSpecs> & {
+    includePowerBlocks: false;
+    includeUnknownEnvelope?: true;
+  }
+): ReturnType<typeof createUnknownEnvelopeSchemaWithExtras<BSpecs, ISpecs, SSpecs>>;
+
+/**
+ * Full power schema + custom blockSpecs / inlineContentSpecs / styleSpecs.
+ * All provided specs are passed to BlockNoteSchema.extend.
+ */
+export function createOpenEditorBlockNoteSchema<
+  BSpecs extends BlockSpecs = Record<string, never>,
+  ISpecs extends AdditionalInlineContentSpecs = Record<string, never>,
+  SSpecs extends StyleSpecs = Record<string, never>
+>(
+  options: HostSpecOptions<BSpecs, ISpecs, SSpecs> & {
     includePowerBlocks?: true;
     includeUnknownEnvelope?: true;
   }
@@ -164,60 +256,52 @@ export function createOpenEditorBlockNoteSchema(
     return createPowerSchemaWithExtras(extras);
   }
 
-  const base = BlockNoteSchema.create();
-  const hostInline = extras.inlineContentSpecs;
-  const hostStyles = extras.styleSpecs;
-  const hostBlocks = extras.blockSpecs ?? {};
-
   if (includeUnknownEnvelope && !includePowerBlocks) {
-    return base.extend({
-      blockSpecs: {
-        oeUnknownBlock: createUnknownEnvelopeBlockSpec(),
-        ...hostBlocks
-      },
-      inlineContentSpecs: hostInline,
-      styleSpecs: hostStyles
-    });
+    return createUnknownEnvelopeSchemaWithExtras(extras);
   }
 
   if (!includeUnknownEnvelope && includePowerBlocks) {
-    return base.extend({
-      blockSpecs: {
-        callout: createCalloutBlockSpec(),
-        status: createStatusBlockSpec(),
-        ...hostBlocks
-      },
-      inlineContentSpecs: hostInline,
-      styleSpecs: hostStyles
-    });
+    return createPowerSchemaWithoutUnknown(extras);
   }
 
+  // neither power nor unknown
   if (!hasHostExtras(extras)) {
-    return base;
+    return BlockNoteSchema.create();
   }
-
-  return base.extend({
-    blockSpecs: Object.keys(hostBlocks).length > 0 ? hostBlocks : undefined,
-    inlineContentSpecs: hostInline,
-    styleSpecs: hostStyles
-  });
+  return createHostOnlySchemaWithExtras(extras);
 }
 
 export type OpenEditorBlockNoteSchema = ReturnType<typeof createDefaultPowerSchema>;
 
 /** Alias used by Agent E / power preset. Always includes callout + status. */
 export function createPowerSchema(): ReturnType<typeof createDefaultPowerSchema>;
+
+/**
+ * Power blocks without unknown envelope — type excludes `oeUnknownBlock`.
+ */
 export function createPowerSchema<
   BSpecs extends BlockSpecs = Record<string, never>,
   ISpecs extends AdditionalInlineContentSpecs = Record<string, never>,
   SSpecs extends StyleSpecs = Record<string, never>
 >(
-  options: SchemaFlags & {
-    blockSpecs?: BSpecs;
-    inlineContentSpecs?: ISpecs;
-    styleSpecs?: SSpecs;
+  options: HostSpecOptions<BSpecs, ISpecs, SSpecs> & {
+    includeUnknownEnvelope: false;
+  }
+): ReturnType<typeof createPowerSchemaWithoutUnknown<BSpecs, ISpecs, SSpecs>>;
+
+/**
+ * Full power schema (callout + status + oeUnknownBlock) + optional host specs.
+ */
+export function createPowerSchema<
+  BSpecs extends BlockSpecs = Record<string, never>,
+  ISpecs extends AdditionalInlineContentSpecs = Record<string, never>,
+  SSpecs extends StyleSpecs = Record<string, never>
+>(
+  options: HostSpecOptions<BSpecs, ISpecs, SSpecs> & {
+    includeUnknownEnvelope?: true;
   }
 ): ReturnType<typeof createPowerSchemaWithExtras<BSpecs, ISpecs, SSpecs>>;
+
 // Implementation signature is intentionally wide; overloads provide precise caller types.
 export function createPowerSchema(
   options?: SchemaFlags & {
@@ -227,20 +311,21 @@ export function createPowerSchema(
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any {
-  if (options?.includeUnknownEnvelope === false) {
-    return createOpenEditorBlockNoteSchema({
-      ...options,
-      includePowerBlocks: true,
-      includeUnknownEnvelope: false
-    });
-  }
-  return createOpenEditorBlockNoteSchema({
+  const extras: HostSpecs<BlockSpecs, AdditionalInlineContentSpecs, StyleSpecs> = {
     blockSpecs: options?.blockSpecs,
     inlineContentSpecs: options?.inlineContentSpecs,
-    styleSpecs: options?.styleSpecs,
-    includePowerBlocks: true,
-    includeUnknownEnvelope: true
-  });
+    styleSpecs: options?.styleSpecs
+  };
+  if (extras.blockSpecs) {
+    assertNoReservedCollisions(Object.keys(extras.blockSpecs));
+  }
+  if (options?.includeUnknownEnvelope === false) {
+    return createPowerSchemaWithoutUnknown(extras);
+  }
+  if (!hasHostExtras(extras)) {
+    return createDefaultPowerSchema();
+  }
+  return createPowerSchemaWithExtras(extras);
 }
 
 export type PowerEditorOptions<Schema extends OpenEditorBlockNoteSchema = OpenEditorBlockNoteSchema> = {
