@@ -6,6 +6,7 @@ import { createDocumentIndex } from "../src/index/documentIndex.js";
 import { createDocumentOutline } from "../src/index/outline.js";
 import type { OpenEditorBlockChange } from "../src/bridge/batchedSink.js";
 import type { EditorBlock } from "@hello-ai-company/editor-core";
+import { createBlockChangeBridge } from "../src/bridge/createBlockChangeBridge.js";
 
 function block(
   id: string,
@@ -36,53 +37,117 @@ describe("DocumentIndex", () => {
     expect(index.getById("h1")?.headingLevel).toBe(1);
   });
 
-  it("applies insert/update/delete/move incrementally", () => {
+  it("inserts mid-document using prevSiblingId (not append)", () => {
     const index = createDocumentIndex();
     index.replaceFromBlocks([
       block("a", "paragraph", "A"),
       block("b", "paragraph", "B")
     ]);
 
-    const insert: OpenEditorBlockChange = {
-      type: "insert",
-      blockId: "c",
-      block: block("c", "paragraph", "C"),
-      source: "local",
-      indexHint: 1
-    };
-    index.applyChanges([insert]);
-    expect(index.list().map((e) => e.blockId)).toContain("c");
+    index.applyChanges([
+      {
+        type: "insert",
+        blockId: "c",
+        block: block("c", "paragraph", "C"),
+        source: "local",
+        parentId: null,
+        prevSiblingId: "a",
+        nextSiblingId: "b"
+      }
+    ]);
+    expect(index.list().map((e) => e.blockId)).toEqual(["a", "c", "b"]);
+  });
 
-    const update: OpenEditorBlockChange = {
-      type: "update",
-      blockId: "a",
-      block: block("a", "heading", "Alpha", { level: 1 }),
-      prevBlock: block("a", "paragraph", "A"),
-      source: "local"
-    };
-    index.applyChanges([update]);
+  it("inserts nested children under parent", () => {
+    const index = createDocumentIndex();
+    index.replaceFromBlocks([block("parent", "bulletListItem", "Parent")]);
+    index.applyChanges([
+      {
+        type: "insert",
+        blockId: "child",
+        block: block("child", "paragraph", "Child"),
+        source: "local",
+        parentId: "parent",
+        prevSiblingId: null,
+        nextSiblingId: null
+      }
+    ]);
+    expect(index.getById("child")?.parentId).toBe("parent");
+    expect(index.list().map((e) => e.blockId)).toEqual(["parent", "child"]);
+  });
+
+  it("indexes nested subtree on insert and cascades delete", () => {
+    const index = createDocumentIndex();
+    index.replaceFromBlocks([block("a", "paragraph", "A")]);
+    index.applyChanges([
+      {
+        type: "insert",
+        blockId: "parent",
+        block: block("parent", "bulletListItem", "P", undefined, [
+          block("kid", "paragraph", "K")
+        ]),
+        source: "local",
+        parentId: null,
+        prevSiblingId: "a"
+      }
+    ]);
+    expect(index.getById("kid")?.parentId).toBe("parent");
+    expect(index.list().map((e) => e.blockId)).toEqual(["a", "parent", "kid"]);
+
+    index.applyChanges([
+      {
+        type: "delete",
+        blockId: "parent",
+        block: block("parent", "bulletListItem", "P"),
+        source: "local"
+      }
+    ]);
+    expect(index.getById("parent")).toBeUndefined();
+    expect(index.getById("kid")).toBeUndefined();
+    expect(index.list().map((e) => e.blockId)).toEqual(["a"]);
+  });
+
+  it("moves using sibling anchors without appending to end", () => {
+    const index = createDocumentIndex();
+    index.replaceFromBlocks([
+      block("a", "paragraph", "A"),
+      block("b", "paragraph", "B"),
+      block("c", "paragraph", "C")
+    ]);
+
+    index.applyChanges([
+      {
+        type: "move",
+        blockId: "c",
+        block: block("c", "paragraph", "C"),
+        prevBlock: block("c", "paragraph", "C"),
+        source: "local",
+        currentParentId: null,
+        parentId: null,
+        prevSiblingId: null,
+        nextSiblingId: "a"
+      }
+    ]);
+    expect(index.list().map((e) => e.blockId)).toEqual(["c", "a", "b"]);
+  });
+
+  it("applies update and bumps revision for subscribers", () => {
+    const index = createDocumentIndex();
+    index.replaceFromBlocks([block("a", "paragraph", "A")]);
+    const revs: number[] = [];
+    index.subscribe(() => revs.push(index.getRevision()));
+
+    index.applyChanges([
+      {
+        type: "update",
+        blockId: "a",
+        block: block("a", "heading", "Alpha", { level: 1 }),
+        prevBlock: block("a", "paragraph", "A"),
+        source: "local"
+      }
+    ]);
     expect(index.getById("a")?.type).toBe("heading");
-    expect(index.getById("a")?.headingLevel).toBe(1);
-
-    const move: OpenEditorBlockChange = {
-      type: "move",
-      blockId: "b",
-      block: block("b", "paragraph", "B"),
-      prevBlock: block("b", "paragraph", "B"),
-      source: "local",
-      currentParentId: null
-    };
-    index.applyChanges([move]);
-    expect(index.getById("b")).toBeTruthy();
-
-    const del: OpenEditorBlockChange = {
-      type: "delete",
-      blockId: "c",
-      block: block("c", "paragraph", "C"),
-      source: "local"
-    };
-    index.applyChanges([del]);
-    expect(index.getById("c")).toBeUndefined();
+    expect(revs.length).toBeGreaterThan(0);
   });
 
   it("builds nested outline from headings", () => {
@@ -127,5 +192,72 @@ describe("DocumentIndex", () => {
     ]);
     expect(replaceSpy).not.toHaveBeenCalled();
     expect(index.getById("p1")?.text).toContain("y");
+  });
+});
+
+describe("bridge → DocumentIndex integration", () => {
+  it("maps insert anchors from editor getPrev/getNext/getParent and preserves order", () => {
+    const blocks = {
+      a: { id: "a", type: "paragraph", content: "A" },
+      b: { id: "b", type: "paragraph", content: "B" },
+      c: { id: "c", type: "paragraph", content: "C" }
+    };
+
+    type FakeEditor = {
+      onChange: (
+        cb: (
+          editor: FakeEditor,
+          ctx: { getChanges: () => unknown[] }
+        ) => void
+      ) => () => void;
+      getParentBlock: (block: { id: string }) => undefined;
+      getPrevBlock: (block: { id: string }) => { id: string } | undefined;
+      getNextBlock: (block: { id: string }) => { id: string } | undefined;
+      _emit?: (
+        editor: FakeEditor,
+        ctx: { getChanges: () => unknown[] }
+      ) => void;
+    };
+
+    const editor: FakeEditor = {
+      onChange(cb) {
+        editor._emit = cb;
+        return () => undefined;
+      },
+      getParentBlock: () => undefined,
+      getPrevBlock: (block) => (block.id === "c" ? blocks.a : undefined),
+      getNextBlock: (block) => (block.id === "c" ? blocks.b : undefined)
+    };
+
+    const index = createDocumentIndex();
+    index.replaceFromBlocks([
+      block("a", "paragraph", "A"),
+      block("b", "paragraph", "B")
+    ]);
+
+    const bridge = createBlockChangeBridge({
+      batch: { strategy: "sync" },
+      toEditorBlock: (bn) => {
+        const id = (bn as { id: string }).id;
+        return block(id, "paragraph", id.toUpperCase());
+      },
+      onBatch: (batch) => {
+        index.applyChanges(batch.changes as OpenEditorBlockChange[]);
+      }
+    });
+    bridge.attach(editor as never);
+
+    editor._emit?.(editor, {
+      getChanges: () => [
+        {
+          type: "insert",
+          block: blocks.c,
+          prevBlock: undefined,
+          source: { type: "local" }
+        }
+      ]
+    });
+
+    expect(index.list().map((e) => e.blockId)).toEqual(["a", "c", "b"]);
   });
 });

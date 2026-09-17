@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -61,9 +61,10 @@ import {
   createDefaultPowerCommands,
   createCommandRegistry,
   createDocumentIndex,
-  createOpenEditorPowerPreset
+  createOpenEditorPowerPreset,
+  createDocumentOutline,
+  toPartialBlockCopy
 } from "@hello-ai-company/editor-blocknote";
-import { createDocumentOutline } from "@hello-ai-company/editor-blocknote";
 
 const doc = createEditorDocument([
   { id: "p1", type: "paragraph", content: [{ type: "text", text: "hi", styles: {} }] },
@@ -80,6 +81,14 @@ index.replaceFromBlocks([{ id: "h1", type: "heading", props: { level: 1 }, conte
 if (createDocumentOutline(index).length !== 1) throw new Error("outline failed");
 const preset = createOpenEditorPowerPreset();
 if (!preset.schema) throw new Error("preset missing");
+const copy = toPartialBlockCopy({
+  id: "x",
+  type: "callout",
+  props: { variant: "info" },
+  content: [{ type: "text", text: "a", styles: {} }]
+});
+if (copy.id) throw new Error("duplicate copy must drop id");
+if (copy.type !== "callout") throw new Error("duplicate copy lost type");
 console.log("isolated-blocknote-consumer base: ok");
 `
   );
@@ -122,27 +131,51 @@ function smokeOptional(dir, feature, peerPkg) {
     )
   );
 
+  const checks = {
+    math: `
+const types = Object.keys(preset.schema.blockSchema || {});
+if (!types.includes("mathBlock")) throw new Error("mathBlock missing: " + types.join(","));
+`,
+    diagram: `
+const types = Object.keys(preset.schema.blockSchema || {});
+if (!types.includes("diagram")) throw new Error("diagram missing: " + types.join(","));
+`,
+    code: `
+const options = preset.editorOptions();
+if (!options.extensions || options.extensions.length === 0) {
+  throw new Error("code feature extensions missing from editorOptions");
+}
+`
+  };
+
   const exportName = `create${feature[0].toUpperCase()}${feature.slice(1)}PowerFeature`;
 
   writeFileSync(
     join(dir, "smoke.mjs"),
     `
-import { readFileSync, existsSync } from "node:fs";
-const mathEntry = new URL("./node_modules/@hello-ai-company/editor-blocknote/dist/${feature}/index.js", import.meta.url);
-const path = mathEntry.pathname;
-if (!existsSync(path)) throw new Error("missing subpath file ${feature}: " + path);
-const source = readFileSync(path, "utf8");
-if (!source.includes("${exportName}")) {
-  throw new Error("missing ${exportName} in ${feature} entry");
+import { createOpenEditorPowerPreset } from "@hello-ai-company/editor-blocknote";
+import { ${exportName} } from "@hello-ai-company/editor-blocknote/${feature}";
+
+const feature = ${exportName}();
+if (!feature || feature.id !== "${feature}") {
+  throw new Error("feature factory failed: ${feature}");
 }
-const peerEntry = new URL("./node_modules/${peerPkg}/package.json", import.meta.url);
-if (!existsSync(peerEntry.pathname)) throw new Error("peer missing: ${peerPkg}");
+const preset = createOpenEditorPowerPreset({ features: [feature] });
+if (!preset.featureIds.includes("${feature}")) {
+  throw new Error("feature not registered on preset");
+}
+${checks[feature]}
 console.log("isolated-blocknote-consumer ${feature}: ok");
 `
   );
 
   run("npm", ["install", "--omit=dev", "--legacy-peer-deps"], dir);
-  run("node", ["smoke.mjs"], dir);
+  // Math/diagram pull katex/mermaid CSS side-effects — ignore .css in Node ESM.
+  run(
+    "node",
+    ["--import", join(root, "scripts/register-ignore-css.mjs"), "smoke.mjs"],
+    dir
+  );
 }
 
 const dir = mkdtempSync(join(tmpdir(), "oe-bn-consumer-"));

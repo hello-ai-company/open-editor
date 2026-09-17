@@ -1,10 +1,12 @@
 import type { EditorProviders } from "@hello-ai-company/editor-core";
+import type { DocumentIndex } from "../index/documentIndex.js";
 import type { PowerSeams } from "../seams/types.js";
 import {
   filterAndRankCommands,
   loadRecentCommandIds,
   rememberCommandId
 } from "./match.js";
+import { toPartialBlockCopy } from "./blockCopy.js";
 
 export type EditorCommandId = string;
 
@@ -36,6 +38,13 @@ export type EditorCommandContext = {
     focus?: () => void;
     getPrevBlock?: (block: unknown) => unknown;
     getNextBlock?: (block: unknown) => unknown;
+    getParentBlock?: (block: unknown) => unknown;
+    moveBlocksUp?: (blockIdentifier?: unknown) => void;
+    moveBlocksDown?: (blockIdentifier?: unknown) => void;
+    insertInlineContent?: (
+      content: unknown,
+      options?: { updateSelection?: boolean }
+    ) => void;
     transact: <T>(fn: () => T) => T;
     document?: unknown;
     domElement?: HTMLElement | null;
@@ -43,6 +52,15 @@ export type EditorCommandContext = {
   documentId?: string;
   providers?: EditorProviders;
   seams?: PowerSeams;
+  /** Shared per-editor document index for navigation / reference picking. */
+  documentIndex?: DocumentIndex;
+  /**
+   * Host/React opens a block picker and returns a target block id.
+   * Used by smart block references — must not default to the current block.
+   */
+  requestBlockPick?: (options?: {
+    excludeIds?: readonly string[];
+  }) => string | null | Promise<string | null>;
 };
 
 export type EditorCommand = {
@@ -305,26 +323,49 @@ export function createDefaultPowerCommands(): EditorCommand[] {
       aliases: ["ref", "link block", "mention block"],
       keywords: ["reference", "jump", "goto"],
       surfaces: ["slash", "palette"],
-      run: (ctx) => {
+      isEnabled: (ctx) =>
+        typeof ctx.requestBlockPick === "function" ||
+        Boolean(ctx.documentIndex)
+          ? true
+          : {
+              ok: false,
+              reason: "Block picker / document index not available"
+            },
+      run: async (ctx) => {
         const cursor = ctx.editor.getTextCursorPosition();
-        const block = cursor.block as { id?: string };
-        const targetId = block.id ?? "";
+        const currentId = (cursor.block as { id?: string }).id;
+        const exclude = currentId ? [currentId] : [];
+
+        let targetId: string | null = null;
+        if (ctx.requestBlockPick) {
+          targetId = await ctx.requestBlockPick({ excludeIds: exclude });
+        } else if (ctx.documentIndex) {
+          const hits = ctx.documentIndex.query({
+            query: "",
+            preferHeadings: true,
+            limit: 50
+          });
+          targetId =
+            hits.find((hit) => hit.blockId !== currentId)?.blockId ?? null;
+        }
+
+        if (!targetId || targetId === currentId) return;
+
+        const inline = {
+          type: "blockReference",
+          props: { blockId: targetId }
+        };
+
         ctx.editor.transact(() => {
-          ctx.editor.insertBlocks(
-            [
-              {
-                type: "paragraph",
-                content: [
-                  {
-                    type: "blockReference",
-                    props: { blockId: targetId }
-                  }
-                ]
-              }
-            ],
-            cursor.block,
-            "after"
-          );
+          if (typeof ctx.editor.insertInlineContent === "function") {
+            ctx.editor.insertInlineContent([inline]);
+          } else {
+            ctx.editor.insertBlocks(
+              [{ type: "paragraph", content: [inline] }],
+              cursor.block,
+              "after"
+            );
+          }
         });
       }
     }
@@ -341,13 +382,9 @@ export function createBlockActionCommands(): EditorCommand[] {
       surfaces: ["block-action", "palette"],
       run: (ctx) => {
         const cursor = ctx.editor.getTextCursorPosition();
-        const block = cursor.block as { id?: string; type?: string };
+        const partial = toPartialBlockCopy(cursor.block);
         ctx.editor.transact(() => {
-          ctx.editor.insertBlocks(
-            [{ type: block.type ?? "paragraph" }],
-            cursor.block,
-            "after"
-          );
+          ctx.editor.insertBlocks([partial], cursor.block, "after");
         });
       }
     },
@@ -371,18 +408,13 @@ export function createBlockActionCommands(): EditorCommand[] {
       title: "Move up",
       group: "document",
       surfaces: ["block-action", "palette"],
+      isEnabled: (ctx) =>
+        typeof ctx.editor.moveBlocksUp === "function"
+          ? true
+          : { ok: false, reason: "Editor cannot move blocks" },
       run: (ctx) => {
         const cursor = ctx.editor.getTextCursorPosition();
-        const prev = ctx.editor.getPrevBlock?.(cursor.block);
-        if (!prev) return;
-        ctx.editor.transact(() => {
-          ctx.editor.insertBlocks(
-            [{ type: (cursor.block as { type?: string }).type ?? "paragraph" }],
-            prev,
-            "before"
-          );
-          ctx.editor.removeBlocks?.([cursor.block]);
-        });
+        ctx.editor.moveBlocksUp?.(cursor.block);
       }
     },
     {
@@ -390,18 +422,13 @@ export function createBlockActionCommands(): EditorCommand[] {
       title: "Move down",
       group: "document",
       surfaces: ["block-action", "palette"],
+      isEnabled: (ctx) =>
+        typeof ctx.editor.moveBlocksDown === "function"
+          ? true
+          : { ok: false, reason: "Editor cannot move blocks" },
       run: (ctx) => {
         const cursor = ctx.editor.getTextCursorPosition();
-        const next = ctx.editor.getNextBlock?.(cursor.block);
-        if (!next) return;
-        ctx.editor.transact(() => {
-          ctx.editor.insertBlocks(
-            [{ type: (cursor.block as { type?: string }).type ?? "paragraph" }],
-            next,
-            "after"
-          );
-          ctx.editor.removeBlocks?.([cursor.block]);
-        });
+        ctx.editor.moveBlocksDown?.(cursor.block);
       }
     },
     {

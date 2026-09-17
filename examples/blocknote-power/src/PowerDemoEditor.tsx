@@ -9,6 +9,7 @@ import {
   useCreateBlockNote
 } from "@blocknote/react";
 import {
+  createBlockReferenceResolverFromIndex,
   createDocumentIndex,
   createOpenEditorPowerPreset,
   fromBlockNote,
@@ -22,16 +23,36 @@ import {
 import {
   BlockActionMenu,
   DocumentOutline,
+  jumpToBlock,
   QuickNav,
   useDocumentOutline,
   useQuickNavShortcut
 } from "@hello-ai-company/editor-blocknote/react";
 import { serializeEditorDocument } from "@hello-ai-company/editor-core";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { sampleDocument } from "./sampleDocument";
 
 export function PowerDemoEditor() {
-  const preset = useMemo(() => createOpenEditorPowerPreset(), []);
+  const index = useMemo(() => createDocumentIndex(), []);
+  const pickResolverRef = useRef<
+    ((blockId: string | null) => void) | null
+  >(null);
+  const [pickOpen, setPickOpen] = useState(false);
+  const [pickExclude, setPickExclude] = useState<readonly string[]>([]);
+
+  const preset = useMemo(
+    () =>
+      createOpenEditorPowerPreset({
+        blockReferenceRuntime: {
+          resolve: createBlockReferenceResolverFromIndex(index),
+          onNavigate: () => {
+            // wired to editor in effect below
+          }
+        }
+      }),
+    [index]
+  );
+
   const options = useMemo(() => preset.editorOptions(), [preset]);
   const initialContent = useMemo(
     () => toBlockNoteForSchema(sampleDocument, options.schema),
@@ -43,7 +64,15 @@ export function PowerDemoEditor() {
     initialContent: initialContent as never
   });
 
-  const index = useMemo(() => createDocumentIndex(), []);
+  // Keep reference navigate wired to the live editor
+  useEffect(() => {
+    preset.blockReferenceRuntime.onNavigate = (blockId) => {
+      jumpToBlock(editor as never, blockId);
+    };
+    preset.blockReferenceRuntime.resolve =
+      createBlockReferenceResolverFromIndex(index);
+  }, [editor, index, preset]);
+
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(true);
@@ -53,12 +82,25 @@ export function PowerDemoEditor() {
   const [json, setJson] = useState(() => serializeEditorDocument(sampleDocument));
   const [actionsOpen, setActionsOpen] = useState(false);
 
+  const requestBlockPick = useCallback(
+    (options?: { excludeIds?: readonly string[] }) => {
+      return new Promise<string | null>((resolve) => {
+        pickResolverRef.current = resolve;
+        setPickExclude(options?.excludeIds ?? []);
+        setPickOpen(true);
+      });
+    },
+    []
+  );
+
   const ctx = useMemo(
     () => ({
       editor: editor as never,
-      documentId: "demo"
+      documentId: "demo",
+      documentIndex: index,
+      requestBlockPick
     }),
-    [editor]
+    [editor, index, requestBlockPick]
   );
 
   const { nodes, jump } = useDocumentOutline({
@@ -92,6 +134,12 @@ export function PowerDemoEditor() {
       : theme === "dark"
         ? "dark"
         : "light";
+
+  const closePick = useCallback((blockId: string | null) => {
+    pickResolverRef.current?.(blockId);
+    pickResolverRef.current = null;
+    setPickOpen(false);
+  }, []);
 
   return (
     <div className="demo-shell" data-oe-theme={themeAttr}>
@@ -198,6 +246,85 @@ export function PowerDemoEditor() {
         index={index}
         editor={editor as never}
       />
+      <ReferencePicker
+        open={pickOpen}
+        index={index}
+        excludeIds={pickExclude}
+        onCancel={() => closePick(null)}
+        onPick={(blockId) => closePick(blockId)}
+      />
+    </div>
+  );
+}
+
+function ReferencePicker(props: {
+  open: boolean;
+  index: ReturnType<typeof createDocumentIndex>;
+  excludeIds: readonly string[];
+  onPick: (blockId: string) => void;
+  onCancel: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const revision = props.index.getRevision();
+  const hits = useMemo(() => {
+    void revision;
+    return props.index
+      .query({ query, preferHeadings: true, limit: 40 })
+      .filter((entry) => !props.excludeIds.includes(entry.blockId));
+  }, [props.index, props.excludeIds, query, revision]);
+
+  useEffect(() => {
+    if (!props.open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        props.onCancel();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [props]);
+
+  if (!props.open) return null;
+
+  return (
+    <div className="oe-overlay" role="presentation" onMouseDown={props.onCancel}>
+      <div
+        className="oe-quick-nav"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Insert block reference"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <input
+          className="oe-quick-nav__input"
+          autoFocus
+          placeholder="Pick a block to reference…"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <ul className="oe-quick-nav__list" role="listbox">
+          {hits.length === 0 ? (
+            <li className="oe-quick-nav__empty">No matching blocks</li>
+          ) : (
+            hits.map((entry) => (
+              <li key={entry.blockId} role="presentation">
+                <button
+                  type="button"
+                  className="oe-quick-nav__item"
+                  role="option"
+                  onClick={() => props.onPick(entry.blockId)}
+                >
+                  <span className="oe-quick-nav__type">{entry.type}</span>
+                  <span className="oe-quick-nav__text">
+                    {entry.text.trim() || entry.blockId}
+                  </span>
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
     </div>
   );
 }

@@ -10,16 +10,25 @@ export type OpenEditorChangeSource =
   | "yjs-remote"
   | "unknown";
 
+/** Sibling/parent anchors for incremental index placement (from BlockNote editor APIs). */
+export type OpenEditorChangeAnchors = {
+  parentId?: string | null;
+  /** Previous sibling id after the change (preferred placement anchor). */
+  prevSiblingId?: string | null;
+  /** Next sibling id after the change. */
+  nextSiblingId?: string | null;
+  /** Deprecated numeric hint — prefer sibling anchors. */
+  indexHint?: number;
+};
+
 export type OpenEditorBlockChange =
-  | {
+  | ({
       type: "insert" | "delete";
       blockId: string;
       block: EditorBlock;
       prevBlock?: undefined;
       source: OpenEditorChangeSource;
-      parentId?: string | null;
-      indexHint?: number;
-    }
+    } & OpenEditorChangeAnchors)
   | {
       type: "update";
       blockId: string;
@@ -27,7 +36,7 @@ export type OpenEditorBlockChange =
       prevBlock: EditorBlock;
       source: OpenEditorChangeSource;
     }
-  | {
+  | ({
       type: "move";
       blockId: string;
       block: EditorBlock;
@@ -35,7 +44,7 @@ export type OpenEditorBlockChange =
       source: OpenEditorChangeSource;
       prevParentId?: string | null;
       currentParentId?: string | null;
-    };
+    } & OpenEditorChangeAnchors);
 
 export type OpenEditorChangeBatch = {
   seq: number;

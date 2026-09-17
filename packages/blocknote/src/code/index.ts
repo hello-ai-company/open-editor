@@ -35,6 +35,7 @@ function codeCommands(): EditorCommand[] {
   ];
 }
 
+/** Code is extension-only — does not add a new block type to the schema. */
 export function createCodePowerFeature(): OpenEditorPowerFeature {
   return {
     id: "code",

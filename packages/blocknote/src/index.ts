@@ -74,6 +74,7 @@ export {
   createOpenEditorBlockNoteSchema,
   createPowerEditorOptions,
   createPowerSchema,
+  createPowerSchemaWithExtras,
   DEFAULT_POWER_TABLE_OPTIONS,
   type AdditionalInlineContentSpecs,
   type CreateOpenEditorBlockNoteSchemaOptions,
@@ -102,14 +103,21 @@ export {
 export {
   BLOCK_REFERENCE_TYPE,
   createBlockReferenceInlineContentSpec,
+  createBlockReferenceDom,
+  createBlockReferenceResolverFromIndex,
   formatBlockReferenceLabel,
   type BlockReferenceProps,
-  type BlockReferenceResolver
+  type BlockReferenceResolver,
+  type BlockReferenceRuntime,
+  type BlockReferenceSpecOptions
 } from "./references/blockReference.js";
 
 export {
   composePowerFeatures,
   type ComposedPowerFeatures,
+  type MergeFeatureBlockSpecs,
+  type MergeFeatureInlineSpecs,
+  type MergeFeatureStyleSpecs,
   type OpenEditorPowerFeature
 } from "./features/types.js";
 export {
@@ -117,6 +125,8 @@ export {
   type OpenEditorPowerPreset,
   type OpenEditorPowerPresetOptions
 } from "./features/compose.js";
+
+export { toPartialBlockCopy } from "./commands/blockCopy.js";
 
 export {
   createOpenEditorDictionary,

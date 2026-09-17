@@ -24,11 +24,14 @@ type BnBlockChange = {
 type BlockNoteEditorLike = {
   onChange: (
     callback: (
-      editor: unknown,
+      editor: BlockNoteEditorLike,
       ctx: { getChanges: () => BnBlockChange[] }
     ) => void,
     includeUpdatesFromRemote?: boolean
   ) => () => void;
+  getParentBlock?: (block: BlockLike | string) => BlockLike | undefined;
+  getPrevBlock?: (block: BlockLike | string) => BlockLike | undefined;
+  getNextBlock?: (block: BlockLike | string) => BlockLike | undefined;
 };
 
 export type BlockChangeBridgeOptions = {
@@ -66,21 +69,57 @@ function defaultMapSource(source: unknown): OpenEditorChangeSource {
   }
 }
 
+function blockIdOf(block: BlockLike | undefined): string | null {
+  if (!block || typeof block !== "object") return null;
+  const id = (block as { id?: unknown }).id;
+  return typeof id === "string" ? id : null;
+}
+
+/**
+ * Enrich insert/delete/move with parent + sibling anchors via BlockNote editor APIs.
+ * getChanges() itself does not include indexHint/parentId for insert/delete.
+ */
+function resolveAnchors(
+  editor: BlockNoteEditorLike | undefined,
+  block: BlockLike,
+  fallbackParentId?: string | null
+): {
+  parentId: string | null;
+  prevSiblingId: string | null;
+  nextSiblingId: string | null;
+} {
+  const parent =
+    editor?.getParentBlock?.(block) ??
+    (fallbackParentId !== undefined ? undefined : undefined);
+  const parentId =
+    blockIdOf(parent as BlockLike | undefined) ??
+    (fallbackParentId !== undefined ? fallbackParentId : null);
+  const prevSiblingId = blockIdOf(editor?.getPrevBlock?.(block));
+  const nextSiblingId = blockIdOf(editor?.getNextBlock?.(block));
+  return { parentId, prevSiblingId, nextSiblingId };
+}
+
 function mapOne(
   change: BnBlockChange,
   toEditorBlock: (bnBlock: unknown) => EditorBlock,
-  mapSource: (source: unknown) => OpenEditorChangeSource
+  mapSource: (source: unknown) => OpenEditorChangeSource,
+  editor?: BlockNoteEditorLike
 ): OpenEditorBlockChange {
   const source = mapSource(change.source);
   const block = toEditorBlock(change.block);
   const blockId = block.id;
 
   if (change.type === "insert" || change.type === "delete") {
+    // For delete, sibling/parent APIs may already exclude the block — still try.
+    const anchors = resolveAnchors(editor, change.block);
     return {
       type: change.type,
       blockId,
       block,
-      source
+      source,
+      parentId: anchors.parentId,
+      prevSiblingId: anchors.prevSiblingId,
+      nextSiblingId: anchors.nextSiblingId
     };
   }
 
@@ -96,14 +135,26 @@ function mapOne(
     };
   }
 
+  const anchors = resolveAnchors(
+    editor,
+    change.block,
+    change.currentParent ? blockIdOf(change.currentParent) : null
+  );
+
   return {
     type: "move",
     blockId,
     block,
     prevBlock: change.prevBlock ? toEditorBlock(change.prevBlock) : block,
     source,
-    prevParentId: change.prevParent?.id ?? null,
-    currentParentId: change.currentParent?.id ?? null
+    prevParentId: change.prevParent ? blockIdOf(change.prevParent) : null,
+    currentParentId:
+      change.currentParent != null
+        ? blockIdOf(change.currentParent)
+        : anchors.parentId,
+    parentId: anchors.parentId,
+    prevSiblingId: anchors.prevSiblingId,
+    nextSiblingId: anchors.nextSiblingId
   };
 }
 
@@ -136,7 +187,7 @@ export function createBlockChangeBridge(
       return lastSeq;
     },
     attach(editor) {
-      return editor.onChange((_ed, { getChanges }) => {
+      return editor.onChange((ed, { getChanges }) => {
         const changes = getChanges();
         if (changes.length === 0) {
           options.onDebugSkip?.("empty-changes");
@@ -153,7 +204,7 @@ export function createBlockChangeBridge(
         }
 
         const mapped = filtered.map((change) =>
-          mapOne(change, toEditorBlock, mapSource)
+          mapOne(change, toEditorBlock, mapSource, ed)
         );
         ownedSink.enqueue(mapped);
       }, includeUpdatesFromRemote);

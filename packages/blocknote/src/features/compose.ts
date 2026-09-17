@@ -1,6 +1,8 @@
+import type { BlockSpecs, StyleSpecs } from "@blocknote/core";
 import {
-  createOpenEditorBlockNoteSchema,
   createPowerEditorOptions,
+  createPowerSchemaWithExtras,
+  type AdditionalInlineContentSpecs,
   type CreateOpenEditorBlockNoteSchemaOptions,
   type PowerEditorOptions
 } from "../schema/createOpenEditorBlockNoteSchema.js";
@@ -12,31 +14,54 @@ import {
   type EditorCommand
 } from "../commands/registry.js";
 import {
-  createBlockReferenceInlineContentSpec
+  createBlockReferenceInlineContentSpec,
+  type BlockReferenceRuntime,
+  type BlockReferenceSpecOptions
 } from "../references/blockReference.js";
 import {
   composePowerFeatures,
+  type MergeFeatureBlockSpecs,
+  type MergeFeatureInlineSpecs,
+  type MergeFeatureStyleSpecs,
   type OpenEditorPowerFeature
 } from "./types.js";
 
-export type OpenEditorPowerPresetOptions = {
-  features?: readonly OpenEditorPowerFeature[];
-  /** Extra host schema — composed after features */
-  schema?: CreateOpenEditorBlockNoteSchemaOptions;
-  /** Extra commands beyond defaults + features */
+type RefInline = {
+  blockReference: ReturnType<typeof createBlockReferenceInlineContentSpec>;
+};
+
+export type OpenEditorPowerPresetOptions<
+  Features extends readonly OpenEditorPowerFeature<any, any, any>[] =
+    readonly OpenEditorPowerFeature[],
+  // IMPORTANT: default must NOT be Record<string, never> — intersecting that
+  // index signature collapses concrete feature keys to `never`.
+  HostB extends BlockSpecs = {},
+  HostI extends AdditionalInlineContentSpecs = {},
+  HostS extends StyleSpecs = {}
+> = {
+  features?: Features;
+  /**
+   * Extra host schema specs composed after features.
+   * Preset uses createPowerSchemaWithExtras for precise inference (power + unknown).
+   */
+  schema?: Pick<
+    CreateOpenEditorBlockNoteSchemaOptions<HostB, HostI, HostS>,
+    "blockSpecs" | "inlineContentSpecs" | "styleSpecs"
+  >;
   commands?: EditorCommand[];
   includeBlockActions?: boolean;
   includeBlockReference?: boolean;
+  blockReference?: BlockReferenceSpecOptions;
+  blockReferenceRuntime?: BlockReferenceRuntime;
   editor?: PowerEditorOptions;
 };
 
-export type OpenEditorPowerPreset = {
-  // Intentionally widened — feature composition varies by enabled features.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  schema: any;
+export type OpenEditorPowerPreset<Schema = unknown> = {
+  schema: Schema;
   registry: CommandRegistry;
-  extensions: unknown[];
+  extensions: import("@blocknote/core").ExtensionFactoryInstance[];
   featureIds: string[];
+  blockReferenceRuntime: BlockReferenceRuntime;
   editorOptions: (
     overrides?: PowerEditorOptions
   ) => ReturnType<typeof createPowerEditorOptions>;
@@ -44,56 +69,67 @@ export type OpenEditorPowerPreset = {
 
 /**
  * Ergonomic composition of power schema + optional features + commands.
+ * Uses createPowerSchemaWithExtras (non-overloaded) so schema.Block stays precise.
  */
-export function createOpenEditorPowerPreset(
-  options?: OpenEditorPowerPresetOptions
-): OpenEditorPowerPreset {
-  const composed = composePowerFeatures(options?.features ?? []);
+export function createOpenEditorPowerPreset<
+  const Features extends readonly OpenEditorPowerFeature<any, any, any>[] = [],
+  HostB extends BlockSpecs = {},
+  HostI extends AdditionalInlineContentSpecs = {},
+  HostS extends StyleSpecs = {}
+>(
+  options?: OpenEditorPowerPresetOptions<Features, HostB, HostI, HostS>
+) {
+  type MergedB = MergeFeatureBlockSpecs<Features> & HostB;
+  type MergedI = MergeFeatureInlineSpecs<Features> & HostI & RefInline;
+  type MergedS = MergeFeatureStyleSpecs<Features> & HostS;
+
+  const composed = composePowerFeatures(
+    (options?.features ?? []) as Features
+  );
   const includeRef = options?.includeBlockReference ?? true;
   const includeActions = options?.includeBlockActions ?? true;
 
-  const hostInline = {
-    ...(includeRef
-      ? { blockReference: createBlockReferenceInlineContentSpec() }
-      : {}),
+  const blockReferenceRuntime: BlockReferenceRuntime =
+    options?.blockReferenceRuntime ?? options?.blockReference?.runtime ?? {};
+
+  if (options?.blockReference) {
+    const br = options.blockReference;
+    if (br.resolve) blockReferenceRuntime.resolve = br.resolve;
+    if (br.onNavigate) blockReferenceRuntime.onNavigate = br.onNavigate;
+    if (br.missingLabel) blockReferenceRuntime.missingLabel = br.missingLabel;
+    if (br.untitledLabel) blockReferenceRuntime.untitledLabel = br.untitledLabel;
+  }
+
+  const refSpec = includeRef
+    ? ({
+        blockReference: createBlockReferenceInlineContentSpec({
+          ...options?.blockReference,
+          runtime: blockReferenceRuntime
+        })
+      } as RefInline)
+    : ({} as Record<string, never>);
+
+  const blockSpecs = {
+    ...composed.blockSpecs,
+    ...(options?.schema?.blockSpecs ?? {})
+  } as MergedB;
+
+  const inlineContentSpecs = {
+    ...refSpec,
     ...composed.inlineContentSpecs,
     ...(options?.schema?.inlineContentSpecs ?? {})
-  };
+  } as MergedI;
 
-  const includePowerBlocks = options?.schema?.includePowerBlocks;
-  const includeUnknownEnvelope = options?.schema?.includeUnknownEnvelope;
+  const styleSpecs = {
+    ...composed.styleSpecs,
+    ...(options?.schema?.styleSpecs ?? {})
+  } as MergedS;
 
-  const baseSchemaOptions = {
-    blockSpecs: {
-      ...composed.blockSpecs,
-      ...(options?.schema?.blockSpecs ?? {})
-    },
-    inlineContentSpecs: hostInline,
-    styleSpecs: {
-      ...composed.styleSpecs,
-      ...(options?.schema?.styleSpecs ?? {})
-    }
-  };
-
-  // Branch on flags so overload resolution stays sound (no boolean→true mismatch).
-  const schema =
-    includePowerBlocks === false && includeUnknownEnvelope === false
-      ? createOpenEditorBlockNoteSchema({
-          ...baseSchemaOptions,
-          includePowerBlocks: false,
-          includeUnknownEnvelope: false
-        })
-      : includePowerBlocks === false
-        ? createOpenEditorBlockNoteSchema({
-            ...baseSchemaOptions,
-            includePowerBlocks: false
-          })
-        : includeUnknownEnvelope === false
-          ? createOpenEditorBlockNoteSchema({
-              ...baseSchemaOptions,
-              includeUnknownEnvelope: false
-            })
-          : createOpenEditorBlockNoteSchema(baseSchemaOptions);
+  const schema = createPowerSchemaWithExtras<MergedB, MergedI, MergedS>({
+    blockSpecs,
+    inlineContentSpecs,
+    styleSpecs
+  });
 
   const commands: EditorCommand[] = [
     ...createDefaultPowerCommands(),
@@ -103,18 +139,27 @@ export function createOpenEditorPowerPreset(
   ];
 
   const registry = createCommandRegistry(commands);
+  const featureExtensions = composed.extensions;
+  const hostExtensions = options?.editor?.extensions ?? [];
 
   return {
     schema,
     registry,
-    extensions: composed.extensions,
+    extensions: [...featureExtensions, ...hostExtensions],
     featureIds: composed.featureIds,
-    editorOptions(overrides) {
+    blockReferenceRuntime,
+    editorOptions(overrides?: PowerEditorOptions) {
+      const overrideExtensions = overrides?.extensions ?? [];
       return createPowerEditorOptions({
         schema: schema as never,
         ...options?.editor,
-        ...overrides
+        ...overrides,
+        extensions: [
+          ...featureExtensions,
+          ...hostExtensions,
+          ...overrideExtensions
+        ]
       });
     }
-  };
+  } satisfies OpenEditorPowerPreset<typeof schema>;
 }

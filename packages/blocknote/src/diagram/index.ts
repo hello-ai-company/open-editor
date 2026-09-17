@@ -26,7 +26,9 @@ function diagramCommands(): EditorCommand[] {
   ];
 }
 
-export function createDiagramPowerFeature(): OpenEditorPowerFeature {
+export function createDiagramPowerFeature(): OpenEditorPowerFeature<
+  { diagram: ReturnType<typeof createReactDiagramBlockSpec> }
+> {
   return {
     id: "diagram",
     blockSpecs: {

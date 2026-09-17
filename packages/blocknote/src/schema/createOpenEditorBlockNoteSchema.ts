@@ -1,6 +1,7 @@
 import {
   BlockNoteSchema,
   type BlockSpecs,
+  type ExtensionFactoryInstance,
   type InlineContentConfig,
   type InlineContentSpec,
   type InlineContentSpecs,
@@ -78,12 +79,20 @@ function createDefaultPowerSchema() {
   });
 }
 
-/** callout + status + oeUnknownBlock + host specs */
-function createPowerSchemaWithExtras<
-  BSpecs extends BlockSpecs,
-  ISpecs extends AdditionalInlineContentSpecs,
-  SSpecs extends StyleSpecs
->(extras: HostSpecs<BSpecs, ISpecs, SSpecs>) {
+/** callout + status + oeUnknownBlock + host specs — typed without overload collapse */
+export function createPowerSchemaWithExtras<
+  BSpecs extends BlockSpecs = {},
+  ISpecs extends AdditionalInlineContentSpecs = {},
+  SSpecs extends StyleSpecs = {}
+>(extras: {
+  blockSpecs?: BSpecs;
+  inlineContentSpecs?: ISpecs;
+  styleSpecs?: SSpecs;
+}) {
+  // Pass concrete (non-undefined) bags into extend so BlockNote keeps BSpecs keys.
+  const blockSpecs = (extras.blockSpecs ?? {}) as BSpecs;
+  const inlineContentSpecs = (extras.inlineContentSpecs ?? {}) as ISpecs;
+  const styleSpecs = (extras.styleSpecs ?? {}) as SSpecs;
   return BlockNoteSchema.create()
     .extend({
       blockSpecs: {
@@ -93,9 +102,9 @@ function createPowerSchemaWithExtras<
       }
     })
     .extend({
-      blockSpecs: extras.blockSpecs,
-      inlineContentSpecs: extras.inlineContentSpecs,
-      styleSpecs: extras.styleSpecs
+      blockSpecs,
+      inlineContentSpecs,
+      styleSpecs
     });
 }
 
@@ -336,6 +345,8 @@ export type PowerEditorOptions<Schema extends OpenEditorBlockNoteSchema = OpenEd
     cellTextColor?: boolean;
     headers?: boolean;
   };
+  /** BlockNote editor extensions (e.g. syntaxHighlighter from /code). */
+  extensions?: ExtensionFactoryInstance[];
   uploadFile?: (file: File, blockId?: string) => Promise<string | Record<string, unknown>>;
   resolveFileUrl?: (url: string) => Promise<string>;
 };
@@ -360,6 +371,9 @@ export function createPowerEditorOptions<
       ...DEFAULT_POWER_TABLE_OPTIONS,
       ...overrides?.tables
     },
+    ...(overrides?.extensions && overrides.extensions.length > 0
+      ? { extensions: overrides.extensions }
+      : {}),
     ...(overrides?.uploadFile ? { uploadFile: overrides.uploadFile } : {}),
     ...(overrides?.resolveFileUrl ? { resolveFileUrl: overrides.resolveFileUrl } : {})
   };

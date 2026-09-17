@@ -36,6 +36,10 @@ export type DocumentIndex = {
   list: () => readonly DocumentIndexEntry[];
   query: (options: DocumentIndexQueryOptions) => DocumentIndexEntry[];
   size: () => number;
+  /** Monotonic revision — bumps on every structural/content change. */
+  getRevision: () => number;
+  /** Subscribe to revision bumps (for React external-store patterns). */
+  subscribe: (listener: () => void) => () => void;
 };
 
 type MutableEntry = DocumentIndexEntry;
@@ -61,21 +65,6 @@ function flattenBlocks(
       flattenBlocks(block.children, block.id, startOrder, out);
     }
   }
-}
-
-function entryFromBlock(
-  block: EditorBlock,
-  order: number,
-  parentId: string | null
-): MutableEntry {
-  return {
-    blockId: block.id,
-    type: block.type,
-    text: textFromBlock(block),
-    headingLevel: headingLevelFromBlock(block),
-    order,
-    parentId
-  };
 }
 
 function scoreEntry(
@@ -108,9 +97,78 @@ function scoreEntry(
     score += 40 - entry.headingLevel * 4;
   }
 
-  // Prefer earlier document order as a mild tie-break
   score -= entry.order * 0.001;
   return score;
+}
+
+function collectDescendantIds(
+  byId: Map<string, MutableEntry>,
+  rootId: string
+): Set<string> {
+  const ids = new Set<string>([rootId]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const entry of byId.values()) {
+      if (entry.parentId && ids.has(entry.parentId) && !ids.has(entry.blockId)) {
+        ids.add(entry.blockId);
+        grew = true;
+      }
+    }
+  }
+  return ids;
+}
+
+/**
+ * Resolve insertion order from sibling/parent anchors (preferred) or indexHint.
+ */
+function resolveInsertOrder(
+  byId: Map<string, MutableEntry>,
+  ordered: MutableEntry[],
+  change: {
+    parentId?: string | null;
+    prevSiblingId?: string | null;
+    nextSiblingId?: string | null;
+    indexHint?: number;
+  }
+): number {
+  if (change.prevSiblingId) {
+    const prev = byId.get(change.prevSiblingId);
+    if (prev) {
+      // After prev and its entire descendant subtree
+      const subtree = collectDescendantIds(byId, prev.blockId);
+      let maxOrder = prev.order;
+      for (const id of subtree) {
+        const entry = byId.get(id);
+        if (entry && entry.order > maxOrder) maxOrder = entry.order;
+      }
+      return maxOrder + 1;
+    }
+  }
+
+  if (change.nextSiblingId) {
+    const next = byId.get(change.nextSiblingId);
+    if (next) return next.order;
+  }
+
+  if (change.parentId) {
+    const parent = byId.get(change.parentId);
+    if (parent) {
+      const subtree = collectDescendantIds(byId, parent.blockId);
+      let maxOrder = parent.order;
+      for (const id of subtree) {
+        const entry = byId.get(id);
+        if (entry && entry.order > maxOrder) maxOrder = entry.order;
+      }
+      return maxOrder + 1;
+    }
+  }
+
+  if (typeof change.indexHint === "number") {
+    return change.indexHint;
+  }
+
+  return ordered.length;
 }
 
 /**
@@ -120,6 +178,13 @@ function scoreEntry(
 export function createDocumentIndex(): DocumentIndex {
   const byId = new Map<string, MutableEntry>();
   let ordered: MutableEntry[] = [];
+  let revision = 0;
+  const listeners = new Set<() => void>();
+
+  function notify(): void {
+    revision += 1;
+    for (const listener of listeners) listener();
+  }
 
   function reindexOrders(): void {
     ordered.sort((a, b) => a.order - b.order);
@@ -132,6 +197,41 @@ export function createDocumentIndex(): DocumentIndex {
     ordered = [...byId.values()].sort((a, b) => a.order - b.order);
   }
 
+  function shiftOrdersFrom(hint: number, delta: number): void {
+    for (const entry of byId.values()) {
+      if (entry.order >= hint) entry.order += delta;
+    }
+  }
+
+  function upsertBlockTree(
+    block: EditorBlock,
+    parentId: string | null,
+    startOrder: number
+  ): number {
+    // Remove existing subtree if re-inserting
+    if (byId.has(block.id)) {
+      removeSubtree(block.id);
+    }
+
+    const flat: MutableEntry[] = [];
+    flattenBlocks([block], parentId, { value: startOrder }, flat);
+    const span = flat.length;
+    shiftOrdersFrom(startOrder, span);
+    for (const entry of flat) {
+      byId.set(entry.blockId, entry);
+    }
+    return span;
+  }
+
+  function removeSubtree(rootId: string): number {
+    const ids = collectDescendantIds(byId, rootId);
+    let removed = 0;
+    for (const id of ids) {
+      if (byId.delete(id)) removed += 1;
+    }
+    return removed;
+  }
+
   const index: DocumentIndex = {
     replaceFromBlocks(blocks) {
       byId.clear();
@@ -141,31 +241,25 @@ export function createDocumentIndex(): DocumentIndex {
         byId.set(entry.blockId, entry);
       }
       ordered = flat;
+      notify();
     },
 
     applyChanges(changes) {
       if (changes.length === 0) return;
       let needsRebuild = false;
+      let contentOnly = false;
 
       for (const change of changes) {
         if (change.type === "delete") {
-          byId.delete(change.blockId);
+          removeSubtree(change.blockId);
           needsRebuild = true;
           continue;
         }
 
         if (change.type === "insert") {
-          const hint =
-            typeof change.indexHint === "number"
-              ? change.indexHint
-              : ordered.length;
+          const hint = resolveInsertOrder(byId, ordered, change);
           const parentId = change.parentId ?? null;
-          // Shift orders at/after insertion point
-          for (const entry of byId.values()) {
-            if (entry.order >= hint) entry.order += 1;
-          }
-          const entry = entryFromBlock(change.block, hint, parentId);
-          byId.set(entry.blockId, entry);
+          upsertBlockTree(change.block, parentId, hint);
           needsRebuild = true;
           continue;
         }
@@ -173,46 +267,110 @@ export function createDocumentIndex(): DocumentIndex {
         if (change.type === "update") {
           const existing = byId.get(change.blockId);
           if (!existing) {
-            const entry = entryFromBlock(
-              change.block,
-              ordered.length,
-              null
-            );
-            byId.set(entry.blockId, entry);
+            const hint = ordered.length;
+            upsertBlockTree(change.block, null, hint);
             needsRebuild = true;
           } else {
             existing.type = change.block.type;
             existing.text = textFromBlock(change.block);
             existing.headingLevel = headingLevelFromBlock(change.block);
+            // Nested children may have changed structurally — sync shallow children ids
+            if (change.block.children && change.block.children.length > 0) {
+              // Keep parent row; ensure children present (insert-only heal)
+              for (const child of change.block.children) {
+                if (!byId.has(child.id)) {
+                  const childOrder = resolveInsertOrder(byId, ordered, {
+                    parentId: change.blockId,
+                    prevSiblingId: null,
+                    nextSiblingId: null
+                  });
+                  upsertBlockTree(child, change.blockId, childOrder);
+                  needsRebuild = true;
+                } else {
+                  const childEntry = byId.get(child.id);
+                  if (childEntry) {
+                    childEntry.type = child.type;
+                    childEntry.text = textFromBlock(child);
+                    childEntry.headingLevel = headingLevelFromBlock(child);
+                    childEntry.parentId = change.blockId;
+                    contentOnly = true;
+                  }
+                }
+              }
+            }
+            contentOnly = true;
           }
           continue;
         }
 
         if (change.type === "move") {
           const existing = byId.get(change.blockId);
-          if (existing) {
-            existing.parentId = change.currentParentId ?? null;
-            existing.type = change.block.type;
-            existing.text = textFromBlock(change.block);
-            existing.headingLevel = headingLevelFromBlock(change.block);
-            // Place near end of siblings if we lack precise order — rebuild later
-            existing.order = ordered.length + 1;
+          const parentId =
+            change.currentParentId !== undefined
+              ? change.currentParentId
+              : (change.parentId ?? null);
+
+          if (!existing) {
+            const hint = resolveInsertOrder(byId, ordered, {
+              ...change,
+              parentId
+            });
+            upsertBlockTree(change.block, parentId, hint);
             needsRebuild = true;
-          } else {
-            const entry = entryFromBlock(
-              change.block,
-              ordered.length,
-              change.currentParentId ?? null
-            );
-            byId.set(entry.blockId, entry);
-            needsRebuild = true;
+            continue;
           }
+
+          // Lift subtree, reinsert at new anchor
+          const subtreeIds = collectDescendantIds(byId, change.blockId);
+          const subtreeEntries = ordered
+            .filter((entry) => subtreeIds.has(entry.blockId))
+            .map((entry) => ({ ...entry }));
+
+          for (const id of subtreeIds) {
+            byId.delete(id);
+          }
+          rebuildOrdered();
+          reindexOrders();
+
+          const hint = resolveInsertOrder(byId, ordered, {
+            ...change,
+            parentId
+          });
+          shiftOrdersFrom(hint, subtreeEntries.length);
+
+          // Reassign orders contiguously at hint; fix root parent
+          subtreeEntries.sort((a, b) => a.order - b.order);
+          subtreeEntries.forEach((entry, offset) => {
+            const next: MutableEntry = {
+              ...entry,
+              order: hint + offset,
+              parentId:
+                entry.blockId === change.blockId ? parentId : entry.parentId,
+              type:
+                entry.blockId === change.blockId
+                  ? change.block.type
+                  : entry.type,
+              text:
+                entry.blockId === change.blockId
+                  ? textFromBlock(change.block)
+                  : entry.text,
+              headingLevel:
+                entry.blockId === change.blockId
+                  ? headingLevelFromBlock(change.block)
+                  : entry.headingLevel
+            };
+            byId.set(next.blockId, next);
+          });
+          needsRebuild = true;
         }
       }
 
       if (needsRebuild) {
         rebuildOrdered();
         reindexOrders();
+        notify();
+      } else if (contentOnly) {
+        notify();
       }
     },
 
@@ -244,6 +402,17 @@ export function createDocumentIndex(): DocumentIndex {
 
     size() {
       return byId.size;
+    },
+
+    getRevision() {
+      return revision;
+    },
+
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
     }
   };
 

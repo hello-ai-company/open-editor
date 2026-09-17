@@ -34,6 +34,14 @@ function mathCommands(): EditorCommand[] {
       keywords: ["math", "inline"],
       surfaces: ["palette"],
       run: (ctx) => {
+        if (typeof ctx.editor.insertInlineContent === "function") {
+          ctx.editor.transact(() => {
+            ctx.editor.insertInlineContent?.([
+              { type: "math", content: "E=mc^2" }
+            ]);
+          });
+          return;
+        }
         const cursor = ctx.editor.getTextCursorPosition();
         ctx.editor.transact(() => {
           ctx.editor.insertBlocks(
@@ -52,7 +60,10 @@ function mathCommands(): EditorCommand[] {
   ];
 }
 
-export function createMathPowerFeature(): OpenEditorPowerFeature {
+export function createMathPowerFeature(): OpenEditorPowerFeature<
+  { mathBlock: ReturnType<typeof createReactMathBlockSpec> },
+  { math: ReturnType<typeof createReactInlineMathSpec> }
+> {
   return {
     id: "math",
     blockSpecs: {

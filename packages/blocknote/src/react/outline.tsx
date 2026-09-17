@@ -172,10 +172,17 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
+  const [revision, setRevision] = useState(() => props.index.getRevision());
+
+  useEffect(() => {
+    return props.index.subscribe(() => {
+      setRevision(props.index.getRevision());
+    });
+  }, [props.index]);
 
   const results = useMemo(() => {
     return props.index.query({ query, limit: 40, preferHeadings: true });
-  }, [props.index, query]);
+  }, [props.index, query, revision]);
 
   useEffect(() => {
     if (!props.open) return;
