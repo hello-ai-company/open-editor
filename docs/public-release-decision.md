@@ -32,7 +32,7 @@ Master companions: [public-release-runbook.md](./public-release-runbook.md), [fi
 | `packages/core/src/**` | frozen; **CORE SOURCE CHANGE REQUIRED: NO** | — |
 | Root workspace | `"private": true` (never publishable) | MACHINE-VERIFIED |
 
-Machine locks: `packages/core/package.json`, `scripts/lib/tarball.mjs` (`AUTHORIZED_*` = `0.1.0` / MIT / npmjs / public), `packages/core/test/publish-gate.test.ts`. Active non-publishing CI: `.github/workflows/ci.yml` and `.github/workflows/public-release-preflight.yml`. Active OIDC publish workflow: `.github/workflows/publish-public-core.yml` (prepare → Environment `public-npmjs` → publish; tokenless Trusted Publishing). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml).
+Machine locks: `packages/core/package.json`, `scripts/lib/tarball.mjs` (`AUTHORIZED_*` = `0.1.0` / MIT / npmjs / public), `packages/core/test/publish-gate.test.ts`, `scripts/release/validate-public-core-release.mjs` (fail-closed versions-list registry guard + artifact digest). Active non-publishing CI: `.github/workflows/ci.yml` and `.github/workflows/public-release-preflight.yml`. Active OIDC publish workflow: `.github/workflows/publish-public-core.yml` (R1: prepare packs tarball+digest → Environment `public-npmjs` → publish publishes tarball only under OIDC). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml).
 
 ## Companion documents
 

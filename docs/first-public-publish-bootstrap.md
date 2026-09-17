@@ -107,7 +107,7 @@ On the **existing** package: GitHub Actions Trusted Publisher for `hello-ai-comp
 
 ### 10. Subsequent releases via OIDC
 
-Later versions: active `.github/workflows/publish-public-core.yml` (prepare → Environment → publish; Node 24; `npm@^11`; `id-token: write` on publish job only; no token). Never auto-publish on push. Never republish `0.1.0`. First real `workflow_dispatch` requires a separate ChatGPT + human gate when package version is `0.1.1+`. Tag / GitHub Release for `v0.1.0` is already **PUBLISHED** — do not recreate.
+Later versions: active `.github/workflows/publish-public-core.yml` (R1: prepare → pack+SHA-256 artifact → Environment → minimal OIDC publish of the immutable tarball; Node 24; `npm@^11`; `id-token: write` on publish job only; no token; no `npm ci`/verify under OIDC). Registry guard uses fail-closed `npm view … versions --json` (must include `0.1.0`, must not include candidate). Never auto-publish on push. Never republish `0.1.0`. First real `workflow_dispatch` requires a separate ChatGPT + human gate when package version is `0.1.1+`, and **OWNER ACTION** to confirm Trusted Publisher Allowed actions permit direct `npm publish`. Tag / GitHub Release for `v0.1.0` is already **PUBLISHED** — do not recreate.
 
 ## Historical private line (immutable)
 

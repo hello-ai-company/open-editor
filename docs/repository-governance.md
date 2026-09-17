@@ -18,7 +18,7 @@ Public-facing files live at repo root (`README.md`, `CONTRIBUTING.md`, `SECURITY
 | Protect main | Ruleset **ACTIVE** (MACHINE-VERIFIED) |
 | Issue / PR templates | Missing (optional later) |
 | Dependabot | Missing |
-| Publish | Private GH Packages workflow **retired**. Active non-publishing `public-release-preflight.yml` (dry-run only). Active OIDC: `.github/workflows/publish-public-core.yml` (prepare → Environment `public-npmjs` → publish; production-ready candidate for `0.1.1+`). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml). Environment `public-npmjs` **CONFIGURED + PROTECTED** (MACHINE-VERIFIED) |
+| Publish | Private GH Packages workflow **retired**. Active non-publishing `public-release-preflight.yml` (dry-run only). Active OIDC: `.github/workflows/publish-public-core.yml` (R1: prepare packs immutable tarball+digest → Environment `public-npmjs` → publish job downloads/rechecks/publishes tarball only under `id-token`; production-ready candidate for `0.1.1+`). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml). Environment `public-npmjs` **CONFIGURED + PROTECTED** (MACHINE-VERIFIED) |
 | npm | `@hello-ai-company/editor-core@0.1.0` **PUBLISHED** (do not republish) |
 | Trusted Publisher | **OWNER-CONFIRMED CONFIGURED** |
 | Security contact | PVR **ENABLED** |

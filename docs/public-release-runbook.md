@@ -50,7 +50,8 @@ Completed path (historical procedure; do not re-run):
 Remaining:
 
 ```
-→ ChatGPT-independent review of production-ready publish workflow PR
+→ ChatGPT-independent review of production-ready publish workflow PR (#10, R1 hardened)
+→ OWNER: confirm Trusted Publisher Allowed actions includes direct npm publish
 → separate human gate before any workflow_dispatch for 0.1.1+ only
 → never republish 0.1.0; never dispatch while package.json is still 0.1.0
 ```
