@@ -2,33 +2,34 @@
 
 **INTERNAL EVIDENCE** — not a public product document.
 
-**Case:** ENG-20260913-007 Phase 4E R1 / PA-20260917-002 / post-D1-EXEC  
-Human-gated plan for remaining post-publish steps. Bootstrap visibility + npm `0.1.0` are **done**. Do not republish `0.1.0`. Do not create tag/Release from this document without a separate gate.
+**Case:** ENG-20260913-007 Phase 4E R1 / PA-20260917-002 / post-D1-EXEC / TP production-ready  
+Human-gated plan for remaining post-publish steps. Bootstrap visibility + npm `0.1.0` + tag/Release + Environment + Trusted Publisher are **done**. Do not republish `0.1.0`. Do not recreate or move tag/Release. Do not `workflow_dispatch` the publish workflow until a separate ChatGPT-reviewed gate.
 
 Companion: [public-release-decision.md](./public-release-decision.md), [first-public-publish-bootstrap.md](./first-public-publish-bootstrap.md).
 
 ## Current (post D1-EXEC)
 
-| Field | State |
-| --- | --- |
-| MIT | **APPLIED** |
-| `Copyright (c) 2026 Yuki Shibata` | **APPLIED** |
-| Version `0.1.0` | **PUBLISHED** on `https://registry.npmjs.org` |
-| Registry | npmjs **LIVE** |
-| Access | public **LIVE** |
-| Public README / SECURITY / CONTRIBUTING / CODEOWNERS | **PRESENT** |
-| Old private publish workflow (`publish-private-core.yml`) | **RETIRED** |
-| Repository visibility | **PUBLIC** |
-| npm publication | **YES** — `@hello-ai-company/editor-core@0.1.0` (immutable; do not republish) |
-| GitHub Private Vulnerability Reporting | **ENABLED** |
-| Protect main Ruleset | **ACTIVE** (PR required; conversation resolution; force-push/deletion blocked; required checks verify/preflight 20+22) |
-| D1-EXEC | **EXECUTED** through bootstrap publish of `0.1.0` |
-| Trusted Publisher / OIDC | **PENDING** (workflow foundation may land first; TP config after filename exists on default branch) |
-| GitHub Environment `public-npmjs` | **OWNER ACTION — create and protect BEFORE merging** the Trusted Publishing foundation workflow |
-| Tag / GitHub Release | **PENDING** |
-| READY FOR PUBLIC RELEASE PREPARATION | **DONE** (historical) |
-| READY TO REPUBLISH `0.1.0` | **NO** |
-| READY TO TAG / RELEASE `v0.1.0` | **NO** until separate gate |
+| Field | State | Verification |
+| --- | --- | --- |
+| MIT | **APPLIED** | MACHINE-VERIFIED |
+| `Copyright (c) 2026 Yuki Shibata` | **APPLIED** | MACHINE-VERIFIED |
+| Version `0.1.0` | **PUBLISHED** on `https://registry.npmjs.org` | MACHINE-VERIFIED |
+| Registry | npmjs **LIVE** | MACHINE-VERIFIED |
+| Access | public **LIVE** | MACHINE-VERIFIED |
+| Public README / SECURITY / CONTRIBUTING / CODEOWNERS | **PRESENT** | MACHINE-VERIFIED |
+| Old private publish workflow (`publish-private-core.yml`) | **RETIRED** | MACHINE-VERIFIED |
+| Repository visibility | **PUBLIC** | MACHINE-VERIFIED |
+| npm publication | **YES** — `@hello-ai-company/editor-core@0.1.0` (immutable; do not republish) | MACHINE-VERIFIED |
+| GitHub Private Vulnerability Reporting | **ENABLED** | MACHINE-VERIFIED |
+| Protect main Ruleset | **ACTIVE** (PR required; conversation resolution; force-push/deletion blocked; required checks verify/preflight 20+22) | MACHINE-VERIFIED |
+| D1-EXEC | **EXECUTED** through bootstrap publish of `0.1.0` | MACHINE-VERIFIED |
+| Trusted Publisher / OIDC | **OWNER-CONFIRMED CONFIGURED** (`publish-public-core.yml` + Environment `public-npmjs`) | OWNER-CONFIRMED |
+| GitHub Environment `public-npmjs` | **CONFIGURED + PROTECTED** (main only; no NPM_TOKEN) | MACHINE-VERIFIED; no token OWNER-CONFIRMED |
+| Tag / GitHub Release | **PUBLISHED** — `v0.1.0` → `ed59ae41ee4bd95ec01492415885f3ee2cdaaf0e`; `OpenEditor v0.1.0` | MACHINE-VERIFIED |
+| Future publish workflow | **production-ready candidate** for `0.1.1+` only | MACHINE-VERIFIED file |
+| READY FOR PUBLIC RELEASE PREPARATION | **DONE** (historical) | — |
+| READY TO REPUBLISH `0.1.0` | **NO** | — |
+| READY TO RETAG / RERELEASE `v0.1.0` | **NO** | — |
 
 Identity lock: `@hello-ai-company/editor-core@0.1.0` MIT, `publishConfig` `https://registry.npmjs.org` + `access: public`. Root workspace `"private": true`. **CORE SOURCE CHANGE REQUIRED: NO.**
 
@@ -36,15 +37,22 @@ Identity lock: `@hello-ai-company/editor-core@0.1.0` MIT, `publishConfig` `https
 
 ## Remaining execution (post-bootstrap)
 
-Canonical order is in [first-public-publish-bootstrap.md](./first-public-publish-bootstrap.md):
+Completed path (historical procedure; do not re-run):
 
 ```
 (D1-EXEC through npm 0.1.0 — DONE)
-→ owner creates + protects GitHub Environment public-npmjs (BEFORE foundation merge)
-→ land OIDC workflow under `.github/workflows/publish-public-core.yml` (merge foundation)
-→ configure npm Trusted Publisher (workflow filename must already exist on default branch)
-→ later reviewed PR enables real publish for future versions only
-→ tag / GitHub Release only after separate gate
+→ Environment public-npmjs created + protected (DONE)
+→ OIDC workflow landed under `.github/workflows/publish-public-core.yml` (DONE — foundation)
+→ npm Trusted Publisher configured (OWNER-CONFIRMED DONE)
+→ tag / GitHub Release v0.1.0 (DONE)
+```
+
+Remaining:
+
+```
+→ ChatGPT-independent review of production-ready publish workflow PR
+→ separate human gate before any workflow_dispatch for 0.1.1+ only
+→ never republish 0.1.0; never dispatch while package.json is still 0.1.0
 ```
 
 | Action | Gate | Now |
@@ -53,10 +61,11 @@ Canonical order is in [first-public-publish-bootstrap.md](./first-public-publish
 | Bootstrap `npm publish` of `0.1.0` (exactly once) | DONE | **YES** (immutable) |
 | Enable GitHub PVR | DONE | **YES** |
 | Protect main Ruleset | DONE | **ACTIVE** |
-| Create + protect Environment `public-npmjs` | **BEFORE** merging foundation workflow (avoid unprotected auto-create on first dispatch) | **NO — OWNER** |
-| Land workflow foundation under `.github/workflows/` | Before Trusted Publisher config (npm requires existing filename) | Draft foundation PR may be open |
-| Configure npm Trusted Publisher / OIDC | AFTER merge (filename on default branch); package already exists | **NO — OWNER after merge** |
-| Git tag / GitHub Release | Separate human gate after independent review | **NO** |
+| Create + protect Environment `public-npmjs` | DONE | **YES** (MACHINE-VERIFIED) |
+| Land workflow under `.github/workflows/` | DONE (foundation merged; production-ready redesign in review) | **YES** on `main` foundation; production-ready PR separate |
+| Configure npm Trusted Publisher / OIDC | DONE | **OWNER-CONFIRMED YES** |
+| Git tag / GitHub Release | DONE | **YES** — do not recreate |
+| Dispatch publish workflow | Separate ChatGPT + human gate; package must be `0.1.1+` | **NO** |
 | Edit `hello-ai-company/personal-ai` | Never from this repo | NO |
 | Modify `packages/core/src/**` for “release polish” | Out of scope | NO |
 | Re-enable retired GH Packages publish workflow | Forbidden | NO |
@@ -95,12 +104,12 @@ Baseline: `c2bd73f80ddb2752215acc01d78d26322068fcae` still may consume the **his
 | Write copyright into LICENSE | **YES** |
 | Prepare `0.1.0` + npmjs public metadata | **YES** |
 | Publish `0.1.0` to npmjs | **YES** (once; immutable) |
-| Tag | **NO** (pending separate gate) |
-| GitHub Release | **NO** (pending separate gate) |
+| Tag | **YES** — `v0.1.0` (do not recreate/move) |
+| GitHub Release | **YES** — `OpenEditor v0.1.0` published |
 | Enable PVR | **YES** |
 | Protect main | **YES** (Ruleset ACTIVE) |
-| Create Environment `public-npmjs` | **NO — OWNER before foundation merge** |
-| Configure Trusted Publisher | **NO — OWNER after foundation merge** |
+| Create Environment `public-npmjs` | **YES** (MACHINE-VERIFIED CONFIGURED + PROTECTED) |
+| Configure Trusted Publisher | **YES** (OWNER-CONFIRMED CONFIGURED) |
 | Edit personal-ai | NO |
 | Configure GitHub Sponsors | NO |
 | Add `.github/FUNDING.yml` | NO |
@@ -113,6 +122,6 @@ Also historical: Phase 4D.1 at `8d6b66a51219044e2e8a068443f11c7eb132beca` before
 
 ## Classification
 
-**Bootstrap publish DONE.** Remaining: Environment `public-npmjs` (before foundation merge), Trusted Publisher (after merge), tag/Release (separate gate).
+**Bootstrap publish DONE. Tag/Release DONE. Environment DONE. Trusted Publisher OWNER-CONFIRMED DONE.** Remaining: independent review + separate human gate before any production `workflow_dispatch` for **`0.1.1+` only**.
 
-**Do not treat `0.1.0` as unpublished.**
+**Do not treat `0.1.0` as unpublished. Do not dispatch publish while package version is still `0.1.0`.**

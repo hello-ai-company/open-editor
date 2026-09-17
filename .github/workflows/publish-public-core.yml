@@ -1,48 +1,61 @@
-# Active foundation for future npm Trusted Publishing (OIDC).
+# Production-ready manual OIDC publish path for FUTURE versions only (0.1.1+).
 #
-# Safe ordering (npm docs): this workflow filename must exist under
-# `.github/workflows/` BEFORE the owner configures npm Trusted Publisher.
-# Real publish remains DISABLED until Trusted Publisher is configured and a
-# later PR enables the publish step after independent review.
-# OWNER: create + protect GitHub Environment `public-npmjs` BEFORE merging
-# this workflow (do not rely on first workflow_dispatch auto-create).
+# Owner-confirmed external state (not re-verified by this file alone):
+# - GitHub Environment `public-npmjs` CONFIGURED + PROTECTED (main only; no NPM_TOKEN)
+# - npm Trusted Publisher CONFIGURED → GitHub Actions /
+#   hello-ai-company/open-editor / publish-public-core.yml / Environment public-npmjs
 #
-# Never:
-# - env.NODE_AUTH_TOKEN / secrets.NPM_TOKEN
-# - auto-publish on push or release
-# - republish 0.1.0
-# - republish 0.0.0-phase3.e17b4b5
-# - publish any version from this foundation PR
+# HARD RULES:
+# - workflow_dispatch ONLY (never push / pull_request / release / schedule)
+# - Never republish 0.1.0 or 0.0.0-phase3.e17b4b5
+# - Never use NPM_TOKEN / NODE_AUTH_TOKEN / long-lived npm credentials
+# - Do not rename this workflow file (Trusted Publisher binds to filename)
+# - Do not auto-cancel an in-progress release
+#
+# Architecture: prepare (no Environment, no OIDC) → human Environment approval →
+# publish (public-npmjs + id-token: write + TOCTOU recheck + tokenless npm publish)
 
 name: publish-public-core
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Exact package version to publish (must match packages/core/package.json)"
+        required: true
+        type: string
+      confirmation:
+        description: 'Type exactly: PUBLISH @hello-ai-company/editor-core@<version>'
+        required: true
+        type: string
+
+concurrency:
+  group: npm-public-core-publish
+  cancel-in-progress: false
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  publish:
+  prepare:
+    name: prepare
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # OWNER ACTION REQUIRED BEFORE MERGE: create + protect Environment
-    # `public-npmjs` (required reviewers when the plan permits). Do not merge
-    # this workflow until that Environment already exists and is protected.
-    environment: public-npmjs
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: npm
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false
 
       - name: Guarantee Trusted Publishing–capable npm
         run: npm install -g npm@^11
@@ -72,56 +85,91 @@ jobs:
       - name: Verify
         run: npm run verify
 
-      - name: Identity lock
-        run: |
-          node -e '
-            const { readFileSync } = require("fs");
-            const pkg = JSON.parse(readFileSync("packages/core/package.json", "utf8"));
-            if (pkg.name !== "@hello-ai-company/editor-core") {
-              console.error("STOP — unexpected package name:", pkg.name);
-              process.exit(1);
-            }
-            if (pkg.license !== "MIT") {
-              console.error("STOP — unexpected license:", pkg.license);
-              process.exit(1);
-            }
-            if (pkg.publishConfig?.registry !== "https://registry.npmjs.org") {
-              console.error("STOP — unexpected publishConfig.registry");
-              process.exit(1);
-            }
-            if (pkg.publishConfig?.access !== "public") {
-              console.error("STOP — unexpected publishConfig.access");
-              process.exit(1);
-            }
-            if (pkg.version === "0.1.0") {
-              console.error("STOP — 0.1.0 is already published; refuse republish");
-              process.exit(1);
-            }
-            if (pkg.version === "0.0.0-phase3.e17b4b5") {
-              console.error("STOP — historical phase3 version must never publish to npmjs");
-              process.exit(1);
-            }
-            console.log("Identity lock OK:", pkg.name + "@" + pkg.version);
-          '
-
-      - name: Refuse version already on registry
+      - name: Release guards (prepare)
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CONFIRMATION: ${{ inputs.confirmation }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           node <<'NODE'
           const { readFileSync } = require("fs");
           const { execSync } = require("child_process");
+
+          const EXPECTED_REPO = "hello-ai-company/open-editor";
+          const EXPECTED_NAME = "@hello-ai-company/editor-core";
+          const EXPECTED_LICENSE = "MIT";
+          const EXPECTED_REGISTRY = "https://registry.npmjs.org";
+          const EXPECTED_ACCESS = "public";
+          const EXPECTED_REF = "refs/heads/main";
+          const HISTORICAL = new Set(["0.1.0", "0.0.0-phase3.e17b4b5"]);
+
+          function stop(msg) {
+            console.error(msg);
+            process.exit(1);
+          }
+
+          if (process.env.GITHUB_REPOSITORY !== EXPECTED_REPO) {
+            stop("STOP — unexpected repository: " + process.env.GITHUB_REPOSITORY);
+          }
+          if (process.env.GITHUB_REF !== EXPECTED_REF) {
+            stop("STOP — main ref lock failed; github.ref must be refs/heads/main, got " + process.env.GITHUB_REF);
+          }
+
           const pkg = JSON.parse(readFileSync("packages/core/package.json", "utf8"));
-          const name = pkg.name;
-          const version = pkg.version;
-          const spec = `${name}@${version}`;
+          const inputVersion = String(process.env.INPUT_VERSION || "");
+          const confirmation = String(process.env.INPUT_CONFIRMATION || "");
+          const expectedConfirmation =
+            "PUBLISH @hello-ai-company/editor-core@" + inputVersion;
+
+          if (pkg.name !== EXPECTED_NAME) {
+            stop("STOP — unexpected package name: " + pkg.name);
+          }
+          if (pkg.license !== EXPECTED_LICENSE) {
+            stop("STOP — unexpected license: " + pkg.license);
+          }
+          if (pkg.publishConfig?.registry !== EXPECTED_REGISTRY) {
+            stop("STOP — unexpected publishConfig.registry");
+          }
+          if (pkg.publishConfig?.access !== EXPECTED_ACCESS) {
+            stop("STOP — unexpected publishConfig.access");
+          }
+
+          if (!inputVersion || pkg.version !== inputVersion) {
+            stop(
+              "STOP — RELEASE INPUT MISMATCH: input version " +
+                JSON.stringify(inputVersion) +
+                " != package.json " +
+                JSON.stringify(pkg.version)
+            );
+          }
+          if (confirmation !== expectedConfirmation) {
+            stop(
+              "STOP — RELEASE INPUT MISMATCH: confirmation must be exactly " +
+                JSON.stringify(expectedConfirmation)
+            );
+          }
+
+          if (HISTORICAL.has(pkg.version) || HISTORICAL.has(inputVersion)) {
+            stop(
+              "STOP — HISTORICAL VERSION MUST NEVER BE REPUBLISHED: " +
+                pkg.version
+            );
+          }
+
+          console.log(
+            "Identity + input + ref lock OK:",
+            pkg.name + "@" + pkg.version
+          );
+
+          const spec = `${pkg.name}@${pkg.version}`;
           let out = "";
-          let code = 0;
           try {
             out = execSync(
               `npm view ${JSON.stringify(spec)} version --registry=https://registry.npmjs.org`,
               { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }
             ).trim();
           } catch (err) {
-            code = typeof err.status === "number" ? err.status : 1;
             const stderr = String(err.stderr || err.message || "");
             if (
               /E404|404|Not found|not found|version not found|no matching version/i.test(
@@ -129,7 +177,7 @@ jobs:
               )
             ) {
               console.log(
-                "Registry guard OK — version not found (eligible for future publish):",
+                "Registry guard OK — version not found (eligible to publish):",
                 spec
               );
               process.exit(0);
@@ -138,7 +186,7 @@ jobs:
             console.error(stderr);
             process.exit(1);
           }
-          if (code === 0 && out) {
+          if (out) {
             console.error("STOP — VERSION ALREADY EXISTS:", spec, "→", out);
             process.exit(1);
           }
@@ -146,10 +194,171 @@ jobs:
           process.exit(1);
           NODE
 
-      # DISABLED until Trusted Publisher is configured, Environment exists,
-      # and a later independently reviewed PR enables real publishing.
-      # Do NOT uncomment in this foundation PR. Do NOT use NPM_TOKEN.
-      # Under eligible Trusted Publishing, provenance is automatic; --provenance
-      # is optional/redundant per current npm docs.
-      # - name: Publish to npmjs (OIDC / Trusted Publishing)
-      #   run: npm publish -w @hello-ai-company/editor-core --access public --registry=https://registry.npmjs.org
+  publish:
+    name: publish
+    needs: prepare
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: public-npmjs
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Guarantee Trusted Publishing–capable npm
+        run: npm install -g npm@^11
+
+      - name: Show toolchain
+        run: |
+          node -v
+          npm -v
+          node -e '
+            const { execSync } = require("child_process");
+            const v = execSync("npm -v", { encoding: "utf8" }).trim();
+            const [maj, min, patch] = v.split(".").map(Number);
+            const ok =
+              maj > 11 ||
+              (maj === 11 && min > 5) ||
+              (maj === 11 && min === 5 && patch >= 1);
+            if (!ok) {
+              console.error("STOP — npm >= 11.5.1 required for Trusted Publishing; got", v);
+              process.exit(1);
+            }
+            console.log("npm version OK for Trusted Publishing:", v);
+          '
+
+      - name: Install
+        run: npm ci
+
+      - name: Verify
+        run: npm run verify
+
+      - name: TOCTOU recheck (publish)
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CONFIRMATION: ${{ inputs.confirmation }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          node <<'NODE'
+          const { readFileSync } = require("fs");
+          const { execSync } = require("child_process");
+
+          const EXPECTED_REPO = "hello-ai-company/open-editor";
+          const EXPECTED_NAME = "@hello-ai-company/editor-core";
+          const EXPECTED_LICENSE = "MIT";
+          const EXPECTED_REGISTRY = "https://registry.npmjs.org";
+          const EXPECTED_ACCESS = "public";
+          const EXPECTED_REF = "refs/heads/main";
+          const HISTORICAL = new Set(["0.1.0", "0.0.0-phase3.e17b4b5"]);
+
+          function stop(msg) {
+            console.error(msg);
+            process.exit(1);
+          }
+
+          if (process.env.GITHUB_REPOSITORY !== EXPECTED_REPO) {
+            stop("STOP — unexpected repository: " + process.env.GITHUB_REPOSITORY);
+          }
+          if (process.env.GITHUB_REF !== EXPECTED_REF) {
+            stop("STOP — main ref lock failed; github.ref must be refs/heads/main, got " + process.env.GITHUB_REF);
+          }
+
+          const pkg = JSON.parse(readFileSync("packages/core/package.json", "utf8"));
+          const inputVersion = String(process.env.INPUT_VERSION || "");
+          const confirmation = String(process.env.INPUT_CONFIRMATION || "");
+          const expectedConfirmation =
+            "PUBLISH @hello-ai-company/editor-core@" + inputVersion;
+
+          if (pkg.name !== EXPECTED_NAME) {
+            stop("STOP — unexpected package name: " + pkg.name);
+          }
+          if (pkg.license !== EXPECTED_LICENSE) {
+            stop("STOP — unexpected license: " + pkg.license);
+          }
+          if (pkg.publishConfig?.registry !== EXPECTED_REGISTRY) {
+            stop("STOP — unexpected publishConfig.registry");
+          }
+          if (pkg.publishConfig?.access !== EXPECTED_ACCESS) {
+            stop("STOP — unexpected publishConfig.access");
+          }
+
+          if (!inputVersion || pkg.version !== inputVersion) {
+            stop(
+              "STOP — RELEASE INPUT MISMATCH: input version " +
+                JSON.stringify(inputVersion) +
+                " != package.json " +
+                JSON.stringify(pkg.version)
+            );
+          }
+          if (confirmation !== expectedConfirmation) {
+            stop(
+              "STOP — RELEASE INPUT MISMATCH: confirmation must be exactly " +
+                JSON.stringify(expectedConfirmation)
+            );
+          }
+
+          if (HISTORICAL.has(pkg.version) || HISTORICAL.has(inputVersion)) {
+            stop(
+              "STOP — HISTORICAL VERSION MUST NEVER BE REPUBLISHED: " +
+                pkg.version
+            );
+          }
+
+          console.log(
+            "TOCTOU identity + input + ref lock OK:",
+            pkg.name + "@" + pkg.version
+          );
+
+          const spec = `${pkg.name}@${pkg.version}`;
+          let out = "";
+          try {
+            out = execSync(
+              `npm view ${JSON.stringify(spec)} version --registry=https://registry.npmjs.org`,
+              { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }
+            ).trim();
+          } catch (err) {
+            const stderr = String(err.stderr || err.message || "");
+            if (
+              /E404|404|Not found|not found|version not found|no matching version/i.test(
+                stderr
+              )
+            ) {
+              console.log(
+                "TOCTOU registry guard OK — version not found (eligible to publish):",
+                spec
+              );
+              process.exit(0);
+            }
+            console.error("STOP — unexpected npm view failure for", spec);
+            console.error(stderr);
+            process.exit(1);
+          }
+          if (out) {
+            console.error("STOP — VERSION ALREADY EXISTS:", spec, "→", out);
+            process.exit(1);
+          }
+          console.error("STOP — unexpected npm view result for", spec, out);
+          process.exit(1);
+          NODE
+
+      # Tokenless Trusted Publishing (OIDC). Provenance is automatic for
+      # public repo + public package under Trusted Publishing — do NOT add
+      # --provenance and do NOT set NPM_CONFIG_PROVENANCE=false.
+      # OWNER must confirm Trusted Publisher "Allowed actions" includes
+      # direct `npm publish` before the first real dispatch (post-2026-09-03
+      # configs may default to stage-only).
+      - name: Publish to npmjs (OIDC / Trusted Publishing)
+        run: npm publish -w @hello-ai-company/editor-core --access public --registry=https://registry.npmjs.org

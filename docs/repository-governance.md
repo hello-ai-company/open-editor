@@ -2,7 +2,7 @@
 
 **INTERNAL EVIDENCE** — not a public product document. Historical governance notes plus Phase 4E CI updates and post-D1-EXEC facts. Current identity: `@hello-ai-company/editor-core@0.1.0` MIT **published** on npmjs; repo **PUBLIC**.
 
-Phase 4E applied public-facing files and canonical CI. D1-EXEC later made the repo PUBLIC, enabled PVR, activated Protect main, and published `0.1.0`. Trusted Publisher and Environment `public-npmjs` remain owner gates.
+Phase 4E applied public-facing files and canonical CI. D1-EXEC later made the repo PUBLIC, enabled PVR, activated Protect main, and published `0.1.0`. Environment `public-npmjs` is **CONFIGURED** (MACHINE-VERIFIED). Trusted Publisher is **OWNER-CONFIRMED CONFIGURED**. Production-ready OIDC publish for `0.1.1+` is a separate reviewed PR/gate.
 
 Public-facing files live at repo root (`README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE`). Historical drafts: [public-drafts/README.md](./public-drafts/README.md). Branch protection: Protect main Ruleset **ACTIVE** (see [branch-protection-plan.md](./branch-protection-plan.md) for historical plan text).
 
@@ -10,17 +10,17 @@ Public-facing files live at repo root (`README.md`, `CONTRIBUTING.md`, `SECURITY
 
 | Area | Today |
 | --- | --- |
-| Visibility | **PUBLIC** |
+| Visibility | **PUBLIC** (MACHINE-VERIFIED) |
 | Root README | Public OSS positioning (portable document layer) |
 | License | MIT — `Copyright (c) 2026 Yuki Shibata` |
 | CODEOWNERS | `.github/CODEOWNERS` → `* @yuki-s-code` |
 | CONTRIBUTING / SECURITY | Present at root; no CLA/DCO; PVR **ENABLED** |
-| Protect main | Ruleset **ACTIVE** |
+| Protect main | Ruleset **ACTIVE** (MACHINE-VERIFIED) |
 | Issue / PR templates | Missing (optional later) |
 | Dependabot | Missing |
-| Publish | Private GH Packages workflow **retired**. Active non-publishing `public-release-preflight.yml` (dry-run only). OIDC foundation: `.github/workflows/publish-public-core.yml` when present (publish disabled until reviewed enablement). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml). Environment `public-npmjs` must be created + protected **before** merging that foundation |
+| Publish | Private GH Packages workflow **retired**. Active non-publishing `public-release-preflight.yml` (dry-run only). Active OIDC: `.github/workflows/publish-public-core.yml` (prepare → Environment `public-npmjs` → publish; production-ready candidate for `0.1.1+`). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml). Environment `public-npmjs` **CONFIGURED + PROTECTED** (MACHINE-VERIFIED) |
 | npm | `@hello-ai-company/editor-core@0.1.0` **PUBLISHED** (do not republish) |
-| Trusted Publisher | **PENDING** (after foundation merge) |
+| Trusted Publisher | **OWNER-CONFIRMED CONFIGURED** |
 | Security contact | PVR **ENABLED** |
 | Funding | **No** `.github/FUNDING.yml` — **SPONSOR LINK — OWNER SETUP REQUIRED** |
 
@@ -50,7 +50,7 @@ Public-facing files live at repo root (`README.md`, `CONTRIBUTING.md`, `SECURITY
 | `phase-4a-release-readiness.yml` | **retired** | Merged into `ci.yml` |
 | `publish-private-core.yml` | **retired** | Do not unpublish existing GitHub Packages `0.0.0-phase3.e17b4b5` |
 
-Rules: never auto-publish on push; dry-run only in required CI. OIDC publish workflow may exist as a `workflow_dispatch` foundation with the real publish step disabled until Trusted Publisher is configured (workflow filename must exist first).
+Rules: never auto-publish on push; dry-run only in required CI. OIDC publish workflow is `workflow_dispatch` only with prepare → Environment → publish; never grant `id-token: write` to non-publish jobs.
 
 ## Branch protection (recommend only — do not click settings)
 
@@ -71,13 +71,13 @@ Unknown current protection is fine for a private extraction repo; **do not chang
 
 ## Permissions and secrets
 
-| Item | Phase 4D.1 |
+| Item | Current |
 | --- | --- |
-| Repository visibility | **PUBLIC** (D1-EXEC done) |
+| Repository visibility | **PUBLIC** (D1-EXEC done; MACHINE-VERIFIED) |
 | `GITHUB_TOKEN` packages write | Not used for public npmjs path |
-| npmjs trusted publisher / `NPM_TOKEN` | Trusted Publisher **PENDING** (after foundation merge); do not create `NPM_TOKEN` |
+| npmjs trusted publisher / `NPM_TOKEN` | Trusted Publisher **OWNER-CONFIRMED CONFIGURED**; do not create `NPM_TOKEN` / `NODE_AUTH_TOKEN` |
 | GitHub Sponsors / FUNDING.yml | **Do not configure** without owner-approved URL |
-| Environments / required reviewers for publish | **OWNER: create + protect `public-npmjs` BEFORE merging** foundation workflow |
+| Environments / required reviewers for publish | Environment `public-npmjs` **CONFIGURED + PROTECTED** (MACHINE-VERIFIED; main only) |
 
 ## Code of Conduct / community
 
