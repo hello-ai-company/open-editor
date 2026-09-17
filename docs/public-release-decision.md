@@ -2,36 +2,37 @@
 
 **INTERNAL EVIDENCE** — not a public product document.
 
-**Case:** ENG-20260913-007 Phase 4E R1 / PA-20260917-002 / post-D1-EXEC  
-**Role:** Canonical decision matrix plus **current post-bootstrap** state. Bootstrap visibility + npm `0.1.0` are done. This document does **not** authorize tag/Release, Trusted Publisher clicks, or republishing `0.1.0`.
+**Case:** ENG-20260913-007 Phase 4E R1 / PA-20260917-002 / post-D1-EXEC / TP production-ready  
+**Role:** Canonical decision matrix plus **current** state. Bootstrap visibility + npm `0.1.0` + tag/Release + Environment + Trusted Publisher are done. This document does **not** authorize republishing `0.1.0`, dispatching the publish workflow, or bumping to `0.1.1` without a separate ChatGPT-reviewed gate.
 
 Master companions: [public-release-runbook.md](./public-release-runbook.md), [first-public-publish-bootstrap.md](./first-public-publish-bootstrap.md), [owner-release-confirmations.md](./owner-release-confirmations.md), [release-gate-closure.md](./release-gate-closure.md).
 
 ## Current (post D1-EXEC)
 
-| Field | State |
-| --- | --- |
-| Repository | `hello-ai-company/open-editor` |
-| MIT | **APPLIED** |
-| `Copyright (c) 2026 Yuki Shibata` | **APPLIED** |
-| Version `0.1.0` | **PUBLISHED** on npmjs (immutable; do not republish) |
-| Registry | npmjs **LIVE** (`https://registry.npmjs.org`) |
-| Access | public **LIVE** |
-| Public README / SECURITY / CONTRIBUTING / CODEOWNERS | **PRESENT** |
-| Old private publish workflow | **RETIRED** |
-| Repository visibility | **PUBLIC** |
-| npm publication | **YES** — `@hello-ai-company/editor-core@0.1.0` |
-| GitHub Private Vulnerability Reporting | **ENABLED** |
-| Protect main Ruleset | **ACTIVE** |
-| D1-EXEC | **EXECUTED** through bootstrap publish |
-| Trusted Publisher / OIDC | **PENDING** (workflow filename first; TP after merge) |
-| Environment `public-npmjs` | **OWNER — create + protect BEFORE foundation merge** |
-| Tag / GitHub Release | **PENDING** |
-| READY TO REPUBLISH `0.1.0` | **NO** |
-| `packages/core/src/**` | frozen; **CORE SOURCE CHANGE REQUIRED: NO** |
-| Root workspace | `"private": true` (never publishable) |
+| Field | State | Verification |
+| --- | --- | --- |
+| Repository | `hello-ai-company/open-editor` | MACHINE-VERIFIED |
+| MIT | **APPLIED** | MACHINE-VERIFIED |
+| `Copyright (c) 2026 Yuki Shibata` | **APPLIED** | MACHINE-VERIFIED |
+| Version `0.1.0` | **PUBLISHED** on npmjs (immutable; do not republish) | MACHINE-VERIFIED |
+| Registry | npmjs **LIVE** (`https://registry.npmjs.org`) | MACHINE-VERIFIED |
+| Access | public **LIVE** | MACHINE-VERIFIED |
+| Public README / SECURITY / CONTRIBUTING / CODEOWNERS | **PRESENT** | MACHINE-VERIFIED |
+| Old private publish workflow | **RETIRED** | MACHINE-VERIFIED |
+| Repository visibility | **PUBLIC** | MACHINE-VERIFIED |
+| npm publication | **YES** — `@hello-ai-company/editor-core@0.1.0` | MACHINE-VERIFIED |
+| GitHub Private Vulnerability Reporting | **ENABLED** | MACHINE-VERIFIED |
+| Protect main Ruleset | **ACTIVE** | MACHINE-VERIFIED |
+| D1-EXEC | **EXECUTED** through bootstrap publish | MACHINE-VERIFIED |
+| Trusted Publisher / OIDC | **OWNER-CONFIRMED CONFIGURED** (GitHub Actions → `hello-ai-company/open-editor` / `publish-public-core.yml` / Environment `public-npmjs`) | OWNER-CONFIRMED |
+| Environment `public-npmjs` | **CONFIGURED + PROTECTED** (main only; no NPM_TOKEN) | MACHINE-VERIFIED existence/protection; no NPM_TOKEN OWNER-CONFIRMED |
+| Tag / GitHub Release | **PUBLISHED** — tag `v0.1.0` → `ed59ae41ee4bd95ec01492415885f3ee2cdaaf0e`; Release `OpenEditor v0.1.0` (not prerelease) | MACHINE-VERIFIED |
+| Future publish workflow | **production-ready candidate** — `.github/workflows/publish-public-core.yml` (manual OIDC for `0.1.1+` only; do not dispatch until ChatGPT review) | MACHINE-VERIFIED file |
+| READY TO REPUBLISH `0.1.0` | **NO** | — |
+| `packages/core/src/**` | frozen; **CORE SOURCE CHANGE REQUIRED: NO** | — |
+| Root workspace | `"private": true` (never publishable) | MACHINE-VERIFIED |
 
-Machine locks: `packages/core/package.json`, `scripts/lib/tarball.mjs` (`AUTHORIZED_*` = `0.1.0` / MIT / npmjs / public), `packages/core/test/publish-gate.test.ts`. Active non-publishing CI: `.github/workflows/ci.yml` and `.github/workflows/public-release-preflight.yml`. OIDC publish foundation: prefer active `.github/workflows/publish-public-core.yml` when present (publish step may remain disabled); historical template at [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml). npm Trusted Publisher must be configured **after** that workflow filename exists under `.github/workflows/`. Owner must create/protect Environment `public-npmjs` **before** merging that foundation.
+Machine locks: `packages/core/package.json`, `scripts/lib/tarball.mjs` (`AUTHORIZED_*` = `0.1.0` / MIT / npmjs / public), `packages/core/test/publish-gate.test.ts`, `scripts/release/validate-public-core-release.mjs` (fail-closed versions-list registry guard + artifact digest). Active non-publishing CI: `.github/workflows/ci.yml` and `.github/workflows/public-release-preflight.yml`. Active OIDC publish workflow: `.github/workflows/publish-public-core.yml` (R1: prepare packs tarball+digest → Environment `public-npmjs` → publish publishes tarball only under OIDC). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml).
 
 ## Companion documents
 
@@ -61,7 +62,7 @@ Philosophy rows (**CONFIRMED**) do not by themselves authorize GitHub/npm settin
 | ID | Topic | Owner Decision | Applied / enabled now |
 | --- | --- | --- | --- |
 | D1 | Public OSS **intent** | **CONFIRMED: YES** — intent only | not execution |
-| D1-EXEC | Public **execution** (visibility / npmjs bootstrap; tag/Release separate) | **EXECUTED** through PUBLIC + PVR + Protect main + npm `0.1.0` | **YES** (bootstrap); tag/Release still **PENDING** |
+| D1-EXEC | Public **execution** (visibility / npmjs bootstrap; tag/Release separate) | **EXECUTED** through PUBLIC + PVR + Protect main + npm `0.1.0` | **YES** (bootstrap); tag/Release **PUBLISHED** |
 | D2 | License | **CLOSED** — MIT | **APPLIED** |
 | D3 | Copyright holder + year | **CLOSED** — `Copyright (c) 2026 Yuki Shibata` | **APPLIED** (in `LICENSE` files) |
 | D4 | SPDX / NOTICE / CLA or DCO | **CLOSED for v0.1.0** — SPDX MIT; no NOTICE; **neither CLA nor DCO** | no CLA/DCO |
@@ -75,10 +76,10 @@ Philosophy rows (**CONFIRMED**) do not by themselves authorize GitHub/npm settin
 | D12 | CODEOWNERS / reviewers | **PREPARED** — `* @yuki-s-code` | file present; GitHub enforcement is a settings step |
 | D13 | Branch protection | **CLOSED** — Protect main Ruleset ACTIVE | **ACTIVE** |
 | D14 | CI on pull request | **PREPARED** — canonical `ci.yml` + non-publishing `public-release-preflight.yml` (Node 20+22) | active; no real publish |
-| D15 | Trusted publishing / provenance | **PENDING** — Environment before foundation merge; TP after workflow on default branch | no tokens; foundation may land with publish disabled |
+| D15 | Trusted publishing / provenance | **OWNER-CONFIRMED CONFIGURED** — Environment `public-npmjs` + TP bound to `publish-public-core.yml` | no tokens; production-ready workflow candidate for `0.1.1+` only |
 | D16 | `personal-ai` consumer path | **PENDING** — do not edit personal-ai from this repo | NO |
 | D17 | Public README / CoC / templates | **PREPARED** for README / CONTRIBUTING / SECURITY; CoC / issue templates still later | root files present |
-| D18 | Tags / GitHub Releases | **PENDING** — separate gate; package already published | NO |
+| D18 | Tags / GitHub Releases | **PUBLISHED** — `v0.1.0` / `OpenEditor v0.1.0` (do not recreate or move) | **YES** |
 | D19 | Chain-of-title | **CLOSED** — owner representation, not legal advice | MIT applied on that basis |
 | D20 | Business model | **CONFIRMED: FREE + OPTIONAL SPONSORSHIP** | no FUNDING.yml |
 | D21 | Paid Cloud / Enterprise / plugin | **CONFIRMED: NO** | NO |
@@ -126,13 +127,13 @@ See [public-api.md](./public-api.md). Phase 4E does **not** alter the freeze bes
 
 ## Governance (summary)
 
-Present at root: README, MIT LICENSE, CONTRIBUTING (no CLA/DCO), SECURITY, `.github/CODEOWNERS`. Repo is **PUBLIC**; PVR **ENABLED**; Protect main **ACTIVE**. **No** CoC, issue/PR templates, Dependabot, or `.github/FUNDING.yml`. Trusted Publisher and Environment `public-npmjs` remain owner gates (Environment before foundation merge; TP after).
+Present at root: README, MIT LICENSE, CONTRIBUTING (no CLA/DCO), SECURITY, `.github/CODEOWNERS`. Repo is **PUBLIC**; PVR **ENABLED**; Protect main **ACTIVE**. Environment `public-npmjs` **CONFIGURED** (MACHINE-VERIFIED); Trusted Publisher **OWNER-CONFIRMED CONFIGURED**. **No** CoC, issue/PR templates, Dependabot, or `.github/FUNDING.yml`.
 
 ## Supply chain (current)
 
 - Non-publishing CI + `npm publish --dry-run` preflight (`contents: read` only).
-- Ongoing npmjs: OIDC Trusted Publishing **after** 0.1.0 exists — **not configured**.
-- Do not create `NPM_TOKEN`.
+- Ongoing npmjs: OIDC Trusted Publishing **OWNER-CONFIRMED CONFIGURED**; production-ready `publish-public-core.yml` is the candidate path for `0.1.1+` only.
+- Do not create `NPM_TOKEN` / `NODE_AUTH_TOKEN`.
 
 ## personal-ai migration (docs only)
 
@@ -144,12 +145,12 @@ Portable document layer. **Small Core + Adapters + Docs + Examples**. No adapter
 
 ## Historical snapshot (Phase 4D / 4D.1 — not current identity)
 
-Phase 4D/4D.1 recorded MIT **selection** with **APPLIED NO**, identity `@hello-ai-company/editor-core@0.0.0-phase3.e17b4b5` `UNLICENSED` on GitHub Packages, and “do not start Phase 4E”. That snapshot is **obsolete as current state**. Those documents remain as evidence; if they disagree with **Current (Phase 4E HEAD)** above, the Current table wins.
+Phase 4D/4D.1 recorded MIT **selection** with **APPLIED NO**, identity `@hello-ai-company/editor-core@0.0.0-phase3.e17b4b5` `UNLICENSED` on GitHub Packages, and “do not start Phase 4E”. That snapshot is **obsolete as current state**. Those documents remain as evidence; if they disagree with **Current (post D1-EXEC)** above, the Current table wins.
 
-Phase 4D.1 did **not** apply MIT, bump to `0.1.0`, or start preparation implementation. Phase 4E did the preparation. Neither phase published, tagged, Released, made the repo public, enabled PVR, or configured Trusted Publisher.
+Phase 4D.1 did **not** apply MIT, bump to `0.1.0`, or start preparation implementation. Phase 4E did the preparation. D1-EXEC / bootstrap / tag-Release / Environment / Trusted Publisher happened later — prefer the Current table, not historical “did not” wording.
 
 ## Next
 
-**READY FOR PUBLIC RELEASE PREPARATION** — **not READY TO PUBLISH NOW** — **not READY TO MAKE PUBLIC NOW**.
+Remaining: ChatGPT-independent review of the production-ready publish workflow PR, then a **separate** human gate before any `workflow_dispatch` for `0.1.1+`. Never republish `0.1.0`. Never dispatch publish as a test while package version is still `0.1.0`.
 
-**STOP — READY FOR CHATGPT PUBLIC RELEASE REVIEW R1**
+**STOP — RETURN TO CHATGPT FOR INDEPENDENT GITHUB REVIEW**
