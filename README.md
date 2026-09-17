@@ -62,9 +62,9 @@ Public shape: **Small Core + Adapters + Docs + Examples**.
 | Layer | What it is | v0.1.0 |
 | --- | --- | --- |
 | **Small Core** | `@hello-ai-company/editor-core` — document model, JSON, optional provider types | shipped |
-| **Adapters** | Host integrations (for example a future BlockNote adapter) | **not shipped** — separate packages later |
+| **Adapters** | `@hello-ai-company/editor-blocknote` — BlockNote power layer (lossless adapter, commands, incremental bridge) | **in-repo, unpublished** `0.1.0` |
 | **Docs** | Architecture, public API, contributing, security | this repository |
-| **Examples** | Consumer examples | later |
+| **Examples** | `examples/blocknote-power` | demo / Quick Start |
 
 See [docs/architecture.md](./docs/architecture.md), [docs/public-api.md](./docs/public-api.md), [docs/providers.md](./docs/providers.md), [docs/versioning.md](./docs/versioning.md), and [docs/security-boundary.md](./docs/security-boundary.md).
 
