@@ -324,30 +324,20 @@ export function createDefaultPowerCommands(): EditorCommand[] {
       keywords: ["reference", "jump", "goto"],
       surfaces: ["slash", "palette"],
       isEnabled: (ctx) =>
-        typeof ctx.requestBlockPick === "function" ||
-        Boolean(ctx.documentIndex)
+        typeof ctx.requestBlockPick === "function"
           ? true
           : {
               ok: false,
-              reason: "Block picker / document index not available"
+              reason: "Block picker not available"
             },
       run: async (ctx) => {
         const cursor = ctx.editor.getTextCursorPosition();
         const currentId = (cursor.block as { id?: string }).id;
         const exclude = currentId ? [currentId] : [];
 
-        let targetId: string | null = null;
-        if (ctx.requestBlockPick) {
-          targetId = await ctx.requestBlockPick({ excludeIds: exclude });
-        } else if (ctx.documentIndex) {
-          const hits = ctx.documentIndex.query({
-            query: "",
-            preferHeadings: true,
-            limit: 50
-          });
-          targetId =
-            hits.find((hit) => hit.blockId !== currentId)?.blockId ?? null;
-        }
+        // Require an explicit host picker — never auto-pick the first index hit.
+        if (!ctx.requestBlockPick) return;
+        const targetId = await ctx.requestBlockPick({ excludeIds: exclude });
 
         if (!targetId || targetId === currentId) return;
 

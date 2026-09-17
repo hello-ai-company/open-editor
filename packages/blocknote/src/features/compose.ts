@@ -30,6 +30,13 @@ type RefInline = {
   blockReference: ReturnType<typeof createBlockReferenceInlineContentSpec>;
 };
 
+/**
+ * Reference inline specs only when `includeBlockReference` is not `false`.
+ * Keeps TypeScript schema aligned with runtime (4F-2 R2).
+ */
+export type ReferenceSpecs<IncludeRef extends boolean> =
+  IncludeRef extends false ? {} : RefInline;
+
 export type OpenEditorPowerPresetOptions<
   Features extends readonly OpenEditorPowerFeature<any, any, any>[] =
     readonly OpenEditorPowerFeature[],
@@ -37,7 +44,8 @@ export type OpenEditorPowerPresetOptions<
   // index signature collapses concrete feature keys to `never`.
   HostB extends BlockSpecs = {},
   HostI extends AdditionalInlineContentSpecs = {},
-  HostS extends StyleSpecs = {}
+  HostS extends StyleSpecs = {},
+  IncludeRef extends boolean = true
 > = {
   features?: Features;
   /**
@@ -50,7 +58,7 @@ export type OpenEditorPowerPresetOptions<
   >;
   commands?: EditorCommand[];
   includeBlockActions?: boolean;
-  includeBlockReference?: boolean;
+  includeBlockReference?: IncludeRef;
   blockReference?: BlockReferenceSpecOptions;
   blockReferenceRuntime?: BlockReferenceRuntime;
   editor?: PowerEditorOptions;
@@ -75,18 +83,27 @@ export function createOpenEditorPowerPreset<
   const Features extends readonly OpenEditorPowerFeature<any, any, any>[] = [],
   HostB extends BlockSpecs = {},
   HostI extends AdditionalInlineContentSpecs = {},
-  HostS extends StyleSpecs = {}
+  HostS extends StyleSpecs = {},
+  const IncludeRef extends boolean = true
 >(
-  options?: OpenEditorPowerPresetOptions<Features, HostB, HostI, HostS>
+  options?: OpenEditorPowerPresetOptions<
+    Features,
+    HostB,
+    HostI,
+    HostS,
+    IncludeRef
+  >
 ) {
   type MergedB = MergeFeatureBlockSpecs<Features> & HostB;
-  type MergedI = MergeFeatureInlineSpecs<Features> & HostI & RefInline;
+  type MergedI = MergeFeatureInlineSpecs<Features> &
+    HostI &
+    ReferenceSpecs<IncludeRef>;
   type MergedS = MergeFeatureStyleSpecs<Features> & HostS;
 
   const composed = composePowerFeatures(
     (options?.features ?? []) as Features
   );
-  const includeRef = options?.includeBlockReference ?? true;
+  const includeRef = (options?.includeBlockReference ?? true) as IncludeRef;
   const includeActions = options?.includeBlockActions ?? true;
 
   const blockReferenceRuntime: BlockReferenceRuntime =
@@ -98,16 +115,19 @@ export function createOpenEditorPowerPreset<
     if (br.onNavigate) blockReferenceRuntime.onNavigate = br.onNavigate;
     if (br.missingLabel) blockReferenceRuntime.missingLabel = br.missingLabel;
     if (br.untitledLabel) blockReferenceRuntime.untitledLabel = br.untitledLabel;
+    if (br.subscribe) blockReferenceRuntime.subscribe = br.subscribe;
   }
 
-  const refSpec = includeRef
-    ? ({
-        blockReference: createBlockReferenceInlineContentSpec({
-          ...options?.blockReference,
-          runtime: blockReferenceRuntime
-        })
-      } as RefInline)
-    : ({} as Record<string, never>);
+  const refSpec = (
+    includeRef
+      ? {
+          blockReference: createBlockReferenceInlineContentSpec({
+            ...options?.blockReference,
+            runtime: blockReferenceRuntime
+          })
+        }
+      : {}
+  ) as ReferenceSpecs<IncludeRef>;
 
   const blockSpecs = {
     ...composed.blockSpecs,

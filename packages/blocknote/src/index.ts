@@ -102,6 +102,8 @@ export {
 
 export {
   BLOCK_REFERENCE_TYPE,
+  applyBlockReferenceLabel,
+  bindBlockReferenceRuntimeToIndex,
   createBlockReferenceInlineContentSpec,
   createBlockReferenceDom,
   createBlockReferenceResolverFromIndex,
@@ -123,7 +125,8 @@ export {
 export {
   createOpenEditorPowerPreset,
   type OpenEditorPowerPreset,
-  type OpenEditorPowerPresetOptions
+  type OpenEditorPowerPresetOptions,
+  type ReferenceSpecs
 } from "./features/compose.js";
 
 export { toPartialBlockCopy } from "./commands/blockCopy.js";

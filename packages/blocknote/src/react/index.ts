@@ -48,7 +48,8 @@ export {
 export {
   createOpenEditorPowerPreset,
   type OpenEditorPowerPreset,
-  type OpenEditorPowerPresetOptions
+  type OpenEditorPowerPresetOptions,
+  type ReferenceSpecs
 } from "../features/compose.js";
 export {
   createDocumentIndex,

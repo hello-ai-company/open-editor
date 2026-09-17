@@ -91,6 +91,16 @@ type CodeOnlyBlock = (typeof withCodeOnly.schema.Block)["type"];
 type _CodeOnlyNoMath = Expect<IsNever<Extract<CodeOnlyBlock, "mathBlock">>>;
 type _CodeOnlyNoDiagram = Expect<IsNever<Extract<CodeOnlyBlock, "diagram">>>;
 
+// R2: includeBlockReference: false must drop blockReference from the schema type
+const withoutRef = createOpenEditorPowerPreset({
+  includeBlockReference: false
+});
+type WithoutRefInline = keyof typeof withoutRef.schema.inlineContentSchema;
+type _RefAbsent = Expect<
+  Extends<"blockReference", WithoutRefInline> extends true ? false : true
+>;
+type _RefNever = Expect<IsNever<Extract<WithoutRefInline, "blockReference">>>;
+
 void 0 as unknown as _HasHostBlock;
 void 0 as unknown as _HasCallout;
 void 0 as unknown as _HasHostInline;
@@ -108,5 +118,8 @@ void 0 as unknown as _HasInlineMath;
 void 0 as unknown as _StillHasCallout;
 void 0 as unknown as _CodeOnlyNoMath;
 void 0 as unknown as _CodeOnlyNoDiagram;
+void 0 as unknown as _RefAbsent;
+void 0 as unknown as _RefNever;
 void withFeatures.featureIds;
 void withCodeOnly.editorOptions;
+void withoutRef.featureIds;

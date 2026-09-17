@@ -9,7 +9,7 @@ import {
   useCreateBlockNote
 } from "@blocknote/react";
 import {
-  createBlockReferenceResolverFromIndex,
+  bindBlockReferenceRuntimeToIndex,
   createDocumentIndex,
   createOpenEditorPowerPreset,
   fromBlockNote,
@@ -40,18 +40,17 @@ export function PowerDemoEditor() {
   const [pickOpen, setPickOpen] = useState(false);
   const [pickExclude, setPickExclude] = useState<readonly string[]>([]);
 
-  const preset = useMemo(
-    () =>
-      createOpenEditorPowerPreset({
-        blockReferenceRuntime: {
-          resolve: createBlockReferenceResolverFromIndex(index),
-          onNavigate: () => {
-            // wired to editor in effect below
-          }
+  const preset = useMemo(() => {
+    const next = createOpenEditorPowerPreset({
+      blockReferenceRuntime: {
+        onNavigate: () => {
+          // wired to editor in effect below
         }
-      }),
-    [index]
-  );
+      }
+    });
+    bindBlockReferenceRuntimeToIndex(next.blockReferenceRuntime, index);
+    return next;
+  }, [index]);
 
   const options = useMemo(() => preset.editorOptions(), [preset]);
   const initialContent = useMemo(
@@ -64,13 +63,12 @@ export function PowerDemoEditor() {
     initialContent: initialContent as never
   });
 
-  // Keep reference navigate wired to the live editor
+  // Keep reference navigate + live resolve wired to the live editor/index
   useEffect(() => {
     preset.blockReferenceRuntime.onNavigate = (blockId) => {
       jumpToBlock(editor as never, blockId);
     };
-    preset.blockReferenceRuntime.resolve =
-      createBlockReferenceResolverFromIndex(index);
+    bindBlockReferenceRuntimeToIndex(preset.blockReferenceRuntime, index);
   }, [editor, index, preset]);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
