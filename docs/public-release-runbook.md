@@ -2,67 +2,69 @@
 
 **INTERNAL EVIDENCE** — not a public product document.
 
-**Case:** ENG-20260913-007 Phase 4E R1 / PA-20260917-002  
-Human-gated plan for a later private→public **execution**. This file does **not** authorize D1-EXEC. Do not make PUBLIC, publish, tag, or Release from this document.
+**Case:** ENG-20260913-007 Phase 4E R1 / PA-20260917-002 / post-D1-EXEC  
+Human-gated plan for remaining post-publish steps. Bootstrap visibility + npm `0.1.0` are **done**. Do not republish `0.1.0`. Do not create tag/Release from this document without a separate gate.
 
 Companion: [public-release-decision.md](./public-release-decision.md), [first-public-publish-bootstrap.md](./first-public-publish-bootstrap.md).
 
-## Current (Phase 4E HEAD) — unify with the tree
+## Current (post D1-EXEC)
 
 | Field | State |
 | --- | --- |
 | MIT | **APPLIED** |
 | `Copyright (c) 2026 Yuki Shibata` | **APPLIED** |
-| Version `0.1.0` | **PREPARED** (package identity on this branch) |
-| Registry | npmjs **PREPARED** |
-| Access | public **PREPARED** |
-| Public README / SECURITY / CONTRIBUTING / CODEOWNERS | **PREPARED** |
+| Version `0.1.0` | **PUBLISHED** on `https://registry.npmjs.org` |
+| Registry | npmjs **LIVE** |
+| Access | public **LIVE** |
+| Public README / SECURITY / CONTRIBUTING / CODEOWNERS | **PRESENT** |
 | Old private publish workflow (`publish-private-core.yml`) | **RETIRED** |
-| Repository visibility | **PRIVATE** |
-| npm publication | **NO** |
-| GitHub Private Vulnerability Reporting | **NO** (not enabled). PVR is for public repos; enable immediately **after** PUBLIC |
-| D1-EXEC | **PENDING** |
-| READY FOR PUBLIC RELEASE PREPARATION | **YES** |
-| READY TO PUBLISH NOW | **NO** |
-| READY TO MAKE PUBLIC NOW | **NO** |
+| Repository visibility | **PUBLIC** |
+| npm publication | **YES** — `@hello-ai-company/editor-core@0.1.0` (immutable; do not republish) |
+| GitHub Private Vulnerability Reporting | **ENABLED** |
+| Protect main Ruleset | **ACTIVE** (PR required; conversation resolution; force-push/deletion blocked; required checks verify/preflight 20+22) |
+| D1-EXEC | **EXECUTED** through bootstrap publish of `0.1.0` |
+| Trusted Publisher / OIDC | **PENDING** (workflow foundation may land first; TP config after filename exists on default branch) |
+| GitHub Environment `public-npmjs` | **OWNER ACTION — create and protect BEFORE merging** the Trusted Publishing foundation workflow |
+| Tag / GitHub Release | **PENDING** |
+| READY FOR PUBLIC RELEASE PREPARATION | **DONE** (historical) |
+| READY TO REPUBLISH `0.1.0` | **NO** |
+| READY TO TAG / RELEASE `v0.1.0` | **NO** until separate gate |
 
 Identity lock: `@hello-ai-company/editor-core@0.1.0` MIT, `publishConfig` `https://registry.npmjs.org` + `access: public`. Root workspace `"private": true`. **CORE SOURCE CHANGE REQUIRED: NO.**
 
 `personal-ai` consumer baseline (docs only): `c2bd73f80ddb2752215acc01d78d26322068fcae` — **do not edit that repo from here**.
 
-## Remaining execution (after written D1-EXEC — do not run now)
+## Remaining execution (post-bootstrap)
 
 Canonical order is in [first-public-publish-bootstrap.md](./first-public-publish-bootstrap.md):
 
 ```
-D1-EXEC
-→ PRIVATE main final verify
-→ GitHub repository PUBLIC
-→ immediately enable PVR + protections
-→ bootstrap publish 0.1.0 once (only)
-→ confirm package exists on npm
-→ configure npm Trusted Publisher
-→ subsequent releases via OIDC template
+(D1-EXEC through npm 0.1.0 — DONE)
+→ owner creates + protects GitHub Environment public-npmjs (BEFORE foundation merge)
+→ land OIDC workflow under `.github/workflows/publish-public-core.yml` (merge foundation)
+→ configure npm Trusted Publisher (workflow filename must already exist on default branch)
+→ later reviewed PR enables real publish for future versions only
+→ tag / GitHub Release only after separate gate
 ```
 
 | Action | Gate | Now |
 | --- | --- | --- |
-| Make the GitHub repository public | HUMAN GATE — D1-EXEC + D9 | NO |
-| Bootstrap `npm publish` of `0.1.0` (exactly once) | HUMAN GATE — D1-EXEC + D7/D8 | NO |
-| Configure npm Trusted Publisher / OIDC | HUMAN GATE — D15; package must already exist | NO |
-| Git tag / GitHub Release | HUMAN GATE — D18; after the published version exists | NO |
-| Enable GitHub PVR | After PUBLIC (not while PRIVATE) | NO |
-| Change branch protection | HUMAN GATE — D13; with PUBLIC | NO |
+| Make the GitHub repository public | DONE | **YES** |
+| Bootstrap `npm publish` of `0.1.0` (exactly once) | DONE | **YES** (immutable) |
+| Enable GitHub PVR | DONE | **YES** |
+| Protect main Ruleset | DONE | **ACTIVE** |
+| Create + protect Environment `public-npmjs` | **BEFORE** merging foundation workflow (avoid unprotected auto-create on first dispatch) | **NO — OWNER** |
+| Land workflow foundation under `.github/workflows/` | Before Trusted Publisher config (npm requires existing filename) | Draft foundation PR may be open |
+| Configure npm Trusted Publisher / OIDC | AFTER merge (filename on default branch); package already exists | **NO — OWNER after merge** |
+| Git tag / GitHub Release | Separate human gate after independent review | **NO** |
 | Edit `hello-ai-company/personal-ai` | Never from this repo | NO |
 | Modify `packages/core/src/**` for “release polish” | Out of scope | NO |
 | Re-enable retired GH Packages publish workflow | Forbidden | NO |
 | Republish `0.0.0-phase3.e17b4b5` or republish `0.1.0` | Forbidden | NO |
 
-MIT application, `0.1.0` identity, npmjs/public metadata, public docs, CODEOWNERS, and CI unification are **already done** on this branch. Do not repeat them as if still pending.
+## personal-ai consumer options (public artifact exists)
 
-## personal-ai consumer options (after a public artifact exists)
-
-Baseline: `c2bd73f80ddb2752215acc01d78d26322068fcae` already consumes the **historical private** GitHub Packages prerelease.
+Baseline: `c2bd73f80ddb2752215acc01d78d26322068fcae` still may consume the **historical private** GitHub Packages prerelease.
 
 | Option | Meaning | Who changes personal-ai |
 | --- | --- | --- |
@@ -84,36 +86,33 @@ Baseline: `c2bd73f80ddb2752215acc01d78d26322068fcae` already consumes the **hist
 | `0.1.0` on npmjs | **Leave immutable.** Do not republish. |
 | personal-ai pointed at npmjs | Revert **in personal-ai** to the GH Packages pin. Not this repo. |
 
-## Destructive-step checklist (Phase 4E / R1)
+## Destructive-step checklist (current)
 
-| Step | Executed now |
+| Step | Status |
 | --- | --- |
-| Make public | NO |
-| Apply MIT | **YES** (source tree) |
+| Make public | **YES** |
+| Apply MIT | **YES** |
 | Write copyright into LICENSE | **YES** |
 | Prepare `0.1.0` + npmjs public metadata | **YES** |
-| Register npm / login / token | NO |
-| Publish to npmjs | NO |
-| Tag | NO |
-| GitHub Release | NO |
-| Enable PVR | NO |
+| Publish `0.1.0` to npmjs | **YES** (once; immutable) |
+| Tag | **NO** (pending separate gate) |
+| GitHub Release | **NO** (pending separate gate) |
+| Enable PVR | **YES** |
+| Protect main | **YES** (Ruleset ACTIVE) |
+| Create Environment `public-npmjs` | **NO — OWNER before foundation merge** |
+| Configure Trusted Publisher | **NO — OWNER after foundation merge** |
 | Edit personal-ai | NO |
-| Change protection / secrets / Trusted Publisher | NO |
 | Configure GitHub Sponsors | NO |
 | Add `.github/FUNDING.yml` | NO |
 
-## Historical snapshot (Phase 4D.1 — not current)
+## Historical snapshot (Phase 4E pre-D1 — not current)
 
-The following described `origin/main` at Phase 4D.1 (`8d6b66a51219044e2e8a068443f11c7eb132beca`) **before** Phase 4E applied MIT and `0.1.0`. It is **not** the current package identity:
+Phase 4E preparation on private HEAD claimed visibility PRIVATE, npm publication NO, PVR NO, D1-EXEC PENDING. That snapshot is **historical**. Prefer **Current (post D1-EXEC)** above.
 
-- Then: `@hello-ai-company/editor-core@0.0.0-phase3.e17b4b5` `UNLICENSED` on `npm.pkg.github.com`
-- Then: MIT selected, **not applied**; copyright line recorded, **not written** into `LICENSE`
-- Then: “Do not start Phase 4E” — **obsolete**; Phase 4E preparation is this branch
-
-That private prerelease remains immutable on GitHub Packages. It is not the prepared public line.
+Also historical: Phase 4D.1 at `8d6b66a51219044e2e8a068443f11c7eb132beca` before MIT/`0.1.0` prep — private GH Packages `0.0.0-phase3.e17b4b5` `UNLICENSED`. That prerelease remains immutable on GitHub Packages.
 
 ## Classification
 
-**READY FOR PUBLIC RELEASE PREPARATION** — **not READY TO PUBLISH NOW** — **not READY TO MAKE PUBLIC NOW**.
+**Bootstrap publish DONE.** Remaining: Environment `public-npmjs` (before foundation merge), Trusted Publisher (after merge), tag/Release (separate gate).
 
-**STOP — READY FOR CHATGPT PUBLIC RELEASE REVIEW R1**
+**Do not treat `0.1.0` as unpublished.**

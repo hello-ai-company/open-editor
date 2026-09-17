@@ -1,8 +1,12 @@
-# TEMPLATE ONLY — not an active GitHub Actions workflow.
-# Do NOT copy this file into `.github/workflows/` until written D1-EXEC,
-# the GitHub repository is PUBLIC, 0.1.0 has already been bootstrap-published
-# exactly once, and npm Trusted Publisher is configured on that existing package.
-# This template must not run in Phase 4E / R1.
+# TEMPLATE ONLY — historical reference copy.
+# Canonical active foundation (when present): `.github/workflows/publish-public-core.yml`
+#
+# npm Trusted Publisher requires the workflow filename to already exist under
+# `.github/workflows/` BEFORE owner configuration on npmjs. Order:
+#   1) owner creates + protects GitHub Environment `public-npmjs` (before merge)
+#   2) land workflow foundation under `.github/workflows/`
+#   3) owner configures Trusted Publisher pointing at that filename
+#   4) later PR enables real publish after independent review
 #
 # Purpose: ONGOING releases AFTER `@hello-ai-company/editor-core@0.1.0` exists
 # on https://registry.npmjs.org. Trusted Publishing requires an already-existing
@@ -13,7 +17,7 @@
 # - No NPM_TOKEN. Never NODE_AUTH_TOKEN / secrets.NPM_TOKEN.
 # - Node 24 + npm ^11 (Trusted Publishing–capable). The `npm trust` CLI, if used
 #   later to inspect/configure publishers, requires npm >= 11.15.0.
-# - permissions.id-token: write is for OIDC to npmjs only after Trusted Publisher
+# - permissions.id-token: write is for OIDC to npmjs after Trusted Publisher
 #   is configured on the existing package.
 #
 # Optional future practice (not required in this template): publish from a
@@ -39,7 +43,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: public-npmjs # create this GitHub Environment later; require reviewers
+    environment: public-npmjs # OWNER: create + protect BEFORE merging active workflow
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -83,9 +87,10 @@ jobs:
             if (pkg.version === "0.0.0-phase3.e17b4b5") process.exit(1);
           '
 
-      # PLACEHOLDER — do not uncomment in Phase 4E.
-      # Only after: D1-EXEC, repo PUBLIC, PVR enabled, 0.1.0 already on npmjs,
-      # Trusted Publisher configured on that existing package, this file copied
-      # under .github/workflows/, GitHub Environment public-npmjs exists.
+      # PLACEHOLDER — keep disabled until a later reviewed PR enables publish.
+      # Prerequisites: workflow already under .github/workflows/, 0.1.0 on npmjs,
+      # Trusted Publisher configured against publish-public-core.yml, GitHub
+      # Environment public-npmjs exists. Prefer registry version-exists guard
+      # (see active workflow). Provenance is automatic under eligible TP.
       # - name: Publish to npmjs (OIDC / Trusted Publishing)
-      #   run: npm publish -w @hello-ai-company/editor-core --access public --registry=https://registry.npmjs.org --provenance
+      #   run: npm publish -w @hello-ai-company/editor-core --access public --registry=https://registry.npmjs.org
