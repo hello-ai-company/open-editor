@@ -16,7 +16,7 @@ D1-EXEC remains **PENDING EXECUTION AUTHORIZATION**. This file is not permission
 | Repository visibility | PRIVATE | make PUBLIC **before** npmjs 0.1.0 |
 | npm publication | NO | 0.1.0 exactly once, then later versions via OIDC |
 | GitHub Private Vulnerability Reporting | NO — not enabled. GitHub PVR is for **public** repos; do not claim it can be enabled while still PRIVATE | enable **immediately after** making the repo PUBLIC |
-| Trusted Publisher / OIDC | template only; not configured | configure **after** 0.1.0 exists on the registry |
+| Trusted Publisher / OIDC | template / foundation only; not configured | land workflow under `.github/workflows/` first, then configure Trusted Publisher on the existing package |
 | `NPM_TOKEN` | do not create | do not create for ongoing releases |
 
 ## Why bootstrap is separate from OIDC
@@ -26,8 +26,9 @@ npm **Trusted Publishing** (GitHub Actions OIDC → npmjs, no long-lived `NPM_TO
 Therefore:
 
 1. **Bootstrap (once):** a human publishes `@hello-ai-company/editor-core@0.1.0` exactly once so the package exists.
-2. **Configure Trusted Publisher** on that existing package (npmjs UI, pointing at `hello-ai-company/open-editor` and the future OIDC workflow).
-3. **Ongoing:** copy [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml) under `.github/workflows/` only then. Later versions publish via OIDC. No `NPM_TOKEN`.
+2. **Workflow foundation:** ensure `publish-public-core.yml` exists under `.github/workflows/` (npm requires the workflow filename to exist before Trusted Publisher config).
+3. **Configure Trusted Publisher** on that existing package (npmjs UI, pointing at `hello-ai-company/open-editor` and `publish-public-core.yml`).
+4. **Ongoing:** later versions publish via OIDC from the active workflow after a reviewed enablement PR. No `NPM_TOKEN`. Template reference: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml).
 
 Do **not** use the OIDC template to publish `0.1.0`. Do **not** republish `0.1.0`. Do **not** republish historical GitHub Packages `0.0.0-phase3.e17b4b5`.
 
@@ -42,8 +43,9 @@ D1-EXEC
 → immediately enable PVR + branch protections
 → bootstrap publish 0.1.0 once (only)
 → confirm package exists on npm
-→ configure npm Trusted Publisher
-→ subsequent releases via OIDC template
+→ land OIDC workflow under `.github/workflows/publish-public-core.yml`
+→ configure npm Trusted Publisher (filename must already exist)
+→ subsequent releases via OIDC (after reviewed enablement)
 ```
 
 ### 1. D1-EXEC
@@ -74,13 +76,17 @@ If `0.1.0` must ship with provenance, that requirement is the same bootstrap Gat
 
 `GET https://registry.npmjs.org/@hello-ai-company%2feditor-core` must return `0.1.0`. Treat npmjs publish as **largely irreversible**.
 
-### 7. Configure npm Trusted Publisher
+### 7. Land OIDC workflow foundation
 
-On the **existing** package, attach GitHub Actions Trusted Publisher for `hello-ai-company/open-editor` and the ongoing workflow name. Only then copy the OIDC template into `.github/workflows/`.
+npm Trusted Publisher configuration requires the workflow filename to already exist under `.github/workflows/`. Land `publish-public-core.yml` there (foundation may keep the real publish step disabled). Do not configure Trusted Publisher against a missing filename.
 
-### 8. Subsequent releases via OIDC
+### 8. Configure npm Trusted Publisher
 
-Later versions: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml) (Node 24, `npm@^11`, `id-token: write`, no token). Optional future practice: stage-first (`npm publish --dry-run`, then a separate human-gated publish). Never auto-publish on push. Tag / GitHub Release only after the published version exists.
+On the **existing** package, attach GitHub Actions Trusted Publisher for `hello-ai-company/open-editor` and workflow filename `publish-public-core.yml` (optional Environment `public-npmjs`). Prefer the npmjs UI.
+
+### 9. Subsequent releases via OIDC
+
+Later versions: active `.github/workflows/publish-public-core.yml` (Node 24, `npm@^11`, `id-token: write`, no token), after a reviewed PR enables publish. Template reference: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml). Optional future practice: stage-first (`npm publish --dry-run`, then a separate human-gated publish). Never auto-publish on push. Tag / GitHub Release only after the published version exists.
 
 ## Historical private line (immutable)
 
@@ -92,7 +98,7 @@ Later versions: [release-templates/publish-public-core.yml](./release-templates/
 - No npm token create/use
 - No `npm publish` except `--dry-run`
 - No Trusted Publisher configuration in the npm UI
-- No copy of the OIDC template into `.github/workflows/`
+- No enablement of a live `npm publish` step (foundation workflow may exist with publish disabled)
 - No GitHub Environment `public-npmjs` created
 - No tag, Release, or visibility change
 - No PVR enablement (repo is still PRIVATE)

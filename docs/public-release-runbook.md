@@ -41,15 +41,17 @@ D1-EXEC
 → immediately enable PVR + protections
 → bootstrap publish 0.1.0 once (only)
 → confirm package exists on npm
-→ configure npm Trusted Publisher
-→ subsequent releases via OIDC template
+→ land OIDC workflow under `.github/workflows/publish-public-core.yml`
+→ configure npm Trusted Publisher (workflow filename must already exist)
+→ subsequent releases via OIDC (after reviewed enablement)
 ```
 
 | Action | Gate | Now |
 | --- | --- | --- |
 | Make the GitHub repository public | HUMAN GATE — D1-EXEC + D9 | NO |
 | Bootstrap `npm publish` of `0.1.0` (exactly once) | HUMAN GATE — D1-EXEC + D7/D8 | NO |
-| Configure npm Trusted Publisher / OIDC | HUMAN GATE — D15; package must already exist | NO |
+| Land workflow foundation under `.github/workflows/` | Before Trusted Publisher config (npm requires existing filename) | NO |
+| Configure npm Trusted Publisher / OIDC | HUMAN GATE — D15; package + workflow filename must already exist | NO |
 | Git tag / GitHub Release | HUMAN GATE — D18; after the published version exists | NO |
 | Enable GitHub PVR | After PUBLIC (not while PRIVATE) | NO |
 | Change branch protection | HUMAN GATE — D13; with PUBLIC | NO |

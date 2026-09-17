@@ -17,7 +17,7 @@ Public-facing files now live at repo root (`README.md`, `CONTRIBUTING.md`, `SECU
 | CONTRIBUTING / SECURITY | Present at root; no CLA/DCO; PVR documented not enabled |
 | Issue / PR templates | Missing (optional later) |
 | Dependabot | Missing |
-| Publish | Private GH Packages workflow **retired**. Active non-publishing `public-release-preflight.yml` (dry-run only). Template only: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml) |
+| Publish | Private GH Packages workflow **retired**. Active non-publishing `public-release-preflight.yml` (dry-run only). OIDC foundation: `.github/workflows/publish-public-core.yml` when present (publish disabled until reviewed enablement). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml) |
 | Security contact | D11 **PREPARED** — **ENABLE DURING PUBLIC TRANSITION**; not enabled; no invented email |
 | Funding | **No** `.github/FUNDING.yml` — **SPONSOR LINK — OWNER SETUP REQUIRED** |
 
@@ -47,7 +47,7 @@ Public-facing files now live at repo root (`README.md`, `CONTRIBUTING.md`, `SECU
 | `phase-4a-release-readiness.yml` | **retired** | Merged into `ci.yml` |
 | `publish-private-core.yml` | **retired** | Do not unpublish existing GitHub Packages `0.0.0-phase3.e17b4b5` |
 
-Rules: never auto-publish on push; dry-run only in active workflows. OIDC publish template is **not** active.
+Rules: never auto-publish on push; dry-run only in required CI. OIDC publish workflow may exist as a `workflow_dispatch` foundation with the real publish step disabled until Trusted Publisher is configured (workflow filename must exist first).
 
 ## Branch protection (recommend only — do not click settings)
 

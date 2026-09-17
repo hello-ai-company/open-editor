@@ -1,0 +1,152 @@
+# Active foundation for future npm Trusted Publishing (OIDC).
+#
+# Safe ordering (npm docs): this workflow filename must exist under
+# `.github/workflows/` BEFORE the owner configures npm Trusted Publisher.
+# Real publish remains DISABLED until Trusted Publisher + Environment exist
+# and a later PR enables the publish step after independent review.
+#
+# Never:
+# - env.NODE_AUTH_TOKEN / secrets.NPM_TOKEN
+# - auto-publish on push or release
+# - republish 0.1.0
+# - republish 0.0.0-phase3.e17b4b5
+# - publish any version from this foundation PR
+
+name: publish-public-core
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # OWNER ACTION REQUIRED if missing: create GitHub Environment `public-npmjs`
+    # (required reviewers recommended when the plan permits).
+    environment: public-npmjs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Guarantee Trusted Publishing–capable npm
+        run: npm install -g npm@^11
+
+      - name: Show toolchain
+        run: |
+          node -v
+          npm -v
+          node -e '
+            const { execSync } = require("child_process");
+            const v = execSync("npm -v", { encoding: "utf8" }).trim();
+            const [maj, min, patch] = v.split(".").map(Number);
+            const ok =
+              maj > 11 ||
+              (maj === 11 && min > 5) ||
+              (maj === 11 && min === 5 && patch >= 1);
+            if (!ok) {
+              console.error("STOP — npm >= 11.5.1 required for Trusted Publishing; got", v);
+              process.exit(1);
+            }
+            console.log("npm version OK for Trusted Publishing:", v);
+          '
+
+      - name: Install
+        run: npm ci
+
+      - name: Verify
+        run: npm run verify
+
+      - name: Identity lock
+        run: |
+          node -e '
+            const { readFileSync } = require("fs");
+            const pkg = JSON.parse(readFileSync("packages/core/package.json", "utf8"));
+            if (pkg.name !== "@hello-ai-company/editor-core") {
+              console.error("STOP — unexpected package name:", pkg.name);
+              process.exit(1);
+            }
+            if (pkg.license !== "MIT") {
+              console.error("STOP — unexpected license:", pkg.license);
+              process.exit(1);
+            }
+            if (pkg.publishConfig?.registry !== "https://registry.npmjs.org") {
+              console.error("STOP — unexpected publishConfig.registry");
+              process.exit(1);
+            }
+            if (pkg.publishConfig?.access !== "public") {
+              console.error("STOP — unexpected publishConfig.access");
+              process.exit(1);
+            }
+            if (pkg.version === "0.1.0") {
+              console.error("STOP — 0.1.0 is already published; refuse republish");
+              process.exit(1);
+            }
+            if (pkg.version === "0.0.0-phase3.e17b4b5") {
+              console.error("STOP — historical phase3 version must never publish to npmjs");
+              process.exit(1);
+            }
+            console.log("Identity lock OK:", pkg.name + "@" + pkg.version);
+          '
+
+      - name: Refuse version already on registry
+        run: |
+          node <<'NODE'
+          const { readFileSync } = require("fs");
+          const { execSync } = require("child_process");
+          const pkg = JSON.parse(readFileSync("packages/core/package.json", "utf8"));
+          const name = pkg.name;
+          const version = pkg.version;
+          const spec = `${name}@${version}`;
+          let out = "";
+          let code = 0;
+          try {
+            out = execSync(
+              `npm view ${JSON.stringify(spec)} version --registry=https://registry.npmjs.org`,
+              { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }
+            ).trim();
+          } catch (err) {
+            code = typeof err.status === "number" ? err.status : 1;
+            const stderr = String(err.stderr || err.message || "");
+            if (
+              /E404|404|Not found|not found|version not found|no matching version/i.test(
+                stderr
+              )
+            ) {
+              console.log(
+                "Registry guard OK — version not found (eligible for future publish):",
+                spec
+              );
+              process.exit(0);
+            }
+            console.error("STOP — unexpected npm view failure for", spec);
+            console.error(stderr);
+            process.exit(1);
+          }
+          if (code === 0 && out) {
+            console.error("STOP — VERSION ALREADY EXISTS:", spec, "→", out);
+            process.exit(1);
+          }
+          console.error("STOP — unexpected npm view result for", spec, out);
+          process.exit(1);
+          NODE
+
+      # DISABLED until Trusted Publisher is configured, Environment exists,
+      # and a later independently reviewed PR enables real publishing.
+      # Do NOT uncomment in this foundation PR. Do NOT use NPM_TOKEN.
+      # Under eligible Trusted Publishing, provenance is automatic; --provenance
+      # is optional/redundant per current npm docs.
+      # - name: Publish to npmjs (OIDC / Trusted Publishing)
+      #   run: npm publish -w @hello-ai-company/editor-core --access public --registry=https://registry.npmjs.org

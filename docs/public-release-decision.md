@@ -29,14 +29,14 @@ Master companions: [public-release-runbook.md](./public-release-runbook.md), [fi
 | `packages/core/src/**` | frozen; **CORE SOURCE CHANGE REQUIRED: NO** |
 | Root workspace | `"private": true` (never publishable) |
 
-Machine locks: `packages/core/package.json`, `scripts/lib/tarball.mjs` (`AUTHORIZED_*` = `0.1.0` / MIT / npmjs / public), `packages/core/test/publish-gate.test.ts`. Active non-publishing CI: `.github/workflows/ci.yml` and `.github/workflows/public-release-preflight.yml`. OIDC publish YAML is **template only** at [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml).
+Machine locks: `packages/core/package.json`, `scripts/lib/tarball.mjs` (`AUTHORIZED_*` = `0.1.0` / MIT / npmjs / public), `packages/core/test/publish-gate.test.ts`. Active non-publishing CI: `.github/workflows/ci.yml` and `.github/workflows/public-release-preflight.yml`. OIDC publish foundation: prefer active `.github/workflows/publish-public-core.yml` when present (publish step may remain disabled); historical template at [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml). npm Trusted Publisher must be configured **after** that workflow filename exists under `.github/workflows/`.
 
 ## Companion documents
 
 | Document | Purpose |
 | --- | --- |
 | [public-release-runbook.md](./public-release-runbook.md) | Remaining human-gated execution order |
-| [first-public-publish-bootstrap.md](./first-public-publish-bootstrap.md) | 0.1.0 once, then Trusted Publisher on the existing package, then OIDC |
+| [first-public-publish-bootstrap.md](./first-public-publish-bootstrap.md) | 0.1.0 once, then workflow under `.github/workflows/`, then Trusted Publisher, then OIDC |
 | [public-exposure-audit.md](./public-exposure-audit.md) | Phase 4E history audit (P1 none) |
 | [public-release-preparation.md](./public-release-preparation.md) | Phase 4E applied-prep record |
 | [owner-release-confirmations.md](./owner-release-confirmations.md) | Phase 4D.1 confirmation record (historical + still-true philosophy) |
