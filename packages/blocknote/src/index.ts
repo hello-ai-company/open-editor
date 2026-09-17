@@ -33,6 +33,7 @@ export {
 
 export {
   createBlockActionCommands,
+  createBlockReferenceCommands,
   createCommandRegistry,
   createDefaultPowerCommands,
   type CommandGroup,

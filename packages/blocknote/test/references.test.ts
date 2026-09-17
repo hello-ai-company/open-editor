@@ -16,11 +16,11 @@ import { createOpenEditorBlockNoteSchema } from "../src/schema/createOpenEditorB
 import { fromBlockNote, toBlockNoteForSchema } from "../src/index.js";
 import { createEditorDocument } from "@hello-ai-company/editor-core";
 import { createDocumentIndex } from "../src/index/documentIndex.js";
-import { createOpenEditorPowerPreset } from "../src/features/compose.js";
 import {
   createCommandRegistry,
-  createDefaultPowerCommands
+  createBlockReferenceCommands
 } from "../src/commands/registry.js";
+import { createOpenEditorPowerPreset } from "../src/features/compose.js";
 
 describe("block references", () => {
   it("registers blockReference inline content on schema", () => {
@@ -43,6 +43,10 @@ describe("block references", () => {
     expect(withoutRef.schema.inlineContentSchema).not.toHaveProperty(
       BLOCK_REFERENCE_TYPE
     );
+    expect(withRef.registry.get("block.insert.reference")).toBeDefined();
+    expect(withRef.registry.get("block.copy-reference")).toBeDefined();
+    expect(withoutRef.registry.get("block.insert.reference")).toBeUndefined();
+    expect(withoutRef.registry.get("block.copy-reference")).toBeUndefined();
   });
 
   it("formats missing and valid targets", () => {
@@ -186,7 +190,7 @@ describe("block references", () => {
       }
     ]);
     const insertInlineContent = vi.fn();
-    const registry = createCommandRegistry(createDefaultPowerCommands());
+    const registry = createCommandRegistry(createBlockReferenceCommands());
     const command = registry.get("block.insert.reference")!;
     const ctx = {
       editor: {

@@ -4,8 +4,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createBlockActionCommands,
-  createCommandRegistry,
-  createDefaultPowerCommands
+  createBlockReferenceCommands,
+  createCommandRegistry
 } from "../src/commands/registry.js";
 import { toPartialBlockCopy } from "../src/commands/blockCopy.js";
 
@@ -91,7 +91,7 @@ describe("block actions losslessness", () => {
   it("block reference picks a different target and uses insertInlineContent", async () => {
     const insertInlineContent = vi.fn();
     const requestBlockPick = vi.fn(async () => "target-heading");
-    const registry = createCommandRegistry(createDefaultPowerCommands());
+    const registry = createCommandRegistry(createBlockReferenceCommands());
     await registry.run("block.insert.reference", {
       editor: {
         insertBlocks: vi.fn(),

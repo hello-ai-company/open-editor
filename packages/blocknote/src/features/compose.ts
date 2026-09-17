@@ -8,6 +8,7 @@ import {
 } from "../schema/createOpenEditorBlockNoteSchema.js";
 import {
   createBlockActionCommands,
+  createBlockReferenceCommands,
   createCommandRegistry,
   createDefaultPowerCommands,
   type CommandRegistry,
@@ -153,6 +154,7 @@ export function createOpenEditorPowerPreset<
 
   const commands: EditorCommand[] = [
     ...createDefaultPowerCommands(),
+    ...(includeRef ? createBlockReferenceCommands() : []),
     ...(includeActions ? createBlockActionCommands() : []),
     ...composed.commands,
     ...(options?.commands ?? [])

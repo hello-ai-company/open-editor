@@ -314,7 +314,16 @@ export function createDefaultPowerCommands(): EditorCommand[] {
       run: () => {
         // Host owns persistence; palette entry documents the seam.
       }
-    },
+    }
+  ];
+}
+
+/**
+ * Smart Reference commands — only register when `includeBlockReference` is on
+ * so the command surface matches the schema (no insert into absent inline type).
+ */
+export function createBlockReferenceCommands(): EditorCommand[] {
+  return [
     {
       id: "block.insert.reference",
       title: "Block reference",
@@ -357,6 +366,24 @@ export function createDefaultPowerCommands(): EditorCommand[] {
             );
           }
         });
+      }
+    },
+    {
+      id: "block.copy-reference",
+      title: "Copy block reference",
+      group: "navigation",
+      keywords: ["ref"],
+      surfaces: ["block-action", "palette"],
+      run: async (ctx) => {
+        const cursor = ctx.editor.getTextCursorPosition();
+        const id = (cursor.block as { id?: string }).id ?? "";
+        const payload = JSON.stringify({
+          type: "blockReference",
+          props: { blockId: id }
+        });
+        if (typeof navigator !== "undefined" && navigator.clipboard) {
+          await navigator.clipboard.writeText(payload);
+        }
       }
     }
   ];
@@ -432,24 +459,6 @@ export function createBlockActionCommands(): EditorCommand[] {
         const id = (cursor.block as { id?: string }).id ?? "";
         if (typeof navigator !== "undefined" && navigator.clipboard) {
           await navigator.clipboard.writeText(id);
-        }
-      }
-    },
-    {
-      id: "block.copy-reference",
-      title: "Copy block reference",
-      group: "navigation",
-      keywords: ["ref"],
-      surfaces: ["block-action", "palette"],
-      run: async (ctx) => {
-        const cursor = ctx.editor.getTextCursorPosition();
-        const id = (cursor.block as { id?: string }).id ?? "";
-        const payload = JSON.stringify({
-          type: "blockReference",
-          props: { blockId: id }
-        });
-        if (typeof navigator !== "undefined" && navigator.clipboard) {
-          await navigator.clipboard.writeText(payload);
         }
       }
     }
