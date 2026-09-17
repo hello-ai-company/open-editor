@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { filterSuggestionItems } from "@blocknote/core/extensions";
-import type { BatchPolicy, OpenEditorChangeBatch, OpenEditorChangeSink } from "../bridge/batchedSink.js";
-import { createBatchedChangeSink } from "../bridge/batchedSink.js";
+import type { BatchPolicy, OpenEditorChangeBatch } from "../bridge/batchedSink.js";
+import { createPendingAwareSink } from "../bridge/pendingAwareSink.js";
 import {
   createBlockChangeBridge,
   type BlockChangeBridge
@@ -39,32 +39,6 @@ function batchPolicyKey(batch: BatchPolicy | undefined): string {
     maxBuffer: batch?.maxBuffer ?? 256,
     coalesceUpdatesByBlockId: batch?.coalesceUpdatesByBlockId ?? true
   });
-}
-
-function createPendingAwareSink(
-  onFlush: (batch: OpenEditorChangeBatch) => void,
-  onPendingChange: (count: number) => void,
-  policy?: BatchPolicy
-): OpenEditorChangeSink {
-  const inner = createBatchedChangeSink(onFlush, policy);
-  return {
-    get pendingCount() {
-      return inner.pendingCount;
-    },
-    enqueue(changes) {
-      inner.enqueue(changes);
-      onPendingChange(inner.pendingCount);
-    },
-    flush() {
-      const batch = inner.flush();
-      onPendingChange(inner.pendingCount);
-      return batch;
-    },
-    clear() {
-      inner.clear();
-      onPendingChange(0);
-    }
-  };
 }
 
 /**

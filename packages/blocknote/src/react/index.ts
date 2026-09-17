@@ -18,6 +18,7 @@ export {
   createPowerEditorOptions,
   createPowerSchema,
   DEFAULT_POWER_TABLE_OPTIONS,
+  type AdditionalInlineContentSpecs,
   type CreateOpenEditorBlockNoteSchemaOptions,
   type OpenEditorBlockNoteSchema,
   type PowerEditorOptions

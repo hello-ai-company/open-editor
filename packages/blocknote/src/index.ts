@@ -24,6 +24,7 @@ export {
   type OpenEditorChangeSink,
   type OpenEditorChangeSource
 } from "./bridge/batchedSink.js";
+export { createPendingAwareSink } from "./bridge/pendingAwareSink.js";
 export {
   createBlockChangeBridge,
   type BlockChangeBridge,
@@ -66,6 +67,7 @@ export {
   createPowerEditorOptions,
   createPowerSchema,
   DEFAULT_POWER_TABLE_OPTIONS,
+  type AdditionalInlineContentSpecs,
   type CreateOpenEditorBlockNoteSchemaOptions,
   type OpenEditorBlockNoteSchema,
   type PowerEditorOptions
