@@ -2,7 +2,7 @@
 
 `@hello-ai-company/editor-core` is a host-neutral document seam. It describes typed block trees, JSON serialization, and optional provider contracts. It does not render UI, talk to a backend, or import host application modules.
 
-Public shape: a **portable document layer** as **Small Core + Adapters + Docs + Examples**. This package is the Small Core. Adapters (including any future BlockNote adapter) are separate packages, not shipped in v0.1.0.
+Public shape: a **portable document layer** as **Small Core + Adapters + Docs + Examples**. This package is the Small Core. The BlockNote power adapter lives in unpublished `@hello-ai-company/editor-blocknote` (`packages/blocknote`) and depends on this core — never the reverse.
 
 ## Package surface
 

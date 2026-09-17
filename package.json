@@ -14,10 +14,13 @@
     "test:release-guards": "node --test scripts/release/validate-public-core-release.test.mjs",
     "build": "npm run build --workspaces --if-present",
     "pack:core": "npm pack -w @hello-ai-company/editor-core",
+    "pack:blocknote": "npm pack -w @hello-ai-company/editor-blocknote",
     "inspect:tarball": "node scripts/inspect-tarball.mjs",
     "verify:isolated": "node scripts/isolated-consumer.mjs",
+    "verify:isolated-blocknote": "node scripts/isolated-blocknote-consumer.mjs",
     "security:scan": "node scripts/security-scan.mjs",
     "verify:api": "node scripts/api-contract.mjs",
+    "verify:blocknote": "npm run typecheck -w @hello-ai-company/editor-blocknote && npm run test -w @hello-ai-company/editor-blocknote && npm run build -w @hello-ai-company/editor-blocknote && npm run bench:smoke -w @hello-ai-company/editor-blocknote && npm run verify:isolated-blocknote",
     "publish:dry-run": "npm publish -w @hello-ai-company/editor-core --access public --registry=https://registry.npmjs.org --dry-run",
     "verify": "npm run typecheck && npm test && npm run build && npm run pack:core && npm run inspect:tarball && npm run verify:isolated && npm run security:scan && npm run verify:api"
   },

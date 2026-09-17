@@ -22,10 +22,10 @@ npm run verify
 
 | Welcome | Not in this repository |
 | --- | --- |
-| Bug fixes inside the frozen document/serialization contract | Runtime dependencies |
-| Tests and docs that match `docs/public-api.md` | Host UI, React, adapter packages |
-| Additive **optional** provider methods only with a contract update | Secrets, `.env`, product identifiers from other apps |
-| | Version / license / registry edits without an explicit release issue |
+| Bug fixes inside the frozen document/serialization contract | Runtime dependencies **in core** |
+| Tests and docs that match `docs/public-api.md` | Secrets, `.env`, product identifiers from other apps |
+| Additive **optional** provider methods only with a contract update | Version / license / registry edits without an explicit release issue |
+| Adapter work in `packages/blocknote` (unpublished; no `@blocknote/xl-*`) | Publishing `editor-blocknote` without an explicit release issue |
 
 Public API changes require updating:
 

@@ -1,0 +1,181 @@
+:root {
+  --oe-callout-info-bg: #e8f1f8;
+  --oe-callout-info-border: #2a6f97;
+  --oe-callout-warning-bg: #f8f0e4;
+  --oe-callout-warning-border: #a16207;
+  --oe-callout-success-bg: #e7f3ec;
+  --oe-callout-success-border: #2f6f4e;
+  --oe-callout-danger-bg: #f8e8e8;
+  --oe-callout-danger-border: #a33b3b;
+  --oe-status-todo-bg: #eceff3;
+  --oe-status-doing-bg: #e4eef8;
+  --oe-status-done-bg: #e5f2ea;
+  --oe-status-blocked-bg: #f5e8e8;
+  --oe-unknown-bg: #f3f1ee;
+  --oe-unknown-border: #8a857c;
+  --oe-power-ink: #1c1917;
+  --oe-power-canvas: #faf8f5;
+}
+
+.oe-callout {
+  border-left: 4px solid var(--oe-callout-info-border);
+  background: var(--oe-callout-info-bg);
+  color: var(--oe-power-ink);
+  padding: 0.75rem 1rem;
+  margin: 0.35rem 0;
+  border-radius: 0 0.35rem 0.35rem 0;
+}
+
+.oe-callout--info {
+  background: var(--oe-callout-info-bg);
+  border-left-color: var(--oe-callout-info-border);
+}
+
+.oe-callout--warning {
+  background: var(--oe-callout-warning-bg);
+  border-left-color: #a16207;
+}
+
+.oe-callout--success {
+  background: var(--oe-callout-success-bg);
+  border-left-color: var(--oe-callout-success-border);
+}
+
+.oe-callout--danger {
+  background: var(--oe-callout-danger-bg);
+  border-left-color: var(--oe-callout-danger-border);
+}
+
+.oe-callout__title {
+  font-weight: 650;
+  margin-bottom: 0.25rem;
+}
+
+.oe-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--oe-power-ink) 18%, transparent);
+  border-radius: 0.35rem;
+  background: var(--oe-status-todo-bg);
+  color: var(--oe-power-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.oe-status:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.oe-status--todo { background: var(--oe-status-todo-bg); }
+.oe-status--doing { background: var(--oe-status-doing-bg); }
+.oe-status--done { background: var(--oe-status-done-bg); }
+.oe-status--blocked { background: var(--oe-status-blocked-bg); }
+
+.oe-unknown-block {
+  border: 1px dashed var(--oe-unknown-border);
+  background: var(--oe-unknown-bg);
+  color: var(--oe-power-ink);
+  padding: 0.65rem 0.85rem;
+  margin: 0.35rem 0;
+  border-radius: 0.35rem;
+}
+
+.oe-unknown-block__label {
+  font-size: 0.9rem;
+}
+
+.oe-command-palette {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: start center;
+  padding: 12vh 1rem 1rem;
+  background: color-mix(in srgb, #1c1917 42%, transparent);
+}
+
+.oe-command-palette__panel {
+  width: min(36rem, 100%);
+  background: var(--oe-power-canvas);
+  color: var(--oe-power-ink);
+  border-radius: 0.5rem;
+  box-shadow: 0 12px 40px color-mix(in srgb, #1c1917 28%, transparent);
+  overflow: hidden;
+}
+
+.oe-command-palette__input {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--oe-power-ink) 14%, transparent);
+  padding: 0.9rem 1rem;
+  font: inherit;
+  background: transparent;
+  color: inherit;
+}
+
+.oe-command-palette__list {
+  max-height: min(50vh, 22rem);
+  overflow: auto;
+  margin: 0;
+  padding: 0.4rem;
+  list-style: none;
+}
+
+.oe-command-palette__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.oe-command-palette__item[data-active="true"],
+.oe-command-palette__item:hover {
+  background: color-mix(in srgb, var(--oe-power-ink) 8%, transparent);
+}
+
+.oe-command-palette__item:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.oe-command-palette__group {
+  margin: 0.35rem 0.35rem 0.15rem;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+@media (max-width: 639px) {
+  .oe-command-palette {
+    place-items: end stretch;
+    padding: 0;
+  }
+
+  .oe-command-palette__panel {
+    width: 100%;
+    border-radius: 0.75rem 0.75rem 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oe-command-palette,
+  .oe-callout {
+    transition: none !important;
+    animation: none !important;
+  }
+}
