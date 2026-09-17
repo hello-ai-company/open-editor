@@ -78,9 +78,22 @@ console.log("isolated-blocknote-consumer: ok");
 `
   );
 
-  run("npm", ["install", "--omit=dev"], dir);
+  // BlockNote lists optional Yjs v14 peers; npm on Node 20 can ERESOLVE them.
+  // Isolated smoke only needs MPL core/react peers — use legacy-peer-deps.
+  run("npm", ["install", "--omit=dev", "--legacy-peer-deps"], dir);
   run("node", ["smoke.mjs"], dir);
   console.log("verify:isolated-blocknote PASS");
 } finally {
   rmSync(dir, { recursive: true, force: true });
+  // Clean pack artifacts from repo root
+  for (const name of [
+    "hello-ai-company-editor-core-0.1.0.tgz",
+    "hello-ai-company-editor-blocknote-0.1.0.tgz"
+  ]) {
+    try {
+      rmSync(join(root, name), { force: true });
+    } catch {
+      // ignore
+    }
+  }
 }
