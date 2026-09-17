@@ -2,87 +2,80 @@ import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
 import "@hello-ai-company/editor-blocknote/power.css";
 import { BlockNoteView } from "@blocknote/mantine";
-import { SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
 import {
-  createCommandRegistry,
-  createDefaultPowerCommands,
-  createMemoryCommentsSeam,
-  createMemoryFileSeam,
-  createNoopCollabSeam,
-  createPowerEditorOptions,
+  FormattingToolbar,
+  FormattingToolbarController,
+  SuggestionMenuController,
+  useCreateBlockNote
+} from "@blocknote/react";
+import {
+  createDocumentIndex,
+  createOpenEditorPowerPreset,
   fromBlockNote,
   getPowerSlashItems,
   PowerCommandPalette,
   toBlockNoteForSchema,
   useOpenEditorBlockChanges,
   usePowerCommandPaletteShortcut,
-  type OpenEditorBlockChange,
   type OpenEditorChangeBatch
 } from "@hello-ai-company/editor-blocknote";
+import {
+  BlockActionMenu,
+  DocumentOutline,
+  QuickNav,
+  useDocumentOutline,
+  useQuickNavShortcut
+} from "@hello-ai-company/editor-blocknote/react";
 import { serializeEditorDocument } from "@hello-ai-company/editor-core";
 import { useCallback, useMemo, useState } from "react";
 import { sampleDocument } from "./sampleDocument";
 
-function summarizeBatch(batch: OpenEditorChangeBatch): string {
-  const counts = batch.changes.reduce(
-    (acc, change: OpenEditorBlockChange) => {
-      acc[change.type] = (acc[change.type] ?? 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>
-  );
-  const parts = Object.entries(counts).map(([type, n]) => `${type}:${n}`);
-  return `seq=${batch.seq} coalesced=${batch.coalesced} [${parts.join(", ")}]`;
-}
-
 export function PowerDemoEditor() {
-  const options = useMemo(() => createPowerEditorOptions(), []);
+  const preset = useMemo(() => createOpenEditorPowerPreset(), []);
+  const options = useMemo(() => preset.editorOptions(), [preset]);
   const initialContent = useMemo(
     () => toBlockNoteForSchema(sampleDocument, options.schema),
     [options.schema]
   );
+
   const editor = useCreateBlockNote({
     ...options,
     initialContent: initialContent as never
   });
 
-  const registry = useMemo(() => createCommandRegistry(createDefaultPowerCommands()), []);
+  const index = useMemo(() => createDocumentIndex(), []);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [filesOn, setFilesOn] = useState(true);
-  const [commentsOn, setCommentsOn] = useState(true);
-  const [json, setJson] = useState(() => serializeEditorDocument(sampleDocument));
+  const [navOpen, setNavOpen] = useState(false);
+  const [outlineOpen, setOutlineOpen] = useState(true);
+  const [devtoolsOpen, setDevtoolsOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
   const [batchCount, setBatchCount] = useState(0);
-  const [lastBatchSummary, setLastBatchSummary] = useState("No batches yet — type in the editor.");
-  const [lastChanges, setLastChanges] = useState<OpenEditorBlockChange[]>([]);
-
-  const seams = useMemo(
-    () => ({
-      files: filesOn ? createMemoryFileSeam() : undefined,
-      comments: commentsOn ? createMemoryCommentsSeam() : undefined,
-      collab: createNoopCollabSeam()
-    }),
-    [filesOn, commentsOn]
-  );
+  const [json, setJson] = useState(() => serializeEditorDocument(sampleDocument));
+  const [actionsOpen, setActionsOpen] = useState(false);
 
   const ctx = useMemo(
     () => ({
       editor: editor as never,
-      documentId: "demo",
-      seams
+      documentId: "demo"
     }),
-    [editor, seams]
+    [editor]
   );
 
-  usePowerCommandPaletteShortcut(editor, () => setPaletteOpen((open) => !open));
+  const { nodes, jump } = useDocumentOutline({
+    editor: editor as never,
+    index,
+    seedFromDocument: true,
+    batch: { strategy: "raf" }
+  });
+
+  usePowerCommandPaletteShortcut(editor, () => setPaletteOpen((o) => !o));
+  useQuickNavShortcut(editor, () => setNavOpen((o) => !o));
 
   useOpenEditorBlockChanges({
     editor: editor as never,
     batch: { strategy: "raf" },
     onBatch: (batch: OpenEditorChangeBatch) => {
-      // Hot path: incremental batch only — never full document serialize here.
       setBatchCount((count) => count + batch.changes.length);
-      setLastBatchSummary(summarizeBatch(batch));
-      setLastChanges([...batch.changes]);
     }
   });
 
@@ -91,77 +84,119 @@ export function PowerDemoEditor() {
     setJson(serializeEditorDocument(doc));
   }, [editor]);
 
+  const themeAttr =
+    theme === "system" ? undefined : theme === "dark" ? "dark" : "light";
+  const bnTheme =
+    theme === "system"
+      ? undefined
+      : theme === "dark"
+        ? "dark"
+        : "light";
+
   return (
-    <div className="demo-shell">
+    <div className="demo-shell" data-oe-theme={themeAttr}>
       <header className="demo-top">
         <div className="demo-brand">
           <span className="demo-brand__name">OpenEditor</span>
-          <span className="demo-brand__meta">Power demo · Mod+K</span>
         </div>
-        <div className="demo-chips" aria-label="Seams">
+        <div className="demo-toolbar" role="toolbar" aria-label="Editor tools">
           <button
             type="button"
-            className={filesOn ? "chip chip--on" : "chip"}
-            onClick={() => setFilesOn((v) => !v)}
+            className={outlineOpen ? "chip chip--on" : "chip"}
+            onClick={() => setOutlineOpen((v) => !v)}
           >
-            Files {filesOn ? "on" : "off"}
+            Outline
+          </button>
+          <button type="button" className="chip" onClick={() => setNavOpen(true)}>
+            Search
+          </button>
+          <button type="button" className="chip chip--on" onClick={() => setPaletteOpen(true)}>
+            Commands ⌘K
           </button>
           <button
             type="button"
-            className={commentsOn ? "chip chip--on" : "chip"}
-            onClick={() => setCommentsOn((v) => !v)}
+            className={actionsOpen ? "chip chip--on" : "chip"}
+            onClick={() => setActionsOpen((v) => !v)}
           >
-            Comments {commentsOn ? "on" : "off"}
+            Block
           </button>
-          <span className="chip chip--muted">Batches: {batchCount}</span>
+          <label className="chip chip--muted">
+            Theme{" "}
+            <select
+              value={theme}
+              onChange={(e) => setTheme(e.target.value as "light" | "dark" | "system")}
+              aria-label="Theme"
+            >
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            className={devtoolsOpen ? "chip chip--on" : "chip"}
+            onClick={() => setDevtoolsOpen((v) => !v)}
+          >
+            Dev {batchCount}
+          </button>
         </div>
       </header>
 
-      <main className="demo-editor">
-        <BlockNoteView editor={editor} slashMenu={false} theme="light">
-          <SuggestionMenuController
-            triggerCharacter="/"
-            getItems={async (query) => getPowerSlashItems(registry, ctx, query)}
-          />
-        </BlockNoteView>
-      </main>
+      <div className="demo-body">
+        {outlineOpen ? (
+          <aside className="demo-outline" aria-label="Document outline">
+            <DocumentOutline nodes={nodes} onJump={jump} />
+          </aside>
+        ) : null}
 
-      <aside className="demo-json" aria-label="Change inspector">
-        <h2>Incremental batches</h2>
-        <p>
-          Typing shows <code>getChanges()</code> batches only. Full EditorDocument JSON is manual.
-        </p>
-        <p className="demo-batch-summary">{lastBatchSummary}</p>
-        <pre className="demo-batch-pre">
-          {lastChanges.length === 0
-            ? "[]"
-            : JSON.stringify(
-                lastChanges.map((change) => ({
-                  type: change.type,
-                  blockId: change.blockId,
-                  source: change.source,
-                  blockType: change.block.type
-                })),
-                null,
-                2
-              )}
-        </pre>
+        <main className="demo-editor">
+          <BlockNoteView
+            editor={editor}
+            slashMenu={false}
+            formattingToolbar={false}
+            theme={bnTheme}
+          >
+            <FormattingToolbarController
+              formattingToolbar={() => <FormattingToolbar />}
+            />
+            <SuggestionMenuController
+              triggerCharacter="/"
+              getItems={async (query) =>
+                getPowerSlashItems(preset.registry, ctx, query)
+              }
+            />
+          </BlockNoteView>
+        </main>
 
-        <div className="demo-json-actions">
-          <h2>EditorDocument JSON</h2>
+        {actionsOpen ? (
+          <aside className="demo-actions" aria-label="Block actions">
+            <BlockActionMenu registry={preset.registry} context={ctx} />
+          </aside>
+        ) : null}
+      </div>
+
+      {devtoolsOpen ? (
+        <aside className="demo-json" aria-label="Developer tools">
+          <h2>Developer</h2>
+          <p>Incremental batches received: {batchCount}</p>
           <button type="button" className="chip chip--on" onClick={refreshJson}>
             Refresh snapshot
           </button>
-        </div>
-        <p>Click Refresh to run fromBlockNote(editor.document) + serialize once.</p>
-        <pre>{json}</pre>
-      </aside>
+          <pre>{json}</pre>
+        </aside>
+      ) : null}
 
       <PowerCommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
-        registry={registry}
+        registry={preset.registry}
         context={ctx}
+      />
+      <QuickNav
+        open={navOpen}
+        onOpenChange={setNavOpen}
+        index={index}
+        editor={editor as never}
       />
     </div>
   );

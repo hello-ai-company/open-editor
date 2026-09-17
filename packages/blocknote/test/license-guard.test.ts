@@ -47,5 +47,19 @@ describe("license guard — no @blocknote/xl-*", () => {
         expect(name.startsWith("@blocknote/xl-")).toBe(false);
       }
     }
+
+    // Lockfile must not install XL packages (optional peers of math/diagram stay uninstalled).
+    const lockPath = join(root, "..", "..", "package-lock.json");
+    try {
+      const lock = JSON.parse(readFileSync(lockPath, "utf8")) as {
+        packages?: Record<string, unknown>;
+      };
+      const installed = Object.keys(lock.packages ?? {}).filter((key) =>
+        /node_modules\/@blocknote\/xl-/.test(key)
+      );
+      expect(installed).toEqual([]);
+    } catch {
+      // monorepo lock may be absent in isolated contexts
+    }
   });
 });

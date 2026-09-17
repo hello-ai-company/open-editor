@@ -32,6 +32,7 @@ export {
 } from "./bridge/createBlockChangeBridge.js";
 
 export {
+  createBlockActionCommands,
   createCommandRegistry,
   createDefaultPowerCommands,
   type CommandGroup,
@@ -43,6 +44,13 @@ export {
   type PaletteItem,
   type SlashItem
 } from "./commands/registry.js";
+export {
+  filterAndRankCommands,
+  scoreCommand,
+  loadRecentCommandIds,
+  rememberCommandId,
+  type CommandMatchOptions
+} from "./commands/match.js";
 
 export {
   createMemoryCommentsSeam,
@@ -72,6 +80,49 @@ export {
   type OpenEditorBlockNoteSchema,
   type PowerEditorOptions
 } from "./schema/createOpenEditorBlockNoteSchema.js";
+
+export {
+  createDocumentIndex,
+  type DocumentIndex,
+  type DocumentIndexEntry,
+  type DocumentIndexQueryOptions,
+  type DocumentIndexSnapshotBlock
+} from "./index/documentIndex.js";
+export {
+  createDocumentOutline,
+  flattenOutline,
+  type OutlineNode
+} from "./index/outline.js";
+export {
+  textFromBlock,
+  textFromContent,
+  headingLevelFromBlock
+} from "./index/textFromBlock.js";
+
+export {
+  BLOCK_REFERENCE_TYPE,
+  createBlockReferenceInlineContentSpec,
+  formatBlockReferenceLabel,
+  type BlockReferenceProps,
+  type BlockReferenceResolver
+} from "./references/blockReference.js";
+
+export {
+  composePowerFeatures,
+  type ComposedPowerFeatures,
+  type OpenEditorPowerFeature
+} from "./features/types.js";
+export {
+  createOpenEditorPowerPreset,
+  type OpenEditorPowerPreset,
+  type OpenEditorPowerPresetOptions
+} from "./features/compose.js";
+
+export {
+  createOpenEditorDictionary,
+  defaultOpenEditorDictionary,
+  type OpenEditorDictionary
+} from "./dictionary.js";
 
 export {
   getPowerSlashItems,

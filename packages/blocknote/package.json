@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
-  "description": "OpenEditor BlockNote power layer: lossless EditorDocument adapter, power schema, commands, and incremental change bridge. Unpublished foundation package.",
+  "description": "OpenEditor BlockNote power layer: adapter, schema, commands, document index, navigation, and optional math/diagram/code. Unpublished.",
   "keywords": [
     "blocknote",
     "editor",
@@ -27,6 +27,18 @@
     "./react": {
       "types": "./dist/react/index.d.ts",
       "import": "./dist/react/index.js"
+    },
+    "./math": {
+      "types": "./dist/math/index.d.ts",
+      "import": "./dist/math/index.js"
+    },
+    "./diagram": {
+      "types": "./dist/diagram/index.d.ts",
+      "import": "./dist/diagram/index.js"
+    },
+    "./code": {
+      "types": "./dist/code/index.d.ts",
+      "import": "./dist/code/index.js"
     },
     "./power.css": "./dist/power.css"
   },
@@ -52,12 +64,23 @@
   "peerDependencies": {
     "@blocknote/core": "^0.54.2",
     "@blocknote/react": "^0.54.2",
+    "@blocknote/math-block": "^0.54.2",
+    "@blocknote/diagram-block": "^0.54.2",
+    "@blocknote/code-block": "^0.54.2",
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@blocknote/math-block": { "optional": true },
+    "@blocknote/diagram-block": { "optional": true },
+    "@blocknote/code-block": { "optional": true }
   },
   "devDependencies": {
     "@blocknote/core": "0.54.2",
     "@blocknote/react": "0.54.2",
+    "@blocknote/math-block": "0.54.2",
+    "@blocknote/diagram-block": "0.54.2",
+    "@blocknote/code-block": "0.54.2",
     "@types/node": "^22.20.3",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",

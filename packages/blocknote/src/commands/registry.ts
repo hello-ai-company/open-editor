@@ -1,5 +1,10 @@
 import type { EditorProviders } from "@hello-ai-company/editor-core";
 import type { PowerSeams } from "../seams/types.js";
+import {
+  filterAndRankCommands,
+  loadRecentCommandIds,
+  rememberCommandId
+} from "./match.js";
 
 export type EditorCommandId = string;
 
@@ -12,9 +17,10 @@ export type CommandGroup =
   | "power"
   | "document"
   | "collab"
-  | "advanced";
+  | "advanced"
+  | "navigation";
 
-export type CommandSurface = "slash" | "palette" | "toolbar";
+export type CommandSurface = "slash" | "palette" | "toolbar" | "block-action";
 
 export type EditorCommandContext = {
   editor: {
@@ -24,7 +30,12 @@ export type EditorCommandContext = {
       placement?: "before" | "after"
     ) => unknown;
     updateBlock: (block: unknown, update: Record<string, unknown>) => unknown;
+    removeBlocks?: (blocks: unknown[]) => unknown;
     getTextCursorPosition: () => { block: unknown };
+    setTextCursorPosition?: (block: unknown, placement?: "start" | "end") => void;
+    focus?: () => void;
+    getPrevBlock?: (block: unknown) => unknown;
+    getNextBlock?: (block: unknown) => unknown;
     transact: <T>(fn: () => T) => T;
     document?: unknown;
     domElement?: HTMLElement | null;
@@ -39,6 +50,8 @@ export type EditorCommand = {
   title: string;
   subtitle?: string;
   aliases?: string[];
+  /** Extra search terms for palette/slash ranking */
+  keywords?: string[];
   group: CommandGroup;
   shortcut?: string;
   surfaces: CommandSurface[];
@@ -66,32 +79,8 @@ export type PaletteItem = {
   group: CommandGroup;
   shortcut?: string;
   disabledReason?: string;
+  recent?: boolean;
 };
-
-const GROUP_ORDER: CommandGroup[] = [
-  "basic",
-  "headings",
-  "lists",
-  "tables",
-  "media",
-  "power",
-  "collab",
-  "document",
-  "advanced"
-];
-
-function groupRank(group: CommandGroup): number {
-  const index = GROUP_ORDER.indexOf(group);
-  return index === -1 ? GROUP_ORDER.length : index;
-}
-
-function matchesQuery(command: EditorCommand, query: string): boolean {
-  if (!query) return true;
-  const q = query.toLowerCase();
-  if (command.title.toLowerCase().includes(q)) return true;
-  if (command.subtitle?.toLowerCase().includes(q)) return true;
-  return Boolean(command.aliases?.some((alias) => alias.toLowerCase().includes(q)));
-}
 
 export type CommandRegistry = {
   list: (
@@ -104,6 +93,7 @@ export type CommandRegistry = {
   extend: (commands: EditorCommand[]) => CommandRegistry;
   toSlashItems: (ctx: EditorCommandContext, query?: string) => SlashItem[];
   toPaletteItems: (ctx: EditorCommandContext, query?: string) => PaletteItem[];
+  getRecentIds: () => string[];
 };
 
 export function createCommandRegistry(commands: EditorCommand[]): CommandRegistry {
@@ -115,13 +105,14 @@ export function createCommandRegistry(commands: EditorCommand[]): CommandRegistr
     byId.set(command.id, command);
   }
 
+  let recentIds = loadRecentCommandIds();
+
   const registry: CommandRegistry = {
     list(surface, ctx, query = "") {
-      return [...byId.values()]
+      const filtered = [...byId.values()]
         .filter((command) => command.surfaces.includes(surface))
-        .filter((command) => command.isAvailable?.(ctx) ?? true)
-        .filter((command) => matchesQuery(command, query))
-        .sort((a, b) => groupRank(a.group) - groupRank(b.group) || a.title.localeCompare(b.title));
+        .filter((command) => command.isAvailable?.(ctx) ?? true);
+      return filterAndRankCommands(filtered, { query, recentIds });
     },
     get(id) {
       return byId.get(id);
@@ -140,6 +131,7 @@ export function createCommandRegistry(commands: EditorCommand[]): CommandRegistr
         throw new Error(`Command disabled: ${id} (${reason})`);
       }
       await command.run(ctx);
+      recentIds = rememberCommandId(id);
     },
     extend(extra) {
       return createCommandRegistry([...byId.values(), ...extra]);
@@ -158,6 +150,7 @@ export function createCommandRegistry(commands: EditorCommand[]): CommandRegistr
       }));
     },
     toPaletteItems(ctx, query = "") {
+      const recent = new Set(recentIds);
       return registry.list("palette", ctx, query).map((command) => {
         const enabled = command.isEnabled?.(ctx) ?? true;
         return {
@@ -166,6 +159,7 @@ export function createCommandRegistry(commands: EditorCommand[]): CommandRegistr
           subtitle: command.subtitle,
           group: command.group,
           shortcut: command.shortcut,
+          recent: recent.has(command.id),
           disabledReason:
             enabled === true
               ? undefined
@@ -174,6 +168,9 @@ export function createCommandRegistry(commands: EditorCommand[]): CommandRegistr
                 : "Unavailable"
         };
       });
+    },
+    getRecentIds() {
+      return [...recentIds];
     }
   };
 
@@ -186,13 +183,15 @@ function insertBlockCommand(
   group: CommandGroup,
   block: Record<string, unknown>,
   aliases?: string[],
-  surfaces: CommandSurface[] = ["slash", "palette"]
+  surfaces: CommandSurface[] = ["slash", "palette"],
+  keywords?: string[]
 ): EditorCommand {
   return {
     id,
     title,
     group,
     aliases,
+    keywords,
     surfaces,
     run: (ctx) => {
       const cursor = ctx.editor.getTextCursorPosition();
@@ -207,19 +206,19 @@ export function createDefaultPowerCommands(): EditorCommand[] {
   return [
     insertBlockCommand("block.insert.paragraph", "Paragraph", "basic", {
       type: "paragraph"
-    }, ["text"]),
+    }, ["text"], ["slash", "palette"], ["body"]),
     insertBlockCommand("block.insert.heading1", "Heading 1", "headings", {
       type: "heading",
       props: { level: 1 }
-    }, ["h1", "title"]),
+    }, ["h1", "title"], ["slash", "palette"], ["heading"]),
     insertBlockCommand("block.insert.heading2", "Heading 2", "headings", {
       type: "heading",
       props: { level: 2 }
-    }, ["h2"]),
+    }, ["h2"], ["slash", "palette"], ["heading"]),
     insertBlockCommand("block.insert.heading3", "Heading 3", "headings", {
       type: "heading",
       props: { level: 3 }
-    }, ["h3"]),
+    }, ["h3"], ["slash", "palette"], ["heading"]),
     insertBlockCommand("block.insert.bullet", "Bullet list", "lists", {
       type: "bulletListItem"
     }, ["ul", "list"]),
@@ -237,18 +236,22 @@ export function createDefaultPowerCommands(): EditorCommand[] {
       "Callout",
       "power",
       { type: "callout", props: { variant: "info" } },
-      ["alert", "注意", "info"]
+      ["alert", "注意", "info"],
+      ["slash", "palette"],
+      ["callout", "note"]
     ),
     insertBlockCommand(
       "block.insert.status",
       "Status",
       "power",
       { type: "status", props: { state: "todo" } },
-      ["badge", "状態", "wip"]
+      ["badge", "状態", "wip"],
+      ["slash", "palette"],
+      ["status"]
     ),
     insertBlockCommand("block.insert.code", "Code block", "advanced", {
       type: "codeBlock"
-    }, ["code"]),
+    }, ["code"], ["slash", "palette"], ["syntax"]),
     insertBlockCommand("block.insert.divider", "Divider", "basic", {
       type: "divider"
     }, ["hr", "line"], ["slash", "palette"]),
@@ -257,6 +260,7 @@ export function createDefaultPowerCommands(): EditorCommand[] {
       title: "Image",
       group: "media",
       aliases: ["picture", "photo"],
+      keywords: ["image", "media"],
       surfaces: ["slash", "palette"],
       isAvailable: (ctx) => Boolean(ctx.seams?.files?.upload || ctx.providers?.assets?.upload),
       run: (ctx) => {
@@ -271,6 +275,7 @@ export function createDefaultPowerCommands(): EditorCommand[] {
       title: "Add comment",
       group: "collab",
       aliases: ["comment", "note"],
+      keywords: ["annotation"],
       surfaces: ["slash", "palette"],
       isAvailable: (ctx) => Boolean(ctx.seams?.comments?.add || ctx.providers?.comments?.add),
       run: async (ctx) => {
@@ -286,9 +291,149 @@ export function createDefaultPowerCommands(): EditorCommand[] {
       title: "Copy document JSON hint",
       subtitle: "Host should serialize EditorDocument on save",
       group: "document",
+      keywords: ["export", "serialize"],
       surfaces: ["palette"],
       run: () => {
         // Host owns persistence; palette entry documents the seam.
+      }
+    },
+    {
+      id: "block.insert.reference",
+      title: "Block reference",
+      subtitle: "Insert a link to another block in this document",
+      group: "navigation",
+      aliases: ["ref", "link block", "mention block"],
+      keywords: ["reference", "jump", "goto"],
+      surfaces: ["slash", "palette"],
+      run: (ctx) => {
+        const cursor = ctx.editor.getTextCursorPosition();
+        const block = cursor.block as { id?: string };
+        const targetId = block.id ?? "";
+        ctx.editor.transact(() => {
+          ctx.editor.insertBlocks(
+            [
+              {
+                type: "paragraph",
+                content: [
+                  {
+                    type: "blockReference",
+                    props: { blockId: targetId }
+                  }
+                ]
+              }
+            ],
+            cursor.block,
+            "after"
+          );
+        });
+      }
+    }
+  ];
+}
+
+export function createBlockActionCommands(): EditorCommand[] {
+  return [
+    {
+      id: "block.duplicate",
+      title: "Duplicate",
+      group: "document",
+      keywords: ["clone", "copy block"],
+      surfaces: ["block-action", "palette"],
+      run: (ctx) => {
+        const cursor = ctx.editor.getTextCursorPosition();
+        const block = cursor.block as { id?: string; type?: string };
+        ctx.editor.transact(() => {
+          ctx.editor.insertBlocks(
+            [{ type: block.type ?? "paragraph" }],
+            cursor.block,
+            "after"
+          );
+        });
+      }
+    },
+    {
+      id: "block.delete",
+      title: "Delete",
+      group: "document",
+      keywords: ["remove"],
+      surfaces: ["block-action", "palette"],
+      isEnabled: (ctx) =>
+        typeof ctx.editor.removeBlocks === "function"
+          ? true
+          : { ok: false, reason: "Editor cannot remove blocks" },
+      run: (ctx) => {
+        const cursor = ctx.editor.getTextCursorPosition();
+        ctx.editor.removeBlocks?.([cursor.block]);
+      }
+    },
+    {
+      id: "block.move-up",
+      title: "Move up",
+      group: "document",
+      surfaces: ["block-action", "palette"],
+      run: (ctx) => {
+        const cursor = ctx.editor.getTextCursorPosition();
+        const prev = ctx.editor.getPrevBlock?.(cursor.block);
+        if (!prev) return;
+        ctx.editor.transact(() => {
+          ctx.editor.insertBlocks(
+            [{ type: (cursor.block as { type?: string }).type ?? "paragraph" }],
+            prev,
+            "before"
+          );
+          ctx.editor.removeBlocks?.([cursor.block]);
+        });
+      }
+    },
+    {
+      id: "block.move-down",
+      title: "Move down",
+      group: "document",
+      surfaces: ["block-action", "palette"],
+      run: (ctx) => {
+        const cursor = ctx.editor.getTextCursorPosition();
+        const next = ctx.editor.getNextBlock?.(cursor.block);
+        if (!next) return;
+        ctx.editor.transact(() => {
+          ctx.editor.insertBlocks(
+            [{ type: (cursor.block as { type?: string }).type ?? "paragraph" }],
+            next,
+            "after"
+          );
+          ctx.editor.removeBlocks?.([cursor.block]);
+        });
+      }
+    },
+    {
+      id: "block.copy-id",
+      title: "Copy block ID",
+      group: "document",
+      keywords: ["id", "uuid"],
+      surfaces: ["block-action", "palette"],
+      run: async (ctx) => {
+        const cursor = ctx.editor.getTextCursorPosition();
+        const id = (cursor.block as { id?: string }).id ?? "";
+        if (typeof navigator !== "undefined" && navigator.clipboard) {
+          await navigator.clipboard.writeText(id);
+        }
+      }
+    },
+    {
+      id: "block.copy-reference",
+      title: "Copy block reference",
+      group: "navigation",
+      keywords: ["ref"],
+      surfaces: ["block-action", "palette"],
+      run: async (ctx) => {
+        const cursor = ctx.editor.getTextCursorPosition();
+        const id = (cursor.block as { id?: string }).id ?? "";
+        const payload = JSON.stringify({
+          type: "blockReference",
+          props: { blockId: id }
+        });
+        if (typeof navigator !== "undefined" && navigator.clipboard) {
+          await navigator.clipboard.writeText(payload);
+        }
       }
     }
   ];
