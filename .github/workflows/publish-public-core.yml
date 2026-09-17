@@ -2,8 +2,10 @@
 #
 # Safe ordering (npm docs): this workflow filename must exist under
 # `.github/workflows/` BEFORE the owner configures npm Trusted Publisher.
-# Real publish remains DISABLED until Trusted Publisher + Environment exist
-# and a later PR enables the publish step after independent review.
+# Real publish remains DISABLED until Trusted Publisher is configured and a
+# later PR enables the publish step after independent review.
+# OWNER: create + protect GitHub Environment `public-npmjs` BEFORE merging
+# this workflow (do not rely on first workflow_dispatch auto-create).
 #
 # Never:
 # - env.NODE_AUTH_TOKEN / secrets.NPM_TOKEN
@@ -25,8 +27,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # OWNER ACTION REQUIRED if missing: create GitHub Environment `public-npmjs`
-    # (required reviewers recommended when the plan permits).
+    # OWNER ACTION REQUIRED BEFORE MERGE: create + protect Environment
+    # `public-npmjs` (required reviewers when the plan permits). Do not merge
+    # this workflow until that Environment already exists and is protected.
     environment: public-npmjs
     steps:
       - name: Checkout

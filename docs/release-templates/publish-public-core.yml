@@ -3,9 +3,10 @@
 #
 # npm Trusted Publisher requires the workflow filename to already exist under
 # `.github/workflows/` BEFORE owner configuration on npmjs. Order:
-#   1) land workflow foundation under `.github/workflows/`
-#   2) owner configures Trusted Publisher pointing at that filename
-#   3) later PR enables real publish after independent review
+#   1) owner creates + protects GitHub Environment `public-npmjs` (before merge)
+#   2) land workflow foundation under `.github/workflows/`
+#   3) owner configures Trusted Publisher pointing at that filename
+#   4) later PR enables real publish after independent review
 #
 # Purpose: ONGOING releases AFTER `@hello-ai-company/editor-core@0.1.0` exists
 # on https://registry.npmjs.org. Trusted Publishing requires an already-existing
@@ -42,7 +43,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: public-npmjs # create this GitHub Environment later; require reviewers
+    environment: public-npmjs # OWNER: create + protect BEFORE merging active workflow
     steps:
       - name: Checkout
         uses: actions/checkout@v4
