@@ -1,7 +1,11 @@
-import { filterSuggestionItems } from "@blocknote/core/extensions";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
-import type { OpenEditorChangeBatch } from "../bridge/batchedSink.js";
-import { createBlockChangeBridge } from "../bridge/createBlockChangeBridge.js";
+import { filterSuggestionItems } from "@blocknote/core/extensions";
+import type { BatchPolicy, OpenEditorChangeBatch, OpenEditorChangeSink } from "../bridge/batchedSink.js";
+import { createBatchedChangeSink } from "../bridge/batchedSink.js";
+import {
+  createBlockChangeBridge,
+  type BlockChangeBridge
+} from "../bridge/createBlockChangeBridge.js";
 import type {
   CommandRegistry,
   EditorCommandContext,
@@ -25,40 +29,101 @@ export type UseOpenEditorBlockChangesOptions = {
   editor: EditorLike;
   includeUpdatesFromRemote?: boolean;
   onBatch: (batch: OpenEditorChangeBatch) => void;
-  batch?: {
-    strategy?: "sync" | "raf" | "timeout";
-    delayMs?: number;
-    maxBuffer?: number;
-    coalesceUpdatesByBlockId?: boolean;
-  };
+  batch?: BatchPolicy;
 };
 
+function batchPolicyKey(batch: BatchPolicy | undefined): string {
+  return JSON.stringify({
+    strategy: batch?.strategy ?? "raf",
+    delayMs: batch?.delayMs ?? 32,
+    maxBuffer: batch?.maxBuffer ?? 256,
+    coalesceUpdatesByBlockId: batch?.coalesceUpdatesByBlockId ?? true
+  });
+}
+
+function createPendingAwareSink(
+  onFlush: (batch: OpenEditorChangeBatch) => void,
+  onPendingChange: (count: number) => void,
+  policy?: BatchPolicy
+): OpenEditorChangeSink {
+  const inner = createBatchedChangeSink(onFlush, policy);
+  return {
+    get pendingCount() {
+      return inner.pendingCount;
+    },
+    enqueue(changes) {
+      inner.enqueue(changes);
+      onPendingChange(inner.pendingCount);
+    },
+    flush() {
+      const batch = inner.flush();
+      onPendingChange(inner.pendingCount);
+      return batch;
+    },
+    clear() {
+      inner.clear();
+      onPendingChange(0);
+    }
+  };
+}
+
+/**
+ * Subscribes to incremental BlockNote changes via createBlockChangeBridge.
+ * Recreates the bridge when editor / remote / batch policy change.
+ * `pendingCount` is React state updated on enqueue/flush (not a frozen ref read).
+ */
 export function useOpenEditorBlockChanges(options: UseOpenEditorBlockChangesOptions): {
   flush: () => OpenEditorChangeBatch | null;
   pendingCount: number;
 } {
   const onBatchRef = useRef(options.onBatch);
   onBatchRef.current = options.onBatch;
-  const bridgeRef = useRef(
-    createBlockChangeBridge({
-      includeUpdatesFromRemote: options.includeUpdatesFromRemote,
-      batch: options.batch ?? { strategy: "raf" },
-      onBatch: (batch) => onBatchRef.current(batch)
-    })
-  );
+
+  const [pendingCount, setPendingCount] = useState(0);
+  const bridgeRef = useRef<BlockChangeBridge | null>(null);
+
+  const includeUpdatesFromRemote = options.includeUpdatesFromRemote ?? true;
+  const policyKey = batchPolicyKey(options.batch);
+  const batchPolicy = useMemo((): BatchPolicy => {
+    return options.batch ?? { strategy: "raf" };
+    // policyKey captures batch field identity for recreate
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [policyKey]);
 
   useEffect(() => {
-    const bridge = bridgeRef.current;
+    const sink = createPendingAwareSink(
+      (batch) => {
+        onBatchRef.current(batch);
+      },
+      (count) => {
+        setPendingCount(count);
+      },
+      batchPolicy
+    );
+
+    const bridge = createBlockChangeBridge({
+      includeUpdatesFromRemote,
+      sink
+    });
+    bridgeRef.current = bridge;
+
     const detach = bridge.attach(options.editor as never);
     return () => {
       bridge.flush();
       detach();
+      bridge.clear();
+      bridgeRef.current = null;
+      setPendingCount(0);
     };
-  }, [options.editor, options.includeUpdatesFromRemote]);
+  }, [options.editor, includeUpdatesFromRemote, batchPolicy]);
+
+  const flush = useCallback(() => {
+    return bridgeRef.current?.flush() ?? null;
+  }, []);
 
   return {
-    flush: () => bridgeRef.current.flush(),
-    pendingCount: bridgeRef.current.pendingCount
+    flush,
+    pendingCount
   };
 }
 

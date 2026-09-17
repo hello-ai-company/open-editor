@@ -203,9 +203,24 @@ body {
   font-size: 0.9rem;
 }
 
+.demo-batch-summary {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  opacity: 0.9 !important;
+}
+
+.demo-json-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.demo-batch-pre,
 .demo-json pre {
   margin: 0;
-  max-height: 28rem;
+  max-height: 16rem;
   overflow: auto;
   padding: 0.85rem;
   background: #1c1917;
@@ -213,6 +228,10 @@ body {
   border-radius: 0.4rem;
   font-size: 0.78rem;
   line-height: 1.45;
+}
+
+.demo-json pre {
+  max-height: 22rem;
 }
 
 .footer {

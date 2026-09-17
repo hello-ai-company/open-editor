@@ -24,6 +24,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
     "./power.css": "./dist/power.css"
   },
   "files": [
@@ -43,7 +47,7 @@
     "directory": "packages/blocknote"
   },
   "dependencies": {
-    "@hello-ai-company/editor-core": "*"
+    "@hello-ai-company/editor-core": "^0.1.0"
   },
   "peerDependencies": {
     "@blocknote/core": "^0.54.2",

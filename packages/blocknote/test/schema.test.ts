@@ -16,8 +16,9 @@ describe("schema factory", () => {
   it("fails closed on reserved type collision", () => {
     expect(() =>
       createOpenEditorBlockNoteSchema({
+        // Intentionally invalid for runtime collision check
         blockSpecs: {
-          callout: {}
+          callout: {} as never
         }
       })
     ).toThrow(BlockNoteAdapterError);

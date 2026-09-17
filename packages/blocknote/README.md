@@ -45,6 +45,17 @@ npm install @blocknote/mantine
 ```
 
 Dependency direction: `editor-core` ← `editor-blocknote` ← app (never reverse).
+`editor-blocknote` depends on `@hello-ai-company/editor-core@^0.1.0`.
+
+### Entry points
+
+| Import | Contents |
+| --- | --- |
+| `@hello-ai-company/editor-blocknote` | Full surface (adapter, bridge, commands, React power UX) |
+| `@hello-ai-company/editor-blocknote/react` | Additive React-focused re-exports (hooks, palette, power schema/blocks) |
+| `@hello-ai-company/editor-blocknote/power.css` | Callout / status / palette styles |
+
+Root entry remains complete in 0.1.0; further narrowing of root vs `/react` is deferred to 4F-2 if needed.
 
 ## Minimal React snippet
 

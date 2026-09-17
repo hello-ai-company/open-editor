@@ -21,8 +21,9 @@
     "security:scan": "node scripts/security-scan.mjs",
     "verify:api": "node scripts/api-contract.mjs",
     "verify:blocknote": "npm run typecheck -w @hello-ai-company/editor-blocknote && npm run test -w @hello-ai-company/editor-blocknote && npm run build -w @hello-ai-company/editor-blocknote && npm run bench:smoke -w @hello-ai-company/editor-blocknote && npm run verify:isolated-blocknote",
+    "verify:example-blocknote": "npm run build -w @hello-ai-company/editor-blocknote && npm install --prefix examples/blocknote-power && npm run build --prefix examples/blocknote-power",
     "publish:dry-run": "npm publish -w @hello-ai-company/editor-core --access public --registry=https://registry.npmjs.org --dry-run",
-    "verify": "npm run typecheck && npm test && npm run build && npm run pack:core && npm run inspect:tarball && npm run verify:isolated && npm run security:scan && npm run verify:api"
+    "verify": "npm run typecheck && npm test && npm run build && npm run pack:core && npm run inspect:tarball && npm run verify:isolated && npm run security:scan && npm run verify:api && npm run verify:blocknote"
   },
   "engines": {
     "node": ">=20"
