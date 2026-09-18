@@ -2,7 +2,7 @@ import type {
   EditorBlock,
   RelationEdge,
   RelationKind,
-  RelationTargetType
+  RelationTargetQuery
 } from "@hello-ai-company/editor-core";
 import { withRelationEdgeId } from "@hello-ai-company/editor-core";
 import type { OpenEditorBlockChange } from "../bridge/batchedSink.js";
@@ -26,11 +26,11 @@ export type RelationIndex = {
   ) => void;
   list: () => readonly RelationEdge[];
   listByKind: (kind: RelationKind) => RelationEdge[];
-  listOutgoingTo: (
-    targetType: RelationTargetType,
-    targetId: string,
-    options?: { targetDatabaseId?: string }
-  ) => RelationEdge[];
+  /**
+   * Outgoing edges matching a typed target.
+   * `database-row` queries must include `targetDatabaseId`.
+   */
+  listOutgoingTo: (target: RelationTargetQuery) => RelationEdge[];
   size: () => number;
   getRevision: () => number;
   subscribe: (listener: () => void) => () => void;
@@ -276,16 +276,19 @@ export function createRelationIndex(): RelationIndex {
       return [...byEdgeId.values()].filter((edge) => edge.kind === kind);
     },
 
-    listOutgoingTo(targetType, targetId, options) {
+    listOutgoingTo(target) {
       return [...byEdgeId.values()].filter((edge) => {
-        if (edge.targetType !== targetType || edge.targetId !== targetId) {
-          return false;
-        }
         if (
-          options?.targetDatabaseId !== undefined &&
-          edge.targetDatabaseId !== options.targetDatabaseId
+          edge.targetType !== target.targetType ||
+          edge.targetId !== target.targetId
         ) {
           return false;
+        }
+        if (target.targetType === "database-row") {
+          return (
+            edge.targetType === "database-row" &&
+            edge.targetDatabaseId === target.targetDatabaseId
+          );
         }
         return true;
       });

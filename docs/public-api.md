@@ -69,10 +69,11 @@ Kind: runtime. Stability: **stable** for this freeze. Compatibility: additive op
 | `EditorPageLink` | type | Page link preview | experimental | New optional fields are additive |
 | `CreatedChildPage` | type | Child page result | experimental | New optional fields are additive |
 | `BacklinkProvider` | type | Workspace-wide incoming relations | experimental | Additive |
-| `BacklinkQuery` | type | Backlink query | experimental | Additive |
+| `BacklinkQuery` | type | Discriminated backlink query (`database-row` requires `targetDatabaseId`) | experimental | Additive |
 | `BacklinkItem` | type | Incoming backlink record | experimental | Additive |
-| `RelationEdge` | type | Outgoing semantic edge | experimental | Additive |
+| `RelationEdge` | type | Discriminated outgoing semantic edge | experimental | Additive |
 | `RelationKind` | type | Relation kind union | experimental | Additive |
+| `RelationTargetQuery` | type | Typed RelationIndex target selector | experimental | Additive |
 | `RelationTargetType` | type | Relation target union | experimental | Additive |
 | `NativeBridge` | type | Generic host protocol | experimental | Method set is allowlisted |
 | `NativeBridgeStats` | type | Optional document stats | experimental | New optional fields are additive |

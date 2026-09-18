@@ -74,4 +74,20 @@ describe("relation edge helpers", () => {
     });
     expect(a).not.toBe(b);
   });
+
+  it("narrows targetDatabaseId to string on database-row edges", () => {
+    const edge: RelationEdge = {
+      sourceDocumentId: "doc",
+      targetType: "database-row",
+      targetDatabaseId: "db-a",
+      targetId: "row-1",
+      kind: "database-row-relation"
+    };
+    expect(edge.targetType).toBe("database-row");
+    if (edge.targetType === "database-row") {
+      // Runtime + type narrow: string, not string | undefined
+      expect(edge.targetDatabaseId.length).toBeGreaterThan(0);
+      expect(edge.targetDatabaseId).toBe("db-a");
+    }
+  });
 });

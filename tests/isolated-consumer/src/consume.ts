@@ -9,13 +9,15 @@ import {
   serializeEditorDocument,
   withRelationEdgeId,
   type BacklinkProvider,
+  type BacklinkQuery,
   type DatabaseProvider,
   type EditorProviders,
   type JsonValue,
   type NativeBridge,
   type PageProvider,
   type RelationEdge,
-  type RelationKind
+  type RelationKind,
+  type RelationTargetQuery
 } from "@hello-ai-company/editor-core";
 
 const blocks = [
@@ -47,7 +49,20 @@ const bridge: NativeBridge = {
 
 const pages: PageProvider = {};
 const database: DatabaseProvider = {};
-const backlinks: BacklinkProvider = {};
+const backlinks: BacklinkProvider = {
+  async listBacklinks(query: BacklinkQuery) {
+    if (query.targetType === "database-row") {
+      return [
+        {
+          sourceDocumentId: "other",
+          kind: "database-row-relation",
+          sourceTitle: `${query.targetDatabaseId}/${query.targetId}`
+        }
+      ];
+    }
+    return [];
+  }
+};
 const providers: EditorProviders = {
   nativeBridge: bridge,
   pages,
@@ -59,8 +74,8 @@ const kind: RelationKind = "database-row-relation";
 const edge: RelationEdge = {
   sourceDocumentId: "doc",
   targetType: "database-row",
-  targetId: "row-1",
   targetDatabaseId: "db-a",
+  targetId: "row-1",
   kind
 };
 const edged = withRelationEdgeId(edge);
@@ -68,6 +83,11 @@ const otherId = relationEdgeId({
   ...edge,
   targetDatabaseId: "db-b"
 });
+const rowTarget: RelationTargetQuery = {
+  targetType: "database-row",
+  targetDatabaseId: "db-a",
+  targetId: "row-1"
+};
 
 export const isolatedConsumerReady =
   document.schemaVersion === EDITOR_DOCUMENT_SCHEMA_VERSION
@@ -79,4 +99,5 @@ export const isolatedConsumerReady =
   && providers.backlinks !== undefined
   && isJsonValue(payload)
   && edged.edgeId !== undefined
-  && edged.edgeId !== otherId;
+  && edged.edgeId !== otherId
+  && rowTarget.targetDatabaseId === "db-a";

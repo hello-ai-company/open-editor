@@ -500,6 +500,23 @@ describe("RelationIndex", () => {
     // No embedded destination row payload
     expect(JSON.stringify(edges)).not.toContain("embedded");
     expect(edges.every((e) => !("row" in e))).toBe(true);
+
+    const index = createRelationIndex();
+    index.replaceFromBlocks("doc-1", blocks as never);
+    expect(
+      index.listOutgoingTo({
+        targetType: "database-row",
+        targetDatabaseId: "db-a",
+        targetId: "row-1"
+      })
+    ).toHaveLength(1);
+    expect(
+      index.listOutgoingTo({
+        targetType: "database-row",
+        targetDatabaseId: "db-b",
+        targetId: "row-1"
+      })
+    ).toHaveLength(1);
   });
 
   it("round-trips databaseRelation props without row objects (P1-4)", () => {
@@ -545,8 +562,8 @@ describe("RelationIndex", () => {
         source: "local"
       }
     ]);
-    expect(index.listOutgoingTo("page", "design")).toHaveLength(0);
-    expect(index.listOutgoingTo("page", "design-v2")).toHaveLength(1);
+    expect(index.listOutgoingTo({ targetType: "page", targetId: "design" })).toHaveLength(0);
+    expect(index.listOutgoingTo({ targetType: "page", targetId: "design-v2" })).toHaveLength(1);
 
     index.applyChanges("doc-1", [
       {
@@ -575,7 +592,7 @@ describe("RelationIndex", () => {
       ]
     };
     index.replaceFromBlocks("doc-1", [before] as never);
-    expect(index.listOutgoingTo("page", "PageA")).toHaveLength(1);
+    expect(index.listOutgoingTo({ targetType: "page", targetId: "PageA" })).toHaveLength(1);
 
     const after = {
       id: "parent",
@@ -592,7 +609,7 @@ describe("RelationIndex", () => {
         source: "local"
       }
     ]);
-    expect(index.listOutgoingTo("page", "PageA")).toHaveLength(0);
+    expect(index.listOutgoingTo({ targetType: "page", targetId: "PageA" })).toHaveLength(0);
     expect(index.size()).toBe(0);
   });
 
@@ -632,8 +649,8 @@ describe("RelationIndex", () => {
         source: "local"
       }
     ]);
-    expect(index.listOutgoingTo("page", "PageA")).toHaveLength(0);
-    expect(index.listOutgoingTo("page", "PageB")).toHaveLength(1);
+    expect(index.listOutgoingTo({ targetType: "page", targetId: "PageA" })).toHaveLength(0);
+    expect(index.listOutgoingTo({ targetType: "page", targetId: "PageB" })).toHaveLength(1);
     expect(index.size()).toBe(1);
     expect(index.getRevision()).toBeGreaterThan(revBefore);
   });

@@ -127,7 +127,10 @@ export function BacklinksPanel(props: BacklinksPanelProps): ReactElement {
   const outgoing = useMemo(() => {
     void revision;
     return (
-      props.relationIndex?.listOutgoingTo("page", props.targetPageId) ?? []
+      props.relationIndex?.listOutgoingTo({
+        targetType: "page",
+        targetId: props.targetPageId
+      }) ?? []
     );
   }, [props.relationIndex, props.targetPageId, revision]);
 

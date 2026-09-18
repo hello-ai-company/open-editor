@@ -34,6 +34,7 @@ export {
   withRelationEdgeId,
   type RelationEdge,
   type RelationKind,
+  type RelationTargetQuery,
   type RelationTargetType
 } from "./relations.js";
 

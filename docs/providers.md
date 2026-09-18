@@ -23,6 +23,7 @@ OpenEditor stores **references and view configuration** in `EditorDocument`. The
 - `PageProvider` resolves page titles / navigation / child creation
 - `DatabaseProvider` supplies rows for `databaseView` blocks (never embed row arrays in the document)
 - `BacklinkProvider` supplies workspace-wide *incoming* relations; a single editor only knows its outgoing `RelationIndex`
+- `BacklinkQuery` is a discriminated union: `targetType: "database-row"` always requires `targetDatabaseId` + `targetId`
 
 `createChildPage()` with no arguments remains supported. Prefer:
 

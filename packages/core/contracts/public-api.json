@@ -63,6 +63,7 @@
     "PageSearchOptions",
     "RelationEdge",
     "RelationKind",
+    "RelationTargetQuery",
     "RelationTargetType",
     "SerializedEditorDocument",
     "VersionProvider"
@@ -125,6 +126,7 @@
     "PageSearchOptions",
     "RelationEdge",
     "RelationKind",
+    "RelationTargetQuery",
     "RelationTargetType",
     "VersionProvider"
   ]

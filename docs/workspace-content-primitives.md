@@ -73,8 +73,22 @@ value `"main"`. Invalid `viewType` strings fall back to `"table"` (validated wit
 | **Database view reference** | `database-view-reference` | `database` + databaseId | `databaseView` block props |
 | **Database row relation** | `database-row-relation` | `database-row` + rowId **scoped by** `targetDatabaseId` | `databaseRelation` inline `{ databaseId, rowId }` |
 
-Row keys are only unique within a database: **`db-a` / `row-1` ≠ `db-b` / `row-1`**.
+**Invariant:** A database row reference is identified by the tuple
+`(databaseId, rowId)`. `rowId` alone is never a globally valid database-row
+target: **`db-a` / `row-1` ≠ `db-b` / `row-1`**.
+
 Never embed destination row objects in the document.
+
+`RelationEdge` is a **discriminated union** on `targetType` (with constrained
+`kind` per variant). Invalid target/kind combinations — and a
+`database-row` edge without `targetDatabaseId` — are rejected by TypeScript.
+
+`BacklinkQuery` and `RelationTargetQuery` follow the same rule: a
+`database-row` query always requires both `targetDatabaseId` and `targetId`.
+
+`RelationIndex.listOutgoingTo` takes a typed `RelationTargetQuery` object
+(not positional args), so `listOutgoingTo({ targetType: "database-row", … })`
+cannot omit the database id.
 
 ## Providers
 

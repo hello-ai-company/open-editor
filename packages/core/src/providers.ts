@@ -214,14 +214,22 @@ export type BacklinkItem = {
 /**
  * Workspace-wide incoming relations. A single editor only knows outgoing
  * edges from its document — backlinks must come from the host.
+ *
+ * Discriminated on `targetType`. A database-row query always requires
+ * both `targetDatabaseId` and `targetId` (row keys are database-scoped).
  */
-export type BacklinkQuery = {
-  targetType: "page" | "block" | "database" | "database-row";
-  targetId: string;
-  /** Required when querying `database-row` targets (row keys are DB-scoped). */
-  targetDatabaseId?: string;
-  limit?: number;
-};
+export type BacklinkQuery =
+  | {
+      targetType: "page" | "block" | "database";
+      targetId: string;
+      limit?: number;
+    }
+  | {
+      targetType: "database-row";
+      targetDatabaseId: string;
+      targetId: string;
+      limit?: number;
+    };
 
 export type BacklinkProvider = {
   listBacklinks?(query: BacklinkQuery): Promise<BacklinkItem[]>;
