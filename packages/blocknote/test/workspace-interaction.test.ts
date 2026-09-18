@@ -425,10 +425,22 @@ describe("@ page mention suggestion", () => {
 
 describe("BacklinksPanel", () => {
   it("shows loading then ready; ignores stale target responses", async () => {
-    let resolveFirst!: (items: unknown[]) => void;
+    let resolveFirst!: (
+      items: Array<{
+        sourceDocumentId: string;
+        sourceTitle: string;
+        kind: "page-reference";
+      }>
+    ) => void;
     let call = 0;
     const provider = {
-      listBacklinks: () => {
+      listBacklinks: (): Promise<
+        Array<{
+          sourceDocumentId: string;
+          sourceTitle: string;
+          kind: "page-reference";
+        }>
+      > => {
         call += 1;
         if (call === 1) {
           return new Promise((resolve) => {
