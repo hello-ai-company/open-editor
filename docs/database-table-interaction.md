@@ -1,9 +1,27 @@
-# Database Table Interaction (Phase 4F-3A / 4F-3B)
+# Database View Interaction (Phase 4F-3A / 4F-3B / 4F-4A)
 
 EditorDocument stores **database references / view identity**. The host owns **row entities and persistence**.
 
 > Rows are never embedded into `databaseView` block props.
 > Phase 4F-3B filters and property sort are **ephemeral interaction state** — not saved view configuration.
+> Phase 4F-4A Board grouping and Calendar scale/cursor/date-property selection are also **ephemeral** — not EditorDocument.
+
+```
+DatabaseRuntimeStore snapshot (snap.items)
+          │
+          ▼
+Shared Database View Shell
+  ├ title / search / filters / sort / refresh / trash / load more
+  └ renderer dispatch
+          │
+   ┌──────┼──────────┐
+   ▼      ▼          ▼
+ Table   Board    Calendar
+          │
+          ▼
+ presentation-only transforms
+ (group columns / date placement)
+```
 
 ```
 EditorDatabase
@@ -29,6 +47,20 @@ DatabaseProvider.listRows(options)
 Host query engine
 ```
 
+## Board & Calendar (4F-4A)
+
+| Concern | Behavior |
+| --- | --- |
+| Row source | Same `snap.items` after provider query (no second client filter engine) |
+| Board grouping | status/select only; ephemeral property pick; options ∪ observed values; Unassigned bucket |
+| Board mutation | `updateRow` complete row; never `reorderRows`; DnD optional; `<select>` required |
+| Calendar date | First `date` property default; `YYYY-MM-DD` only; invalid/missing → No date |
+| Calendar nav | Month/week + Previous/Today/Next — presentation only (zero `listRows`) |
+| Partial pages | Show loaded rows + “Showing loaded rows only” + Load more |
+| Row open | Optional `runtime.onOpenRow({ databaseId, rowKey, viewId, viewType })` |
+| Renderer override | `runtime.renderers` per editor instance — no module-global registry |
+
+Unsupported `viewType` values (timeline, gantt, list, gallery, chart, feed, map, dashboard) stay deferred.
 ## Identity semantics
 
 | Concept | Role |
@@ -175,5 +207,8 @@ first-page reload — only `loadingMore` / `refreshing` are superseded.
 
 ## Non-goals (later)
 
-Board / calendar / timeline / formulas / rollups / relation editors / schema designer /
-OR filters / multi-sort / saved views / Personal AI adapter / AG Grid.
+Timeline / gantt / list / gallery / chart / feed / map / dashboard /
+formulas / rollups / relation editors / schema designer /
+OR filters / multi-sort / saved views (`groupBy`, calendar scale) /
+Board within-column reorder / calendar datetime-timezone /
+Personal AI adapter / AG Grid.

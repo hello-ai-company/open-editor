@@ -1054,13 +1054,12 @@ export function databaseViewInstanceKey(
   return encodeDatabaseKeyParts([safeBlock, databaseId, viewId || "main"]);
 }
 
+import type { DatabaseViewRuntime } from "./databaseViewRuntime.js";
+
 export function createDatabaseViewRuntimeFromStore(
   store: DatabaseRuntimeStore,
   provider?: DatabaseProvider
-): {
-  database?: DatabaseProvider;
-  store: DatabaseRuntimeStore;
-} {
+): DatabaseViewRuntime {
   return {
     database: provider,
     store

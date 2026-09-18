@@ -59,7 +59,7 @@ export const sampleDocument = createEditorDocument([
     id: "h2c",
     type: "heading",
     props: { level: 2 },
-    content: [{ type: "text", text: "Tasks (same database, two views)", styles: {} }]
+    content: [{ type: "text", text: "Tasks (same database, three views)", styles: {} }]
   },
   {
     id: "db-table",
@@ -82,13 +82,23 @@ export const sampleDocument = createEditorDocument([
     }
   },
   {
+    id: "db-calendar",
+    type: "databaseView",
+    props: {
+      databaseId: "tasks",
+      viewId: "main-calendar",
+      viewType: "calendar",
+      titleHint: "Tasks"
+    }
+  },
+  {
     id: "c1",
     type: "callout",
     props: { variant: "info", title: "Portable" },
     content: [
       {
         type: "text",
-        text: "databaseView props hold databaseId/viewId/viewType only — never the row array.",
+        text: "databaseView props hold databaseId/viewId/viewType only — never the row array. Board grouping and Calendar cursor are ephemeral UI state.",
         styles: {}
       }
     ]
@@ -96,6 +106,6 @@ export const sampleDocument = createEditorDocument([
   {
     id: "s1",
     type: "status",
-    props: { state: "doing", label: "4F-2B" }
+    props: { state: "doing", label: "4F-4A" }
   }
 ]);
