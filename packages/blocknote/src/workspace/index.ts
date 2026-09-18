@@ -40,9 +40,58 @@ export {
   encodePropertySortSelectValue,
   parseSortSelectValue,
   resolveCreateRowPayload,
+  type DatabaseRowOpenRequest,
+  type DatabaseViewRenderer,
+  type DatabaseViewRendererContext,
+  type DatabaseViewRendererMap,
   type DatabaseViewRuntime,
   type ParsedSortSelectValue
 } from "./databaseView.js";
+
+export {
+  resolveDatabaseViewRenderer,
+  isDeferredDatabaseViewType
+} from "./databaseViewRenderers.js";
+
+export {
+  BOARD_UNASSIGNED_VALUE,
+  buildBoardColumns,
+  buildBoardGroupUpdateRow,
+  canMutateBoardGroup,
+  defaultBoardGroupingProperty,
+  listBoardGroupingProperties,
+  resolveBoardGroupingProperty,
+  type BoardGroupColumn
+} from "./databaseBoardModel.js";
+
+export {
+  addCalendarDays,
+  addCalendarMonths,
+  buildCalendarDateUpdateRow,
+  buildCalendarLayout,
+  calendarRowDateKey,
+  canMutateCalendarDate,
+  defaultCalendarDateProperty,
+  formatCanonicalDateKey,
+  listCalendarDateProperties,
+  parseCanonicalDateKey,
+  resolveCalendarDateProperty,
+  shiftCalendarCursor,
+  startOfWeekSunday,
+  todayCanonicalDateKey,
+  type CalendarDayCell,
+  type CalendarLayout,
+  type CalendarScale
+} from "./databaseCalendarModel.js";
+
+export {
+  formatDatabaseCardFieldValue,
+  resolveDatabaseCardPreviewFields,
+  resolveDatabaseRowTitle
+} from "./databaseRowPresentation.js";
+
+export { renderBoardView } from "./databaseBoardRenderer.js";
+export { renderCalendarView } from "./databaseCalendarRenderer.js";
 
 export {
   createDatabaseRuntimeStore,

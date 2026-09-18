@@ -295,6 +295,62 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         link: "",
         formulaPreview: "score * 2"
       }
+    },
+    {
+      rowKey: nextKey(),
+      sortOrder: 6,
+      deletedAt: null,
+      row: {
+        title: "Unassigned status card",
+        status: "",
+        score: 1,
+        done: false,
+        due: "2026-09-18",
+        link: "",
+        formulaPreview: "score * 2"
+      }
+    },
+    {
+      rowKey: nextKey(),
+      sortOrder: 7,
+      deletedAt: null,
+      row: {
+        title: "Legacy status value",
+        status: "legacy-state",
+        score: 1,
+        done: false,
+        due: "2026-09-05",
+        link: "",
+        formulaPreview: "score * 2"
+      }
+    },
+    {
+      rowKey: nextKey(),
+      sortOrder: 8,
+      deletedAt: null,
+      row: {
+        title: "Invalid date row",
+        status: "todo",
+        score: 0,
+        done: false,
+        due: "09/18/2026",
+        link: "",
+        formulaPreview: "score * 2"
+      }
+    },
+    {
+      rowKey: nextKey(),
+      sortOrder: 9,
+      deletedAt: null,
+      row: {
+        title: "No date row",
+        status: "doing",
+        score: 0,
+        done: false,
+        due: "",
+        link: "",
+        formulaPreview: "score * 2"
+      }
     }
   ];
 
@@ -321,7 +377,8 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         },
         views: [
           { id: "main-table", title: "Table", viewType: "table" },
-          { id: "main-board", title: "Board", viewType: "board" }
+          { id: "main-board", title: "Board", viewType: "board" },
+          { id: "main-calendar", title: "Calendar", viewType: "calendar" }
         ]
       };
     },

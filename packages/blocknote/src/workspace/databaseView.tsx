@@ -1,13 +1,13 @@
 /**
- * Database view block — interactive table engine (Phase 4F-3A / 4F-3B).
+ * Database view block — interactive table / board / calendar (Phase 4F-3A–4F-4A).
  * Document stores identity/view config only; rows come from DatabaseRuntimeStore.
  * 4F-3B: typed property editors, structured filters, and property sort UX.
+ * 4F-4A: Board + Calendar renderers via shared shell + renderer dispatch.
  */
 import { createReactBlockSpec } from "@blocknote/react";
 import type {
   DatabaseFilter,
   DatabasePropertyType,
-  DatabaseProvider,
   DatabaseRowItem,
   JsonValue
 } from "@hello-ai-company/editor-core";
@@ -21,6 +21,9 @@ import {
   type KeyboardEvent,
   type ReactElement
 } from "react";
+import { renderBoardView } from "./databaseBoardRenderer.js";
+import { renderCalendarView } from "./databaseCalendarRenderer.js";
+import { catchStoreMutation } from "./databaseMutationUtils.js";
 import {
   databaseViewInstanceKey,
   type DatabaseRuntimeStore,
@@ -51,25 +54,45 @@ import {
   type ResolvedPropertyDefinition
 } from "./databaseProperty.js";
 import {
+  isDeferredDatabaseViewType,
+  resolveDatabaseViewRenderer,
+  type DatabaseViewRendererContext,
+  type DatabaseViewRendererMap
+} from "./databaseViewRenderers.js";
+import type { DatabaseViewRuntime } from "./databaseViewRuntime.js";
+import {
   DATABASE_VIEW_TYPE,
   DATABASE_VIEW_TYPES,
+  isDatabaseViewType,
   type DatabaseViewType
 } from "./types.js";
 
-export type DatabaseViewRuntime = {
-  database?: DatabaseProvider;
-  /** Preferred: instance-scoped interaction store. */
-  store?: DatabaseRuntimeStore;
-  getTitle?: (databaseId: string) => string | undefined;
-};
+export type { DatabaseViewRuntime } from "./databaseViewRuntime.js";
+export type {
+  DatabaseRowOpenRequest,
+  DatabaseViewRenderer,
+  DatabaseViewRendererContext,
+  DatabaseViewRendererMap
+} from "./databaseViewRenderers.js";
+export { catchStoreMutation } from "./databaseMutationUtils.js";
 
-/**
- * Swallow provider rejection after the store has recorded mutationError.
- * Prevents unhandled Promise rejections from fire-and-forget UI handlers (4F-3A R1).
- */
-export function catchStoreMutation(promise: Promise<unknown>): void {
-  void promise.catch(() => undefined);
+function DeferredRenderer(ctx: DatabaseViewRendererContext): ReactElement {
+  return (
+    <p className="oe-database-view__empty" role="status">
+      Interactive {ctx.viewType} renderer is deferred. Table, Board, and Calendar
+      engines are available for those viewType values.
+    </p>
+  );
 }
+
+function renderDeferredView(ctx: DatabaseViewRendererContext): ReactElement {
+  return <DeferredRenderer {...ctx} />;
+}
+
+const DEFAULT_RENDERERS: DatabaseViewRendererMap = {
+  board: renderBoardView,
+  calendar: renderCalendarView
+};
 
 function emptyMessage(snap: DatabaseViewSnapshot): string {
   switch (snap.emptyReason) {
@@ -446,26 +469,29 @@ function StoreBackedDatabaseView(props: {
   );
 
   return (
-    <InteractiveDatabaseTable
+    <SharedDatabaseViewShell
       snap={snap}
       store={store}
       viewKey={viewKey}
+      viewId={viewId}
       viewType={viewType}
       titleHint={titleHint}
-      getTitle={runtime.getTitle}
+      runtime={runtime}
     />
   );
 }
 
-function InteractiveDatabaseTable(props: {
+function SharedDatabaseViewShell(props: {
   snap: DatabaseViewSnapshot;
   store: DatabaseRuntimeStore;
   viewKey: string;
+  viewId: string;
   viewType: string;
   titleHint: string;
-  getTitle?: (databaseId: string) => string | undefined;
+  runtime: DatabaseViewRuntime;
 }): ReactElement {
-  const { snap, store, viewKey, viewType, titleHint, getTitle } = props;
+  const { snap, store, viewKey, viewId, viewType, titleHint, runtime } = props;
+  const getTitle = runtime.getTitle;
   const [searchInput, setSearchInput] = useState(snap.queryState.query);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -1013,44 +1039,232 @@ function InteractiveDatabaseTable(props: {
     return <>{cellDisplayText(def, item.row[def.id])}</>;
   };
 
-  if (viewType !== "table") {
-    return (
-      <section
-        className="oe-database-view"
-        data-oe-database-view={snap.databaseId}
-        data-view-id={viewKey}
-        data-view-type={viewType}
-        aria-label={`${title} (${viewType})`}
-      >
-        <header className="oe-database-view__header">
-          <h3 className="oe-database-view__title">{title}</h3>
-          <span className="oe-database-view__meta">{viewType}</span>
-        </header>
+  const normalizedViewType: DatabaseViewType = isDatabaseViewType(viewType)
+    ? viewType
+    : "table";
+
+  const rendererContext: DatabaseViewRendererContext = {
+    snapshot: snap,
+    store,
+    viewKey,
+    viewId,
+    viewType: normalizedViewType,
+    title,
+    definitions: resolved,
+    mutationsAllowed,
+    busy,
+    runtime
+  };
+
+  const overrideOrDefault = resolveDatabaseViewRenderer({
+    viewType: normalizedViewType,
+    runtime,
+    defaults: DEFAULT_RENDERERS
+  });
+
+  const renderBody = (): ReactElement => {
+    if (normalizedViewType === "table" && !runtime.renderers?.table) {
+      return renderTableBody();
+    }
+    if (overrideOrDefault) {
+      return overrideOrDefault(rendererContext);
+    }
+    if (isDeferredDatabaseViewType(normalizedViewType)) {
+      return renderDeferredView(rendererContext);
+    }
+    return renderDeferredView(rendererContext);
+  };
+
+  const renderTableBody = (): ReactElement => {
+    if (!snap.capabilities.list) {
+      return (
         <p className="oe-database-view__empty" role="status">
-          Interactive {viewType} renderer is deferred. Table engine is available
-          when viewType is &quot;table&quot;.
+          Database provider unavailable
         </p>
-      </section>
+      );
+    }
+    if (snap.status === "loading" && snap.items.length === 0) {
+      return (
+        <p className="oe-database-view__empty" role="status">
+          Loading…
+        </p>
+      );
+    }
+    if (snap.status === "error") {
+      return (
+        <p className="oe-database-view__error" role="alert">
+          {snap.errorMessage ?? "Failed to load rows"}
+        </p>
+      );
+    }
+    if (snap.status === "empty" && !creating) {
+      return (
+        <p className="oe-database-view__empty" role="status">
+          {emptyMessage(snap)}
+        </p>
+      );
+    }
+    return (
+      <div className="oe-database-view__table-wrap" role="region">
+        <table className="oe-database-view__table">
+          <thead>
+            <tr>
+              <th scope="col">Key</th>
+              {resolved.map((def) => (
+                <th key={def.id} scope="col">
+                  {def.name}
+                </th>
+              ))}
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {creating ? (
+              <tr className="oe-database-view__draft">
+                <td>
+                  <em>new</em>
+                </td>
+                {resolved.map((def) => {
+                  if (!isCreatableResolvedProperty(def)) {
+                    return (
+                      <td key={def.id}>
+                        <span className="oe-database-view__readonly-hint">
+                          —
+                        </span>
+                      </td>
+                    );
+                  }
+                  return <td key={def.id}>{renderCreateInput(def)}</td>;
+                })}
+                <td>
+                  <button
+                    type="button"
+                    onClick={() => void submitCreate()}
+                    disabled={busy}
+                  >
+                    Create
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreating(false);
+                      setDraft({});
+                      setCreateError(null);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </td>
+              </tr>
+            ) : null}
+            {snap.items.map((item, index) => (
+              <tr
+                key={item.rowKey}
+                data-row-key={item.rowKey}
+                aria-busy={
+                  snap.mutating?.rowKey === item.rowKey ? true : undefined
+                }
+              >
+                <td>{item.rowKey}</td>
+                {resolved.map((def) => (
+                  <td key={def.id}>{renderCellEditor(item, def)}</td>
+                ))}
+                <td className="oe-database-view__actions">
+                  {snap.canReorder ? (
+                    <>
+                      <button
+                        type="button"
+                        aria-label={`Move ${item.rowKey} up`}
+                        disabled={busy || index === 0}
+                        onClick={() =>
+                          catchStoreMutation(
+                            store.moveRow(viewKey, item.rowKey, "up")
+                          )
+                        }
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Move ${item.rowKey} down`}
+                        disabled={busy || index === snap.items.length - 1}
+                        onClick={() =>
+                          catchStoreMutation(
+                            store.moveRow(viewKey, item.rowKey, "down")
+                          )
+                        }
+                      >
+                        ↓
+                      </button>
+                    </>
+                  ) : null}
+                  {snap.queryState.trashMode === "active" &&
+                  snap.capabilities.delete ? (
+                    <button
+                      type="button"
+                      aria-label={`Delete ${item.rowKey}`}
+                      disabled={busy}
+                      onClick={() =>
+                        catchStoreMutation(
+                          store.deleteRow(viewKey, item.rowKey)
+                        )
+                      }
+                    >
+                      Delete
+                    </button>
+                  ) : null}
+                  {snap.queryState.trashMode === "trash" &&
+                  snap.capabilities.restore ? (
+                    <button
+                      type="button"
+                      aria-label={`Restore ${item.rowKey}`}
+                      disabled={busy}
+                      onClick={() =>
+                        catchStoreMutation(
+                          store.restoreRow(viewKey, item.rowKey)
+                        )
+                      }
+                    >
+                      Restore
+                    </button>
+                  ) : null}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     );
-  }
+  };
+
+  const showSharedCreate =
+    creating &&
+    normalizedViewType !== "table" &&
+    snap.capabilities.create &&
+    snap.queryState.trashMode === "active" &&
+    mutationsAllowed;
 
   return (
     <section
       className="oe-database-view"
       data-oe-database-view={snap.databaseId}
       data-view-key={viewKey}
-      data-view-type="table"
+      data-view-type={normalizedViewType}
       data-busy={busy ? "true" : "false"}
       aria-busy={busy || undefined}
-      aria-label={`${title} (table)`}
+      aria-label={`${title} (${normalizedViewType})`}
     >
       <header className="oe-database-view__header">
         <h3 className="oe-database-view__title">{title}</h3>
         <span className="oe-database-view__meta">
-          table
+          {normalizedViewType}
           {snap.pagination.total
             ? ` · ${snap.items.length}/${snap.pagination.total}`
-            : ""}
+            : snap.pagination.hasMore
+              ? ` · ${snap.items.length}+ loaded`
+              : snap.items.length
+                ? ` · ${snap.items.length} loaded`
+                : ""}
         </span>
       </header>
 
@@ -1272,153 +1486,64 @@ function InteractiveDatabaseTable(props: {
         </p>
       ) : null}
 
-      {!snap.capabilities.list ? (
-        <p className="oe-database-view__empty" role="status">
-          Database provider unavailable
-        </p>
-      ) : snap.status === "loading" && snap.items.length === 0 ? (
-        <p className="oe-database-view__empty" role="status">
-          Loading…
-        </p>
-      ) : snap.status === "error" ? (
-        <p className="oe-database-view__error" role="alert">
-          {snap.errorMessage ?? "Failed to load rows"}
-        </p>
-      ) : snap.status === "empty" && !creating ? (
-        <p className="oe-database-view__empty" role="status">
-          {emptyMessage(snap)}
-        </p>
-      ) : (
-        <div className="oe-database-view__table-wrap" role="region">
-          <table className="oe-database-view__table">
-            <thead>
-              <tr>
-                <th scope="col">Key</th>
-                {resolved.map((def) => (
-                  <th key={def.id} scope="col">
-                    {def.name}
-                  </th>
-                ))}
-                <th scope="col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {creating ? (
-                <tr className="oe-database-view__draft">
-                  <td>
-                    <em>new</em>
-                  </td>
-                  {resolved.map((def) => {
-                    if (!isCreatableResolvedProperty(def)) {
-                      return (
-                        <td key={def.id}>
-                          <span className="oe-database-view__readonly-hint">
-                            —
-                          </span>
-                        </td>
-                      );
-                    }
-                    return <td key={def.id}>{renderCreateInput(def)}</td>;
-                  })}
-                  <td>
-                    <button
-                      type="button"
-                      onClick={() => void submitCreate()}
-                      disabled={busy}
-                    >
-                      Create
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCreating(false);
-                        setDraft({});
-                        setCreateError(null);
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </td>
-                </tr>
-              ) : null}
-              {snap.items.map((item, index) => (
-                <tr
-                  key={item.rowKey}
-                  data-row-key={item.rowKey}
-                  aria-busy={
-                    snap.mutating?.rowKey === item.rowKey ? true : undefined
-                  }
-                >
-                  <td>{item.rowKey}</td>
-                  {resolved.map((def) => (
-                    <td key={def.id}>{renderCellEditor(item, def)}</td>
-                  ))}
-                  <td className="oe-database-view__actions">
-                    {snap.canReorder ? (
-                      <>
-                        <button
-                          type="button"
-                          aria-label={`Move ${item.rowKey} up`}
-                          disabled={busy || index === 0}
-                          onClick={() =>
-                            catchStoreMutation(
-                              store.moveRow(viewKey, item.rowKey, "up")
-                            )
-                          }
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`Move ${item.rowKey} down`}
-                          disabled={busy || index === snap.items.length - 1}
-                          onClick={() =>
-                            catchStoreMutation(
-                              store.moveRow(viewKey, item.rowKey, "down")
-                            )
-                          }
-                        >
-                          ↓
-                        </button>
-                      </>
-                    ) : null}
-                    {snap.queryState.trashMode === "active" &&
-                    snap.capabilities.delete ? (
-                      <button
-                        type="button"
-                        aria-label={`Delete ${item.rowKey}`}
-                        disabled={busy}
-                        onClick={() =>
-                          catchStoreMutation(
-                            store.deleteRow(viewKey, item.rowKey)
-                          )
-                        }
-                      >
-                        Delete
-                      </button>
-                    ) : null}
-                    {snap.queryState.trashMode === "trash" &&
-                    snap.capabilities.restore ? (
-                      <button
-                        type="button"
-                        aria-label={`Restore ${item.rowKey}`}
-                        disabled={busy}
-                        onClick={() =>
-                          catchStoreMutation(
-                            store.restoreRow(viewKey, item.rowKey)
-                          )
-                        }
-                      >
-                        Restore
-                      </button>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {showSharedCreate ? (
+        <div className="oe-database-view__shared-create" role="form" aria-label="New row">
+          {resolved.map((def) => {
+            if (!isCreatableResolvedProperty(def)) return null;
+            return (
+              <div key={def.id} className="oe-database-view__shared-create-field">
+                <label>
+                  <span>{def.name}</span>
+                  {renderCreateInput(def)}
+                </label>
+              </div>
+            );
+          })}
+          <div className="oe-database-view__actions">
+            <button type="button" onClick={() => void submitCreate()} disabled={busy}>
+              Create
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCreating(false);
+                setDraft({});
+                setCreateError(null);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
         </div>
-      )}
+      ) : null}
+
+      {normalizedViewType === "table" && !runtime.renderers?.table
+        ? renderTableBody()
+        : !snap.capabilities.list
+          ? (
+            <p className="oe-database-view__empty" role="status">
+              Database provider unavailable
+            </p>
+          )
+          : snap.status === "loading" && snap.items.length === 0
+            ? (
+              <p className="oe-database-view__empty" role="status">
+                Loading…
+              </p>
+            )
+            : snap.status === "error"
+              ? (
+                <p className="oe-database-view__error" role="alert">
+                  {snap.errorMessage ?? "Failed to load rows"}
+                </p>
+              )
+              : snap.status === "empty" && !creating
+                ? (
+                  <p className="oe-database-view__empty" role="status">
+                    {emptyMessage(snap)}
+                  </p>
+                )
+                : renderBody()}
 
       <div className="oe-database-view__footer">
         {snap.pagination.hasMore ? (

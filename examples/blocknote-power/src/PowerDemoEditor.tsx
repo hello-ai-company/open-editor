@@ -49,7 +49,7 @@ export function PowerDemoEditor() {
   const index = useMemo(() => createDocumentIndex(), []);
   const relationIndex = useMemo(() => createRelationIndex(), []);
   const [pageRevision, setPageRevision] = useState(0);
-  const [lastOpenedPage, setLastOpenedPage] = useState<string | null>(null);
+  const [lastOpenedRow, setLastOpenedRow] = useState<string | null>(null);
 
   const pageStore = useMemo(
     () =>
@@ -149,7 +149,12 @@ export function PowerDemoEditor() {
       childPageRuntime: runtimes.childPageRuntime,
       databaseViewRuntime: {
         database: databaseProvider,
-        store: databaseRuntimeStore
+        store: databaseRuntimeStore,
+        onOpenRow: (request) => {
+          setLastOpenedRow(
+            `${request.viewType}:${request.databaseId}/${request.rowKey}`
+          );
+        }
       }
     });
     bindBlockReferenceRuntimeToIndex(next.blockReferenceRuntime, index);
@@ -431,6 +436,11 @@ export function PowerDemoEditor() {
           {lastOpenedPage ? (
             <p className="demo-open-hint" role="status">
               Host openPage → {lastOpenedPage}
+            </p>
+          ) : null}
+          {lastOpenedRow ? (
+            <p className="demo-open-hint" role="status">
+              Host onOpenRow → {lastOpenedRow}
             </p>
           ) : null}
           <BlockNoteView
