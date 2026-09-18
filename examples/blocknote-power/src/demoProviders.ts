@@ -3,6 +3,7 @@ import type {
   DatabaseProvider,
   DatabaseRowsPage,
   EditorPageLink,
+  JsonValue,
   PageProvider
 } from "@hello-ai-company/editor-core";
 
@@ -89,17 +90,73 @@ export function createDemoPageStore(
   };
 }
 
+type DemoRow = {
+  rowKey: string;
+  sortOrder: number;
+  deletedAt: string | null;
+  row: Record<string, JsonValue>;
+};
+
+const TASKS_SCHEMA = { title: "text", status: "select", done: "boolean" };
+
+/**
+ * In-memory DatabaseProvider with stable rowKeys, pagination, trash, CRUD, reorder.
+ */
 export function createDemoDatabaseProvider(): DatabaseProvider {
-  const rowsByDb = new Map<string, Array<Record<string, string>>>([
-    [
-      "tasks",
-      [
-        { title: "Outline power UX", status: "done" },
-        { title: "Ship workspace primitives", status: "doing" },
-        { title: "Wire Personal AI host", status: "todo" }
-      ]
-    ]
-  ]);
+  let seq = 0;
+  const nextKey = () => {
+    seq += 1;
+    return `task-${seq}`;
+  };
+
+  const seed: DemoRow[] = [
+    {
+      rowKey: nextKey(),
+      sortOrder: 0,
+      deletedAt: null,
+      row: { title: "Outline power UX", status: "done", done: true }
+    },
+    {
+      rowKey: nextKey(),
+      sortOrder: 1,
+      deletedAt: null,
+      row: { title: "Ship workspace primitives", status: "doing", done: false }
+    },
+    {
+      rowKey: nextKey(),
+      sortOrder: 2,
+      deletedAt: null,
+      row: { title: "Wire Personal AI host", status: "todo", done: false }
+    },
+    {
+      rowKey: nextKey(),
+      sortOrder: 3,
+      deletedAt: null,
+      row: { title: "Database table engine", status: "doing", done: false }
+    },
+    {
+      rowKey: nextKey(),
+      sortOrder: 4,
+      deletedAt: null,
+      row: { title: "Pagination smoke row", status: "todo", done: false }
+    },
+    {
+      rowKey: nextKey(),
+      sortOrder: 5,
+      deletedAt: null,
+      row: { title: "Reorder smoke row", status: "todo", done: false }
+    }
+  ];
+
+  const rowsByDb = new Map<string, DemoRow[]>([["tasks", seed]]);
+
+  function rowsFor(databaseId: string): DemoRow[] {
+    return rowsByDb.get(databaseId) ?? [];
+  }
+
+  function titleOf(row: DemoRow): string {
+    return String(row.row.title ?? row.rowKey);
+  }
 
   return {
     async getDatabase(databaseId) {
@@ -113,26 +170,117 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         ]
       };
     },
+
     async listRows(databaseId, options): Promise<DatabaseRowsPage> {
-      const list = rowsByDb.get(databaseId) ?? [];
-      const items = list.map((row, index) => ({
-        rowKey: `r${index}`,
-        sortOrder: index,
-        row
-      }));
+      const all = rowsFor(databaseId);
+      const trashedOnly = Boolean(options?.trashedOnly);
+      const includeTrashed = Boolean(options?.includeTrashed);
+      let filtered = all.filter((row) => {
+        if (trashedOnly) return row.deletedAt != null;
+        if (includeTrashed) return true;
+        return row.deletedAt == null;
+      });
+
+      const q = options?.query?.trim().toLowerCase();
+      if (q) {
+        filtered = filtered.filter(
+          (row) =>
+            titleOf(row).toLowerCase().includes(q) ||
+            row.rowKey.toLowerCase().includes(q) ||
+            String(row.row.status ?? "")
+              .toLowerCase()
+              .includes(q)
+        );
+      }
+
+      const sortBy = options?.sortBy ?? "position";
+      const direction = options?.direction ?? "asc";
+      filtered = [...filtered].sort((a, b) => {
+        let cmp = 0;
+        if (sortBy === "title") {
+          cmp = titleOf(a).localeCompare(titleOf(b));
+        } else {
+          cmp = a.sortOrder - b.sortOrder;
+        }
+        return direction === "desc" ? -cmp : cmp;
+      });
+
+      const limit = options?.limit ?? 3;
+      const start = options?.cursor
+        ? Math.max(
+            0,
+            filtered.findIndex((row) => row.rowKey === options.cursor) + 1
+          )
+        : 0;
+      const slice = filtered.slice(start, start + limit);
+      const next =
+        start + limit < filtered.length
+          ? (slice[slice.length - 1]?.rowKey ?? null)
+          : null;
+
       return {
         databaseId,
-        rows: list,
-        items,
-        schema: { title: "text", status: "select" },
+        rows: slice.map((row) => row.row),
+        items: slice.map((row) => ({
+          rowKey: row.rowKey,
+          sortOrder: row.sortOrder,
+          deletedAt: row.deletedAt,
+          row: { ...row.row }
+        })),
+        schema: { ...TASKS_SCHEMA },
         config: {},
         pagination: {
-          limit: options?.limit ?? 50,
-          nextCursor: null,
-          hasMore: false,
-          total: list.length
+          limit,
+          nextCursor: next,
+          hasMore: next !== null,
+          total: filtered.length
         }
       };
+    },
+
+    async createRow(databaseId, row) {
+      const list = rowsFor(databaseId);
+      if (!rowsByDb.has(databaseId)) rowsByDb.set(databaseId, list);
+      const created: DemoRow = {
+        rowKey: nextKey(),
+        sortOrder: list.reduce((max, r) => Math.max(max, r.sortOrder), -1) + 1,
+        deletedAt: null,
+        row: { ...row }
+      };
+      list.push(created);
+      return { rowKey: created.rowKey };
+    },
+
+    async updateRow(databaseId, rowKey, row, sortOrder) {
+      const hit = rowsFor(databaseId).find((entry) => entry.rowKey === rowKey);
+      if (!hit) throw new Error("Row not found");
+      hit.row = { ...row };
+      if (typeof sortOrder === "number") hit.sortOrder = sortOrder;
+      return { ok: true };
+    },
+
+    async deleteRow(databaseId, rowKey) {
+      const hit = rowsFor(databaseId).find((entry) => entry.rowKey === rowKey);
+      if (!hit) throw new Error("Row not found");
+      hit.deletedAt = new Date().toISOString();
+      return { ok: true };
+    },
+
+    async restoreRow(databaseId, rowKey) {
+      const hit = rowsFor(databaseId).find((entry) => entry.rowKey === rowKey);
+      if (!hit) throw new Error("Row not found");
+      hit.deletedAt = null;
+      return { ok: true };
+    },
+
+    async reorderRows(databaseId, rowKeys) {
+      const list = rowsFor(databaseId);
+      const byKey = new Map(list.map((row) => [row.rowKey, row]));
+      rowKeys.forEach((key, index) => {
+        const row = byKey.get(key);
+        if (row) row.sortOrder = index;
+      });
+      return { ok: true };
     }
   };
 }
@@ -142,7 +290,6 @@ export function createDemoBacklinkProvider(
 ): BacklinkProvider {
   return {
     async listBacklinks(query) {
-      // Simulate latency so loading state is visible
       await new Promise((r) => setTimeout(r, 40));
       if (query.targetType !== "page" || query.targetId !== targetPageId) {
         return [];

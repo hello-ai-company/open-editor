@@ -35,9 +35,40 @@ export {
 } from "./childPage.js";
 
 export {
+  catchStoreMutation,
   createDatabaseViewBlockSpec,
   type DatabaseViewRuntime
 } from "./databaseView.js";
+
+export {
+  createDatabaseRuntimeStore,
+  createDatabaseViewRuntimeFromStore,
+  databaseViewKey,
+  databaseViewInstanceKey,
+  buildDatabaseQueryKey,
+  encodeDatabaseKeyParts,
+  type DatabaseCapabilities,
+  type DatabaseRuntimeStore,
+  type DatabaseRuntimeStoreOptions,
+  type DatabaseTrashMode,
+  type DatabaseViewQueryState,
+  type DatabaseViewSnapshot,
+  type DatabaseViewStatus,
+  type DatabaseSortBy,
+  type DatabaseSortDirection
+} from "./databaseRuntimeStore.js";
+
+export {
+  buildCreateRowPayload,
+  creatableSchemaKeys,
+  formatDatabaseCellDisplay,
+  isCreatablePropertyKind,
+  isEditablePropertyKind,
+  normalizeDatabasePropertyType,
+  parseEditedCellValue,
+  valuesEqualForEdit,
+  type NormalizedPropertyKind
+} from "./databaseProperty.js";
 
 export { createDatabaseRelationInlineContentSpec } from "./databaseRelation.js";
 

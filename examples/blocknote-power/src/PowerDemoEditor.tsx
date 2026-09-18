@@ -10,6 +10,7 @@ import {
 } from "@blocknote/react";
 import {
   bindBlockReferenceRuntimeToIndex,
+  createDatabaseRuntimeStore,
   createDocumentIndex,
   createOpenEditorPowerPreset,
   createPageRuntimeStore,
@@ -75,6 +76,14 @@ export function PowerDemoEditor() {
     []
   );
   const databaseProvider = useMemo(() => createDemoDatabaseProvider(), []);
+  const databaseRuntimeStore = useMemo(
+    () =>
+      createDatabaseRuntimeStore({
+        provider: databaseProvider,
+        defaultPageSize: 3
+      }),
+    [databaseProvider]
+  );
   const backlinks = useMemo(
     () => createDemoBacklinkProvider("demo"),
     []
@@ -139,12 +148,13 @@ export function PowerDemoEditor() {
       pageCardRuntime: runtimes.pageCardRuntime,
       childPageRuntime: runtimes.childPageRuntime,
       databaseViewRuntime: {
-        database: databaseProvider
+        database: databaseProvider,
+        store: databaseRuntimeStore
       }
     });
     bindBlockReferenceRuntimeToIndex(next.blockReferenceRuntime, index);
     return next;
-  }, [databaseProvider, index, pageRuntimeStore, pageStore]);
+  }, [databaseProvider, databaseRuntimeStore, index, pageRuntimeStore, pageStore]);
 
   const options = useMemo(() => preset.editorOptions(), [preset]);
   const initialContent = useMemo(
