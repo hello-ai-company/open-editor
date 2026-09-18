@@ -37,7 +37,11 @@ export {
 export {
   catchStoreMutation,
   createDatabaseViewBlockSpec,
-  type DatabaseViewRuntime
+  encodePropertySortSelectValue,
+  parseSortSelectValue,
+  resolveCreateRowPayload,
+  type DatabaseViewRuntime,
+  type ParsedSortSelectValue
 } from "./databaseView.js";
 
 export {
@@ -47,6 +51,7 @@ export {
   databaseViewInstanceKey,
   buildDatabaseQueryKey,
   encodeDatabaseKeyParts,
+  listOptionsFromState,
   type DatabaseCapabilities,
   type DatabaseRuntimeStore,
   type DatabaseRuntimeStoreOptions,
@@ -60,14 +65,31 @@ export {
 
 export {
   buildCreateRowPayload,
+  buildTypedCreateRowPayload,
+  creatablePropertyIds,
   creatableSchemaKeys,
   formatDatabaseCellDisplay,
+  formatSelectDisplay,
+  hasExplicitPropertyDefinitions,
+  metadataAllowsRowMutations,
+  hostSupportsPropertyFilters,
+  hostSupportsPropertySort,
   isCreatablePropertyKind,
+  isCreatableResolvedProperty,
   isEditablePropertyKind,
+  isEditableResolvedProperty,
+  isIsoDateString,
   normalizeDatabasePropertyType,
   parseEditedCellValue,
+  parseNumberDraft,
+  propertyDefinitionMap,
+  resolveDatabasePropertyDefinitions,
+  validateDatabaseFilter,
+  validateDatabaseFilters,
+  validatePropertySort,
   valuesEqualForEdit,
-  type NormalizedPropertyKind
+  type NormalizedPropertyKind,
+  type ResolvedPropertyDefinition
 } from "./databaseProperty.js";
 
 export { createDatabaseRelationInlineContentSpec } from "./databaseRelation.js";

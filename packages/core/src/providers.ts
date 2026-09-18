@@ -21,12 +21,119 @@ export type AIProvider = {
   edit?(request: AIEditRequest): Promise<string>;
 };
 
+/**
+ * Portable property kinds for typed metadata (Phase 4F-3B).
+ * Unsupported host types normalize to `"unknown"` (display-only).
+ */
+export type DatabasePropertyType =
+  | "text"
+  | "number"
+  | "boolean"
+  | "date"
+  | "url"
+  | "select"
+  | "status"
+  | "unknown";
+
+export type DatabasePropertyOption = {
+  value: string;
+  label?: string;
+};
+
+/**
+ * Host-owned property metadata. Identity is `id` (not display `name`).
+ * Additive — legacy hosts may omit entirely and keep `schema: Record<string, string>`.
+ */
+export type DatabasePropertyDefinition = {
+  id: string;
+  name: string;
+  type: DatabasePropertyType;
+  readOnly?: boolean;
+  options?: readonly DatabasePropertyOption[];
+  /** Original host type when normalized to `unknown`. */
+  rawType?: string;
+};
+
+/**
+ * Explicit advertisement of advanced query features.
+ * Absence or `false` is fail-closed — do not assume `listRows` understands filters/sorts.
+ */
+export type DatabaseQueryCapabilities = {
+  propertyFilters?: boolean;
+  propertySort?: boolean;
+};
+
+/**
+ * AND-only structured filters (Phase 4F-3B).
+ * Discriminated by `propertyType` + `operator` so value types stay sound.
+ * No OR groups / nested boolean trees in this phase.
+ */
+export type DatabaseFilter =
+  | {
+      propertyId: string;
+      propertyType: "text" | "url";
+      operator: "contains" | "equals" | "notEquals";
+      value: string;
+    }
+  | {
+      propertyId: string;
+      propertyType: "number";
+      operator: "equals" | "gt" | "gte" | "lt" | "lte";
+      value: number;
+    }
+  | {
+      propertyId: string;
+      propertyType: "boolean";
+      operator: "is";
+      value: boolean;
+    }
+  | {
+      propertyId: string;
+      propertyType: "date";
+      operator: "on" | "before" | "after";
+      value: string;
+    }
+  | {
+      propertyId: string;
+      propertyType: "select" | "status";
+      operator: "equals" | "notEquals";
+      value: string;
+    }
+  | {
+      propertyId: string;
+      propertyType:
+        | "text"
+        | "number"
+        | "boolean"
+        | "date"
+        | "url"
+        | "select"
+        | "status";
+      operator: "isEmpty" | "isNotEmpty";
+    };
+
+/** Single property sort — mutually exclusive with legacy sortBy when set. */
+export type DatabasePropertySort = {
+  propertyId: string;
+  direction: "asc" | "desc";
+};
+
 export type DatabaseListOptions = {
   limit?: number;
   cursor?: string;
+  /** Free-text search — may coexist with structured `filters` (host executes both). */
   query?: string;
+  /**
+   * Legacy sort. When `propertySort` is set, hosts should treat property sort
+   * as the active sort and ignore a conflicting legacy claim from the client.
+   * OpenEditor's runtime sends exactly one of: propertySort XOR (sortBy+direction).
+   */
   sortBy?: "position" | "title";
   direction?: "asc" | "desc";
+  /** Structured AND filters — only when host advertises `queryCapabilities.propertyFilters`. */
+  filters?: readonly DatabaseFilter[];
+  /** Property sort — only when host advertises `queryCapabilities.propertySort`. */
+  propertySort?: DatabasePropertySort;
   includeTrashed?: boolean;
   trashedOnly?: boolean;
 };
@@ -55,11 +162,19 @@ export type DatabaseRowsPage = {
 /**
  * Host-neutral database descriptor. Rows are never stored in EditorDocument —
  * they come from DatabaseProvider.listRows / getRow.
+ *
+ * Phase 4F-3B adds optional typed metadata. The opaque `properties` bag is
+ * left untouched for host use — do not reinterpret it as property definitions.
  */
 export type EditorDatabase = {
   id: string;
   title: string;
+  /** Opaque host bag — not property definitions. */
   properties?: Record<string, JsonValue>;
+  /** Typed property metadata (additive). Identity is `propertyDefinitions[].id`. */
+  propertyDefinitions?: readonly DatabasePropertyDefinition[];
+  /** Explicit advanced query capabilities (fail-closed when absent). */
+  queryCapabilities?: DatabaseQueryCapabilities;
   views?: ReadonlyArray<{
     id: string;
     title?: string;

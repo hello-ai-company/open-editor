@@ -46,8 +46,14 @@ Kind: runtime. Stability: **stable** for this freeze. Compatibility: additive op
 | `AIEditAction` | type | Edit action union | experimental | New literals are additive |
 | `AIEditRequest` | type | Edit request payload | experimental | New optional fields are additive |
 | `DatabaseProvider` | type | Optional row CRUD / reorder / `getDatabase` | experimental | Optional methods only |
-| `EditorDatabase` | type | Host-neutral database descriptor | experimental | Additive |
-| `DatabaseListOptions` | type | List filter / pagination | experimental | New optional fields are additive |
+| `EditorDatabase` | type | Host-neutral database descriptor (+ optional `propertyDefinitions` / `queryCapabilities`) | experimental | Additive |
+| `DatabaseListOptions` | type | List query / pagination (+ optional `filters` / `propertySort`) | experimental | New optional fields are additive |
+| `DatabasePropertyType` | type | Portable property kinds (`text`…`unknown`) | experimental | Additive |
+| `DatabasePropertyOption` | type | Select/status option (`value` + optional `label`) | experimental | Additive |
+| `DatabasePropertyDefinition` | type | Typed property metadata | experimental | Additive |
+| `DatabaseQueryCapabilities` | type | Explicit `propertyFilters` / `propertySort` flags | experimental | Fail-closed when absent |
+| `DatabaseFilter` | type | AND structured filter discriminated union | experimental | Additive |
+| `DatabasePropertySort` | type | Single property sort | experimental | Additive |
 | `DatabaseRowItem` | type | Row wrapper | experimental | New optional fields are additive |
 | `DatabaseRowsPage` | type | Paginated database page | experimental | New optional fields are additive |
 | `CommentsProvider` | type | Optional comment CRUD | experimental | Optional methods only |

@@ -165,11 +165,11 @@ const seedRows: MemRow[] = [
 ];
 
 describe("normalizeDatabasePropertyType", () => {
-  it("maps known aliases and unknown to readonly", () => {
+  it("maps known aliases and unknown host types", () => {
     expect(normalizeDatabasePropertyType("text")).toBe("text");
     expect(normalizeDatabasePropertyType("checkbox")).toBe("boolean");
-    expect(normalizeDatabasePropertyType("status")).toBe("select");
-    expect(normalizeDatabasePropertyType("formula")).toBe("readonly");
+    expect(normalizeDatabasePropertyType("status")).toBe("status");
+    expect(normalizeDatabasePropertyType("formula")).toBe("unknown");
     expect(isCreatablePropertyKind("readonly")).toBe(false);
     expect(isCreatablePropertyKind("text")).toBe(true);
     expect(isEditablePropertyKind("text")).toBe(true);
@@ -878,7 +878,9 @@ describe("4F-3A R2 — idle isolation + query key safety", () => {
       sortBy: "position" as const,
       direction: "asc" as const,
       trashMode: "active" as const,
-      pageSize: 10
+      pageSize: 10,
+      filters: [] as const,
+      propertySort: null
     };
     const keyA = buildDatabaseQueryKey("a|q=b", { ...base, query: "c" });
     const keyB = buildDatabaseQueryKey("a", { ...base, query: "b|q=c" });

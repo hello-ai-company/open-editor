@@ -1,5 +1,8 @@
 import type {
   BacklinkProvider,
+  DatabaseFilter,
+  DatabasePropertyDefinition,
+  DatabasePropertySort,
   DatabaseProvider,
   DatabaseRowsPage,
   EditorPageLink,
@@ -97,10 +100,109 @@ type DemoRow = {
   row: Record<string, JsonValue>;
 };
 
-const TASKS_SCHEMA = { title: "text", status: "select", done: "boolean" };
+const TASKS_SCHEMA = {
+  title: "text",
+  status: "status",
+  score: "number",
+  done: "boolean",
+  due: "date",
+  link: "url",
+  formulaPreview: "formula"
+};
+
+const TASKS_DEFINITIONS: readonly DatabasePropertyDefinition[] = [
+  { id: "title", name: "Title", type: "text" },
+  {
+    id: "status",
+    name: "Status",
+    type: "status",
+    options: [
+      { value: "todo", label: "To do" },
+      { value: "doing", label: "Doing" },
+      { value: "done", label: "Done" }
+    ]
+  },
+  { id: "score", name: "Score", type: "number" },
+  { id: "done", name: "Done", type: "boolean" },
+  { id: "due", name: "Due date", type: "date" },
+  { id: "link", name: "Link", type: "url" },
+  {
+    id: "formulaPreview",
+    name: "Formula preview",
+    type: "unknown",
+    readOnly: true,
+    rawType: "formula"
+  }
+];
+
+function cellEmpty(value: JsonValue | undefined): boolean {
+  return value === null || value === undefined || value === "";
+}
+
+function matchesFilter(
+  row: DemoRow,
+  filter: DatabaseFilter
+): boolean {
+  const raw = row.row[filter.propertyId];
+  if (filter.operator === "isEmpty") return cellEmpty(raw);
+  if (filter.operator === "isNotEmpty") return !cellEmpty(raw);
+
+  if (filter.propertyType === "text" || filter.propertyType === "url") {
+    const text = String(raw ?? "");
+    if (filter.operator === "contains") {
+      return text.toLowerCase().includes(filter.value.toLowerCase());
+    }
+    if (filter.operator === "equals") return text === filter.value;
+    if (filter.operator === "notEquals") return text !== filter.value;
+  }
+  if (filter.propertyType === "number") {
+    const n = typeof raw === "number" ? raw : Number(raw);
+    if (!Number.isFinite(n)) return false;
+    if (filter.operator === "equals") return n === filter.value;
+    if (filter.operator === "gt") return n > filter.value;
+    if (filter.operator === "gte") return n >= filter.value;
+    if (filter.operator === "lt") return n < filter.value;
+    if (filter.operator === "lte") return n <= filter.value;
+  }
+  if (filter.propertyType === "boolean") {
+    const b = raw === true || raw === "true" || raw === 1;
+    return filter.operator === "is" ? b === filter.value : false;
+  }
+  if (filter.propertyType === "date") {
+    const d = String(raw ?? "");
+    if (filter.operator === "on") return d === filter.value;
+    if (filter.operator === "before") return d !== "" && d < filter.value;
+    if (filter.operator === "after") return d !== "" && d > filter.value;
+  }
+  if (filter.propertyType === "select" || filter.propertyType === "status") {
+    const v = String(raw ?? "");
+    if (filter.operator === "equals") return v === filter.value;
+    if (filter.operator === "notEquals") return v !== filter.value;
+  }
+  return true;
+}
+
+function compareProperty(
+  a: DemoRow,
+  b: DemoRow,
+  sort: DatabasePropertySort
+): number {
+  const av = a.row[sort.propertyId];
+  const bv = b.row[sort.propertyId];
+  let cmp = 0;
+  if (typeof av === "number" && typeof bv === "number") {
+    cmp = av - bv;
+  } else if (typeof av === "boolean" && typeof bv === "boolean") {
+    cmp = Number(av) - Number(bv);
+  } else {
+    cmp = String(av ?? "").localeCompare(String(bv ?? ""));
+  }
+  return sort.direction === "desc" ? -cmp : cmp;
+}
 
 /**
- * In-memory DatabaseProvider with stable rowKeys, pagination, trash, CRUD, reorder.
+ * In-memory DatabaseProvider with typed metadata, filters, property sort,
+ * pagination, trash, CRUD, and reorder (Phase 4F-3B demo).
  */
 export function createDemoDatabaseProvider(): DatabaseProvider {
   let seq = 0;
@@ -114,37 +216,85 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
       rowKey: nextKey(),
       sortOrder: 0,
       deletedAt: null,
-      row: { title: "Outline power UX", status: "done", done: true }
+      row: {
+        title: "Outline power UX",
+        status: "done",
+        score: 9,
+        done: true,
+        due: "2026-09-01",
+        link: "https://example.com/ux",
+        formulaPreview: "score * 2"
+      }
     },
     {
       rowKey: nextKey(),
       sortOrder: 1,
       deletedAt: null,
-      row: { title: "Ship workspace primitives", status: "doing", done: false }
+      row: {
+        title: "Ship workspace primitives",
+        status: "doing",
+        score: 7,
+        done: false,
+        due: "2026-09-10",
+        link: "",
+        formulaPreview: "score * 2"
+      }
     },
     {
       rowKey: nextKey(),
       sortOrder: 2,
       deletedAt: null,
-      row: { title: "Wire Personal AI host", status: "todo", done: false }
+      row: {
+        title: "Wire Personal AI host",
+        status: "todo",
+        score: 4,
+        done: false,
+        due: "2026-09-20",
+        link: "https://example.com/host",
+        formulaPreview: "score * 2"
+      }
     },
     {
       rowKey: nextKey(),
       sortOrder: 3,
       deletedAt: null,
-      row: { title: "Database table engine", status: "doing", done: false }
+      row: {
+        title: "Database table engine",
+        status: "doing",
+        score: 8,
+        done: false,
+        due: "2026-09-12",
+        link: "",
+        formulaPreview: "score * 2"
+      }
     },
     {
       rowKey: nextKey(),
       sortOrder: 4,
       deletedAt: null,
-      row: { title: "Pagination smoke row", status: "todo", done: false }
+      row: {
+        title: "Pagination smoke row",
+        status: "todo",
+        score: 2,
+        done: false,
+        due: "2026-09-25",
+        link: "",
+        formulaPreview: "score * 2"
+      }
     },
     {
       rowKey: nextKey(),
       sortOrder: 5,
       deletedAt: null,
-      row: { title: "Reorder smoke row", status: "todo", done: false }
+      row: {
+        title: "Reorder smoke row",
+        status: "todo",
+        score: 3,
+        done: false,
+        due: "2026-09-30",
+        link: "",
+        formulaPreview: "score * 2"
+      }
     }
   ];
 
@@ -164,6 +314,11 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
       return {
         id: databaseId,
         title: databaseId === "tasks" ? "Tasks" : databaseId,
+        propertyDefinitions: [...TASKS_DEFINITIONS],
+        queryCapabilities: {
+          propertyFilters: true,
+          propertySort: true
+        },
         views: [
           { id: "main-table", title: "Table", viewType: "table" },
           { id: "main-board", title: "Board", viewType: "board" }
@@ -193,17 +348,31 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         );
       }
 
-      const sortBy = options?.sortBy ?? "position";
-      const direction = options?.direction ?? "asc";
-      filtered = [...filtered].sort((a, b) => {
-        let cmp = 0;
-        if (sortBy === "title") {
-          cmp = titleOf(a).localeCompare(titleOf(b));
-        } else {
-          cmp = a.sortOrder - b.sortOrder;
-        }
-        return direction === "desc" ? -cmp : cmp;
-      });
+      // Host executes structured AND filters (not client-side on loaded page only).
+      const filters = options?.filters ?? [];
+      if (filters.length > 0) {
+        filtered = filtered.filter((row) =>
+          filters.every((filter) => matchesFilter(row, filter))
+        );
+      }
+
+      if (options?.propertySort) {
+        filtered = [...filtered].sort((a, b) =>
+          compareProperty(a, b, options.propertySort!)
+        );
+      } else {
+        const sortBy = options?.sortBy ?? "position";
+        const direction = options?.direction ?? "asc";
+        filtered = [...filtered].sort((a, b) => {
+          let cmp = 0;
+          if (sortBy === "title") {
+            cmp = titleOf(a).localeCompare(titleOf(b));
+          } else {
+            cmp = a.sortOrder - b.sortOrder;
+          }
+          return direction === "desc" ? -cmp : cmp;
+        });
+      }
 
       const limit = options?.limit ?? 3;
       const start = options?.cursor
