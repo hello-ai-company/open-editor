@@ -1,6 +1,6 @@
 # Personal AI ↔ OpenEditor workspace parity
 
-Factual matrix after Phase **4F-4D**. Personal AI is a behavioral reference only —
+Factual matrix after Phase **4F-4E**. Personal AI is a behavioral reference only —
 OpenEditor remains host-neutral (no Supabase / auth / product stores).
 
 ## Workspace / pages (4F-2C)
@@ -13,9 +13,9 @@ OpenEditor remains host-neutral (no Supabase / auth / product stores).
 | Backlinks | Notes graph | RelationIndex outgoing + BacklinkProvider incoming |
 | Host-neutral provider | Product-coupled | `PageProvider` / `DatabaseProvider` / `BacklinkProvider` |
 
-## Database (4F-3A → 4F-4D)
+## Database (4F-3A → 4F-4E)
 
-| Capability | Personal AI | OpenEditor 4F-4D |
+| Capability | Personal AI | OpenEditor 4F-4E |
 | --- | --- | --- |
 | Database table | Product DB table UI | Interactive `databaseView` table via DatabaseRuntimeStore |
 | Provider rows | REST `listDatabaseRows` etc. | Host-neutral `DatabaseProvider.listRows` |
@@ -52,11 +52,16 @@ OpenEditor remains host-neutral (no Supabase / auth / product stores).
 | Feed date | Product due heuristics | Explicit typed `date` property selector (by id) |
 | Feed drag reorder | Personal AI behavior | **Intentionally not exposed** |
 | Feed chronological sorting | Product-dependent | **Provider order preserved** |
+| Map | Product map + location heuristics | Map renderer (host `resolveMapLocation` + equirectangular pins) |
+| Map location property | Product location / name guessing | **No core `location` property type** — host seam only |
+| Map SDK / tiles / geocoding | Product map libraries | **Intentionally not included** |
+| Map row open | Product drawer | Optional `onOpenRow` (`viewType: "map"`) |
+| Dashboard | Product BI dashboard | Dashboard renderer (loaded-only descriptive aggregates) |
+| Dashboard completion/overdue | Product heuristics | **Intentionally not inferred** |
+| Dashboard metrics | Product totals | Loaded-row counts / categorical / numeric / date summaries only |
 | Missing dates | Implicit fallback (today / end−2d / silent swap) | Explicit undated / incomplete / invalid trays |
 | Row open host seam | CustomEvent / product drawer | `runtime.onOpenRow` |
 | Typed metadata / filters / sort | Product | 4F-3B contracts |
-| Map | Product | **Deferred** |
-| Dashboard | Product | **Deferred** |
 | Saved view configuration | Block props (`groupBy`, `calendarScale`, …) | **Deferred** |
 
 ## Generalized from Personal AI
@@ -65,19 +70,20 @@ OpenEditor remains host-neutral (no Supabase / auth / product stores).
 - Soft-delete / trash listing
 - Cursor pagination + query/sort options
 - Property identity = id; display name is metadata only
-- Board / Calendar / List / Gallery / Timeline / Gantt / Chart / Feed as presentation transforms over `snap.items`
-- Host-neutral row-open + optional Gallery (`resolveRowMedia`) / Feed (`resolveFeedRowMedia`) media seams (no OpenEditor drawer / upload)
+- Board / Calendar / List / Gallery / Timeline / Gantt / Chart / Feed / Map / Dashboard as presentation transforms over `snap.items`
+- Host-neutral row-open + optional Gallery (`resolveRowMedia`) / Feed (`resolveFeedRowMedia`) media / Map (`resolveMapLocation`) seams (no OpenEditor drawer / upload / geocoding)
 - Shared civil-date axis for Timeline/Gantt (bounded ticks; no per-day DOM for huge spans)
-- Chart = loaded-snapshot aggregation (not a second query engine)
+- Chart / Dashboard = loaded-snapshot aggregation (not a second query engine)
 - Feed = provider-order cards (not an activity / audit log)
+- Map = host locations + dependency-free projection (not a tile client)
 
 ## Deliberately deferred
 
-- Map / dashboard renderers
 - List/Gallery/Timeline/Gantt/Feed drag reorder via `reorderRows`
-- List/Feed completion / “done” status guessing
+- List/Feed/Dashboard completion / “done” / overdue status guessing
 - Gallery/Feed multi-image / video / upload / crop
 - Chart pie/line/area/scatter/stacked/multi-series / multi-select / saved config / export
+- Map SDK / network tiles / geocoding / core `location` property type
 - Gantt dependencies / critical path / progress / baselines
 - Formula / rollup / relation engines
 - Schema designer
@@ -85,9 +91,8 @@ OpenEditor remains host-neutral (no Supabase / auth / product stores).
 - Personal AI REST/Supabase adapter
 - Embedding rows into EditorDocument (never)
 
-## Remaining for 4F-4E+
+## Remaining after 4F-4E
 
-- Map / Dashboard renderers
 - Saved view configuration contract
 - Optional Personal AI host adapter
 - Realtime / CRDT / AI patch protocol

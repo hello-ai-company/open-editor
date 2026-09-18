@@ -161,7 +161,7 @@ console.log("isolated-blocknote-consumer react: ok");
   run("node", ["smoke.mjs"], dir);
   run("node", ["smoke-react.mjs"], dir);
 
-  // 4F-4D R1: prove legacy Gallery-only resolveRowMedia still typechecks under strict.
+  // 4F-4E: prove Gallery/Feed media APIs + additive resolveMapLocation typecheck under strict.
   writeFileSync(
     join(dir, "tsconfig.json"),
     JSON.stringify(
@@ -189,6 +189,8 @@ console.log("isolated-blocknote-consumer react: ok");
 import type { JsonValue } from "@hello-ai-company/editor-core";
 import type {
   DatabaseFeedRowMediaRequest,
+  DatabaseMapLocation,
+  DatabaseMapLocationRequest,
   DatabaseRowMedia,
   DatabaseRowMediaRequest,
   DatabaseViewRuntime
@@ -226,6 +228,14 @@ const feedResolver = (
   return { src: "https://example.test/f.png" };
 };
 
+const mapResolver = (
+  request: DatabaseMapLocationRequest
+): DatabaseMapLocation | null => {
+  const _vt: "map" = request.viewType;
+  void _vt;
+  return { latitude: 0, longitude: 0, label: "Null Island" };
+};
+
 const runtime: DatabaseViewRuntime = {
   resolveRowMedia: legacyGalleryResolver
 };
@@ -238,15 +248,21 @@ const runtimeFeed: DatabaseViewRuntime = {
   resolveFeedRowMedia: feedResolver
 };
 
-const runtimeBoth: DatabaseViewRuntime = {
+const runtimeMap: DatabaseViewRuntime = {
+  resolveMapLocation: mapResolver
+};
+
+const runtimeAll: DatabaseViewRuntime = {
   resolveRowMedia: legacyGalleryResolver,
-  resolveFeedRowMedia: feedResolver
+  resolveFeedRowMedia: feedResolver,
+  resolveMapLocation: mapResolver
 };
 
 void runtime;
 void runtimeGalleryTyped;
 void runtimeFeed;
-void runtimeBoth;
+void runtimeMap;
+void runtimeAll;
 `
   );
 

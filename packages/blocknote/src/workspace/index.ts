@@ -103,6 +103,8 @@ export {
 export type {
   DatabaseAnyRowMediaRequest,
   DatabaseFeedRowMediaRequest,
+  DatabaseMapLocation,
+  DatabaseMapLocationRequest,
   DatabaseRowMedia,
   DatabaseRowMediaRequest,
   DatabaseRowMediaViewType
@@ -111,11 +113,40 @@ export type {
 export { renderBoardView } from "./databaseBoardRenderer.js";
 export { renderCalendarView } from "./databaseCalendarRenderer.js";
 export { renderChartView } from "./databaseChartRenderer.js";
+export { renderDashboardView } from "./databaseDashboardRenderer.js";
 export { renderGalleryView } from "./databaseGalleryRenderer.js";
 export { renderFeedView } from "./databaseFeedRenderer.js";
 export { renderListView } from "./databaseListRenderer.js";
 export { renderGanttView } from "./databaseGanttRenderer.js";
+export { renderMapView } from "./databaseMapRenderer.js";
 export { renderTimelineView } from "./databaseTimelineRenderer.js";
+
+export {
+  buildMapRowPresentations,
+  projectEquirectangular,
+  safeResolveMapLocation,
+  validateMapLocation,
+  type MapLocationStatus,
+  type MapPinProjection,
+  type MapRowPresentation
+} from "./databaseMapModel.js";
+
+export {
+  buildDashboardCategoricalSummary,
+  buildDashboardDateSummary,
+  buildDashboardNumericSummary,
+  buildDashboardOverview,
+  listDashboardCategoricalProperties,
+  listDashboardDateProperties,
+  listDashboardNumericProperties,
+  resolveDashboardCategoricalProperty,
+  resolveDashboardDateProperty,
+  resolveDashboardNumericProperty,
+  type DashboardCategoricalBucket,
+  type DashboardDateSummary,
+  type DashboardNumericSummary,
+  type DashboardOverview
+} from "./databaseDashboardModel.js";
 
 export {
   createDatabaseRuntimeStore,

@@ -28,6 +28,8 @@ import { renderGalleryView } from "./databaseGalleryRenderer.js";
 import { renderListView } from "./databaseListRenderer.js";
 import { renderFeedView } from "./databaseFeedRenderer.js";
 import { renderChartView } from "./databaseChartRenderer.js";
+import { renderMapView } from "./databaseMapRenderer.js";
+import { renderDashboardView } from "./databaseDashboardRenderer.js";
 import { renderGanttView } from "./databaseGanttRenderer.js";
 import { renderTimelineView } from "./databaseTimelineRenderer.js";
 import { catchStoreMutation } from "./databaseMutationUtils.js";
@@ -86,9 +88,10 @@ export { catchStoreMutation } from "./databaseMutationUtils.js";
 function DeferredRenderer(ctx: DatabaseViewRendererContext): ReactElement {
   return (
     <p className="oe-database-view__empty" role="status">
-      Interactive {ctx.viewType} renderer is deferred. Table, Board, Calendar,
-      List, Gallery, Feed, Timeline, Gantt, and Chart engines are available
-      for those viewType values.
+      Interactive {ctx.viewType} renderer is deferred. All eleven built-in
+      DatabaseViewType engines (Table, Board, Calendar, List, Gallery,
+      Timeline, Gantt, Chart, Feed, Map, Dashboard) are available for those
+      viewType values.
     </p>
   );
 }
@@ -101,7 +104,9 @@ const DEFAULT_RENDERERS: DatabaseViewRendererMap = {
   feed: renderFeedView,
   timeline: renderTimelineView,
   gantt: renderGanttView,
-  chart: renderChartView
+  chart: renderChartView,
+  map: renderMapView,
+  dashboard: renderDashboardView
 };
 
 function emptyMessage(snap: DatabaseViewSnapshot): string {

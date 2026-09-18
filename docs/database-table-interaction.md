@@ -1,4 +1,4 @@
-# Database View Interaction (Phase 4F-3A / 4F-3B / 4F-4A / 4F-4B / 4F-4C / 4F-4D)
+# Database View Interaction (Phase 4F-3A / 4F-3B / 4F-4A / 4F-4B / 4F-4C / 4F-4D / 4F-4E)
 
 EditorDocument stores **database references / view identity**. The host owns **row entities and persistence**.
 
@@ -8,6 +8,7 @@ EditorDocument stores **database references / view identity**. The host owns **r
 > Phase 4F-4B List/Gallery presentation (including host `resolveRowMedia`) is **ephemeral / host-owned** — media URLs never enter EditorDocument.
 > Phase 4F-4C Timeline/Gantt date-property selection and axis viewport are **ephemeral presentation** — never persisted.
 > Phase 4F-4D Chart metric selection and Feed date selection are **ephemeral presentation** — Chart/Feed are not second query engines.
+> Phase 4F-4E Map locations (`resolveMapLocation`) and Dashboard selectors are **ephemeral / host-owned** — never persisted; no core `location` property.
 
 ```
 DatabaseRuntimeStore
@@ -17,9 +18,9 @@ Shared Database View Shell
   ├ title / search / filters / sort / refresh / trash / load more
   └ renderer dispatch
           │
- ┌──────┬──────┬──────────┬──────┬─────────┬──────────┬───────┬──────┬──────┐
- ▼      ▼      ▼          ▼      ▼         ▼          ▼       ▼      ▼
-Table Board Calendar     List  Gallery   Timeline    Gantt   Chart   Feed
+ ┌──────┬──────┬──────────┬──────┬─────────┬──────────┬───────┬──────┬──────┬─────┬───────────┐
+ ▼      ▼      ▼          ▼      ▼         ▼          ▼       ▼      ▼      ▼     ▼
+Table Board Calendar     List  Gallery   Timeline    Gantt   Chart   Feed  Map  Dashboard
 ```
 
 ```
@@ -49,8 +50,10 @@ Optional host seams (runtime, not document):
  ├ onOpenRow(request)
  ├ resolveRowMedia(request) → DatabaseRowMedia | null
  │     viewType: "gallery" only (4F-4B contract — do not widen)
- └ resolveFeedRowMedia(request) → DatabaseRowMedia | null
-       viewType: "feed" (4F-4D additive seam)
+ ├ resolveFeedRowMedia(request) → DatabaseRowMedia | null
+ │     viewType: "feed" (4F-4D additive seam)
+ └ resolveMapLocation(request) → DatabaseMapLocation | null
+       viewType: "map" (4F-4E additive seam)
 ```
 
 ## Board & Calendar (4F-4A)
@@ -117,7 +120,29 @@ Optional host seams (runtime, not document):
 | Partial pages | “Showing loaded rows only” — Chart counts are loaded-row statistics only |
 | Config persistence | Chart metric / Feed date / media / aggregation **never** enter EditorDocument |
 
-Unsupported `viewType` values (**map**, **dashboard**) stay deferred.
+## Map & Dashboard (4F-4E)
+
+| Concern | Behavior |
+| --- | --- |
+| Row source | Same `snap.items` only — resolve locations / aggregates for **loaded** rows |
+| Map location | Host `runtime.resolveMapLocation` (`viewType: "map"`); defensive deep clone of row |
+| Map validation | Finite lat/lng; ∈ [-90,90] / [-180,180]; **(0,0) valid**; no coercion / clamp |
+| Map projection | Equirectangular percent placement; no jitter / index pins; overlaps OK |
+| Map companion | Accessible list in provider order (Located / No location / Invalid location) |
+| Map SDK | **None** — no Leaflet/Mapbox/tiles/geocoding/network |
+| Map mutations | **Read-only** after snapshot ready (0 listRows/getDatabase/mutations from Map) |
+| Map row-open | Optional `onOpenRow` (`viewType: "map"`); opaque `rowKey` via `data-row-key` only |
+| Core location type | **Not added** — no `location` on `DatabasePropertyType` |
+| Dashboard metrics | Loaded rows = `snap.items.length` (not `total` when hasMore); property definition count |
+| Dashboard categorical | status/select only; reuses Chart Empty/Invalid/option identity |
+| Dashboard numeric | First number property default; finite-only count/sum/avg/min/max (single-pass) |
+| Dashboard date | First date property; valid/missing/invalid + earliest/latest; **no overdue** labels |
+| Dashboard row-open | **None** for aggregates (counts are not row targets) |
+| Selectors | Ephemeral by property.id — zero provider/doc writes |
+| Partial pages | Prominent loaded-only notice for Map pins and Dashboard metrics |
+| Renderer override | `runtime.renderers.map` / `.dashboard` per editor instance |
+
+All eleven current `DatabaseViewType` values have interactive renderers. `isDeferredDatabaseViewType` is false for Table, Board, Calendar, List, Gallery, Timeline, Gantt, Chart, Feed, Map, and Dashboard.
 
 ## Identity semantics
 
@@ -128,6 +153,7 @@ Unsupported `viewType` values (**map**, **dashboard**) stay deferred.
 | Row values | Host-owned; OpenEditor never becomes a database backend |
 | Filters | Executed **host-side** via `listRows` options — never fake-filter loaded pages |
 | Gallery media | Host-owned via `resolveRowMedia`; opaque `rowKey` passed through; never serialized |
+| Map locations | Host-owned via `resolveMapLocation`; never serialized into EditorDocument |
 
 ## View keys
 
@@ -268,12 +294,13 @@ first-page reload — only `loadingMore` / `refreshing` are superseded.
 
 ## Non-goals (later)
 
-Map / dashboard /
 List/Timeline/Gantt/Feed drag reorder / List completion heuristics /
 Chart pie/line/area/scatter/stacked/multi-series / multi-select chart /
+Map SDK / tiles / geocoding / core `location` property /
+Dashboard completion/overdue/recent heuristics /
 Gantt dependencies / critical path / progress /
 formulas / rollups / relation editors / schema designer /
-OR filters / multi-sort / saved views (`groupBy`, calendar scale, timeline/gantt/chart/feed property picks) /
+OR filters / multi-sort / saved views (`groupBy`, calendar scale, timeline/gantt/chart/feed/map/dashboard property picks) /
 Board within-column reorder / calendar datetime-timezone /
 Personal AI adapter / AG Grid /
-persisting gallery/feed media into EditorDocument.
+persisting gallery/feed media or map locations into EditorDocument.

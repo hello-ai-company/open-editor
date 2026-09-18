@@ -396,7 +396,9 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
           { id: "main-timeline", title: "Timeline", viewType: "timeline" },
           { id: "main-gantt", title: "Gantt", viewType: "gantt" },
           { id: "main-chart", title: "Chart", viewType: "chart" },
-          { id: "main-feed", title: "Feed", viewType: "feed" }
+          { id: "main-feed", title: "Feed", viewType: "feed" },
+          { id: "main-map", title: "Map", viewType: "map" },
+          { id: "main-dashboard", title: "Dashboard", viewType: "dashboard" }
         ]
       };
     },
