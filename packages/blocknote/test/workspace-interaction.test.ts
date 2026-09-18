@@ -6,9 +6,9 @@ import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
 
-// Enable React act() under Vitest/jsdom
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
+
 import {
   createPageRuntimeStore,
   createPageRuntimesFromStore
@@ -23,7 +23,9 @@ import { resolvePageCardDisplay } from "../src/workspace/pageCard.js";
 import { resolveChildPageDisplay } from "../src/workspace/childPage.js";
 import {
   applyWorkspacePickerKey,
-  BacklinksPanel
+  BacklinksPanel,
+  listOutgoingPageLinks,
+  WorkspacePagePicker
 } from "../src/react/workspaceUi.js";
 import { createRelationIndex } from "../src/workspace/relationIndex.js";
 
@@ -195,7 +197,7 @@ describe("PageCard / ChildPage store display", () => {
 });
 
 describe("PageSearchEngine", () => {
-  it("suppresses stale results when a newer query wins", async () => {
+  it("suppresses stale callback results when a newer query wins", async () => {
     let resolveA!: (pages: { id: string; title: string }[]) => void;
     let resolveB!: (pages: { id: string; title: string }[]) => void;
     let n = 0;
@@ -232,6 +234,39 @@ describe("PageSearchEngine", () => {
     expect(results).toEqual(["Architecture"]);
   });
 
+  it("searchNow returns latest-accepted pages when stale", async () => {
+    let resolveA!: (pages: { id: string; title: string }[]) => void;
+    let resolveB!: (pages: { id: string; title: string }[]) => void;
+    let n = 0;
+    const engine = createPageSearchEngine({
+      debounceMs: 0,
+      provider: {
+        searchPages: async () => {
+          n += 1;
+          if (n === 1) {
+            return new Promise((resolve) => {
+              resolveA = resolve;
+            });
+          }
+          return new Promise((resolve) => {
+            resolveB = resolve;
+          });
+        }
+      }
+    });
+
+    const pA = engine.searchNow({ query: "a" });
+    const pB = engine.searchNow({ query: "arch" });
+    resolveB([{ id: "1", title: "Architecture" }]);
+    const b = await pB;
+    expect(b.stale).toBe(false);
+    expect(b.pages.map((p) => p.title)).toEqual(["Architecture"]);
+    resolveA([{ id: "2", title: "Apple" }]);
+    const a = await pA;
+    expect(a.stale).toBe(true);
+    expect(a.pages.map((p) => p.title)).toEqual(["Architecture"]);
+  });
+
   it("falls back to listLinks when searchPages is absent", async () => {
     const engine = createPageSearchEngine({
       debounceMs: 0,
@@ -242,24 +277,21 @@ describe("PageSearchEngine", () => {
         ]
       }
     });
-    const pages = await engine.searchNow({ query: "al" });
+    const { pages } = await engine.searchNow({ query: "al" });
     expect(pages.map((p) => p.id)).toEqual(["a"]);
   });
 
-  it("excludes current page id", async () => {
+  it("enforces excludePageId even when host ignores the hint", async () => {
     const engine = createPageSearchEngine({
       debounceMs: 0,
       provider: {
-        searchPages: async (_q, opts) => {
-          const all = [
-            { id: "demo", title: "Demo" },
-            { id: "other", title: "Other" }
-          ];
-          return all.filter((p) => p.id !== opts?.excludePageId);
-        }
+        searchPages: async () => [
+          { id: "demo", title: "Demo" },
+          { id: "other", title: "Other" }
+        ]
       }
     });
-    const pages = await engine.searchNow({
+    const { pages } = await engine.searchNow({
       query: "",
       excludePageId: "demo"
     });
@@ -292,12 +324,69 @@ describe("PageSearchEngine", () => {
         searchPages: async () => []
       }
     });
-    const pages = await engine.searchNow({ query: "zzz" });
+    const { pages } = await engine.searchNow({ query: "zzz" });
     expect(pages).toEqual([]);
   });
 });
 
-describe("WorkspacePagePicker keyboard", () => {
+describe("@ page mention suggestion — stale race", () => {
+  it("keeps Architecture when getItems('a') resolves after getItems('arch')", async () => {
+    let resolveA!: (pages: { id: string; title: string }[]) => void;
+    let resolveB!: (pages: { id: string; title: string }[]) => void;
+    let n = 0;
+    const getItems = createPageMentionSuggestionGetItems({
+      provider: {
+        searchPages: async () => {
+          n += 1;
+          if (n === 1) {
+            return new Promise((resolve) => {
+              resolveA = resolve;
+            });
+          }
+          return new Promise((resolve) => {
+            resolveB = resolve;
+          });
+        }
+      },
+      editor: {
+        insertInlineContent: vi.fn(),
+        transact: <T>(fn: () => T) => fn()
+      }
+    });
+
+    const promiseA = getItems("a");
+    const promiseB = getItems("arch");
+    resolveB([{ id: "architecture", title: "Architecture" }]);
+    const itemsB = await promiseB;
+    expect(itemsB.map((i) => i.title)).toEqual(["Architecture"]);
+
+    resolveA([{ id: "apple", title: "Apple" }]);
+    const itemsA = await promiseA;
+    // Latest-accepted: late A must not surface Apple
+    expect(itemsA.map((i) => i.title)).toEqual(["Architecture"]);
+  });
+
+  it("builds items that insert structured pageMention", async () => {
+    const insertInlineContent = vi.fn();
+    const getItems = createPageMentionSuggestionGetItems({
+      getPages: () => [
+        { id: "architecture", title: "Architecture", preview: "Design" }
+      ],
+      editor: {
+        insertInlineContent,
+        transact: <T>(fn: () => T) => fn()
+      }
+    });
+    const items = await getItems("arch");
+    expect(items).toHaveLength(1);
+    items[0]!.onItemClick();
+    expect(insertInlineContent).toHaveBeenCalledWith([
+      { type: PAGE_MENTION_TYPE, props: { pageId: "architecture" } }
+    ]);
+  });
+});
+
+describe("WorkspacePagePicker keyboard helper", () => {
   it("ArrowDown / ArrowUp / Enter / Escape", () => {
     expect(
       applyWorkspacePickerKey("ArrowDown", { highlight: 0, resultsLength: 3 })
@@ -311,6 +400,310 @@ describe("WorkspacePagePicker keyboard", () => {
     expect(
       applyWorkspacePickerKey("Escape", { highlight: 1, resultsLength: 3 })
     ).toEqual({ highlight: 1, action: "cancel" });
+  });
+});
+
+describe("WorkspacePagePicker integration", () => {
+  async function mountPicker(
+    props: Partial<Parameters<typeof WorkspacePagePicker>[0]> & {
+      onPick: (page: { id: string; title: string } | null) => void;
+    }
+  ) {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        createElement(WorkspacePagePicker, {
+          open: true,
+          debounceMs: 0,
+          onPick: props.onPick,
+          provider: props.provider,
+          pages: props.pages,
+          excludeIds: props.excludeIds,
+          initialQuery: props.initialQuery
+        })
+      );
+    });
+    return {
+      host,
+      root,
+      async remount(
+        next: Partial<Parameters<typeof WorkspacePagePicker>[0]>
+      ) {
+        await act(async () => {
+          root.render(
+            createElement(WorkspacePagePicker, {
+              open: next.open ?? true,
+              debounceMs: 0,
+              onPick: props.onPick,
+              provider: next.provider ?? props.provider,
+              pages: next.pages ?? props.pages,
+              excludeIds: next.excludeIds ?? props.excludeIds,
+              initialQuery: next.initialQuery
+            })
+          );
+        });
+      },
+      async cleanup() {
+        await act(async () => {
+          root.unmount();
+        });
+        host.remove();
+      }
+    };
+  }
+
+  it("shows loading then ready pages", async () => {
+    let resolvePages!: (pages: { id: string; title: string }[]) => void;
+    const onPick = vi.fn();
+    const { host, cleanup } = await mountPicker({
+      onPick,
+      provider: {
+        searchPages: () =>
+          new Promise((resolve) => {
+            resolvePages = resolve;
+          })
+      }
+    });
+    // Debounce 0 still schedules via setTimeout — wait until in-flight
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 5));
+    });
+    expect(host.textContent).toContain("Searching");
+    expect(typeof resolvePages).toBe("function");
+    await act(async () => {
+      resolvePages([{ id: "a", title: "Alpha" }]);
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(host.textContent).toContain("Alpha");
+    expect(host.textContent).not.toContain("Searching");
+    await cleanup();
+  });
+
+  it("shows empty and error states", async () => {
+    const onPick = vi.fn();
+    const empty = await mountPicker({
+      onPick,
+      provider: { searchPages: async () => [] }
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(empty.host.textContent).toContain("No pages found");
+    await empty.cleanup();
+
+    const err = await mountPicker({
+      onPick,
+      provider: {
+        searchPages: async () => {
+          throw new Error("picker fail");
+        }
+      }
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(err.host.textContent).toContain("picker fail");
+    await err.cleanup();
+  });
+
+  it("selects via click and cancels via Escape / Cancel", async () => {
+    const onPick = vi.fn();
+    const { host, cleanup } = await mountPicker({
+      onPick,
+      provider: {
+        searchPages: async () => [{ id: "a", title: "Alpha" }]
+      }
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    const option = host.querySelector(
+      '[role="option"]'
+    ) as HTMLButtonElement | null;
+    expect(option).toBeTruthy();
+    await act(async () => {
+      option!.click();
+    });
+    expect(onPick).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "a", title: "Alpha" })
+    );
+
+    onPick.mockClear();
+    const cancel = host.querySelector(
+      ".oe-page-picker__cancel"
+    ) as HTMLButtonElement;
+    await act(async () => {
+      cancel.click();
+    });
+    expect(onPick).toHaveBeenCalledWith(null);
+
+    onPick.mockClear();
+    const input = host.querySelector(
+      'input[role="combobox"]'
+    ) as HTMLInputElement;
+    await act(async () => {
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true })
+      );
+    });
+    expect(onPick).toHaveBeenCalledWith(null);
+    await cleanup();
+  });
+
+  it("selects highlighted item with Enter", async () => {
+    const onPick = vi.fn();
+    const { host, cleanup } = await mountPicker({
+      onPick,
+      provider: {
+        searchPages: async () => [
+          { id: "a", title: "Alpha" },
+          { id: "b", title: "Beta" }
+        ]
+      }
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    const input = host.querySelector(
+      'input[role="combobox"]'
+    ) as HTMLInputElement;
+    await act(async () => {
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })
+      );
+    });
+    await act(async () => {
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
+      );
+    });
+    expect(onPick).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "b", title: "Beta" })
+    );
+    await cleanup();
+  });
+
+  it("keeps B results when query A resolves late", async () => {
+    let resolveA!: (pages: { id: string; title: string }[]) => void;
+    let resolveB!: (pages: { id: string; title: string }[]) => void;
+    let n = 0;
+    const onPick = vi.fn();
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    const provider = {
+      searchPages: async () => {
+        n += 1;
+        if (n === 1) {
+          return new Promise<{ id: string; title: string }[]>((resolve) => {
+            resolveA = resolve;
+          });
+        }
+        return new Promise<{ id: string; title: string }[]>((resolve) => {
+          resolveB = resolve;
+        });
+      }
+    };
+
+    await act(async () => {
+      root.render(
+        createElement(WorkspacePagePicker, {
+          open: true,
+          debounceMs: 0,
+          onPick,
+          provider,
+          initialQuery: "a"
+        })
+      );
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 5));
+    });
+
+    await act(async () => {
+      root.render(
+        createElement(WorkspacePagePicker, {
+          open: true,
+          debounceMs: 0,
+          onPick,
+          provider,
+          initialQuery: "arch"
+        })
+      );
+    });
+    // Changing initialQuery resets query via open effect; also type into input
+    const input = host.querySelector(
+      'input[role="combobox"]'
+    ) as HTMLInputElement;
+    await act(async () => {
+      const native = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value"
+      )!.set!;
+      native.call(input, "arch");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    await act(async () => {
+      resolveB([{ id: "1", title: "Architecture" }]);
+      await new Promise((r) => setTimeout(r, 15));
+    });
+    expect(host.textContent).toContain("Architecture");
+
+    await act(async () => {
+      resolveA([{ id: "2", title: "Apple" }]);
+      await new Promise((r) => setTimeout(r, 15));
+    });
+    expect(host.textContent).toContain("Architecture");
+    expect(host.textContent).not.toContain("Apple");
+
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
+  });
+
+  it("filters excluded page even when provider returns it", async () => {
+    const onPick = vi.fn();
+    const { host, cleanup } = await mountPicker({
+      onPick,
+      excludeIds: ["demo"],
+      provider: {
+        searchPages: async () => [
+          { id: "demo", title: "Demo" },
+          { id: "other", title: "Other" }
+        ]
+      }
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(host.textContent).toContain("Other");
+    expect(host.textContent).not.toContain("Demo");
+    await cleanup();
+  });
+
+  it("does not duplicate searchPages on initial open", async () => {
+    let calls = 0;
+    const onPick = vi.fn();
+    const { cleanup } = await mountPicker({
+      onPick,
+      provider: {
+        searchPages: async () => {
+          calls += 1;
+          return [{ id: "a", title: "Alpha" }];
+        }
+      }
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    expect(calls).toBe(1);
+    await cleanup();
   });
 });
 
@@ -402,28 +795,82 @@ describe("child page creation command", () => {
   });
 });
 
-describe("@ page mention suggestion", () => {
-  it("builds items that insert structured pageMention", async () => {
-    const insertInlineContent = vi.fn();
-    const getItems = createPageMentionSuggestionGetItems({
-      getPages: () => [
-        { id: "architecture", title: "Architecture", preview: "Design" }
-      ],
-      editor: {
-        insertInlineContent,
-        transact: <T>(fn: () => T) => fn()
-      }
-    });
-    const items = await getItems("arch");
-    expect(items).toHaveLength(1);
-    items[0]!.onItemClick();
-    expect(insertInlineContent).toHaveBeenCalledWith([
-      { type: PAGE_MENTION_TYPE, props: { pageId: "architecture" } }
-    ]);
-  });
-});
-
 describe("BacklinksPanel", () => {
+  it("lists all outgoing page links from the document, independent of targetPageId", async () => {
+    const relationIndex = createRelationIndex();
+    relationIndex.replaceFromBlocks("demo", [
+      {
+        id: "b1",
+        type: "pageCard",
+        props: { pageId: "architecture", titleHint: "" },
+        children: []
+      },
+      {
+        id: "b2",
+        type: "pageCard",
+        props: { pageId: "roadmap", titleHint: "" },
+        children: []
+      }
+    ] as never);
+
+    expect(listOutgoingPageLinks(relationIndex).map((l) => l.pageId).sort()).toEqual(
+      ["architecture", "roadmap"]
+    );
+
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        createElement(BacklinksPanel, {
+          targetPageId: "demo",
+          relationIndex,
+          resolveOutgoingTitle: (id) =>
+            id === "architecture" ? "Architecture" : "Roadmap",
+          provider: { listBacklinks: async () => [] }
+        })
+      );
+    });
+    expect(host.textContent).toContain("Architecture");
+    expect(host.textContent).toContain("Roadmap");
+    expect(host.textContent).toContain("From this document");
+
+    // Changing targetPageId must not erase outgoing
+    await act(async () => {
+      root.render(
+        createElement(BacklinksPanel, {
+          targetPageId: "other-page",
+          relationIndex,
+          resolveOutgoingTitle: (id) =>
+            id === "architecture" ? "Architecture" : "Roadmap",
+          provider: {
+            listBacklinks: async ({ targetId }) =>
+              targetId === "other-page"
+                ? [
+                    {
+                      sourceDocumentId: "x",
+                      sourceTitle: "Incoming X",
+                      kind: "page-reference" as const
+                    }
+                  ]
+                : []
+          }
+        })
+      );
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 15));
+    });
+    expect(host.textContent).toContain("Architecture");
+    expect(host.textContent).toContain("Roadmap");
+    expect(host.textContent).toContain("Incoming X");
+
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
+  });
+
   it("shows loading then ready; ignores stale target responses", async () => {
     let resolveFirst!: (
       items: Array<{
@@ -553,7 +1000,7 @@ describe("BacklinksPanel", () => {
     host.remove();
   });
 
-  it("lists outgoing from RelationIndex", async () => {
+  it("invokes onOpenBacklink and onOpenOutgoingPage", async () => {
     const relationIndex = createRelationIndex();
     relationIndex.replaceFromBlocks("demo", [
       {
@@ -563,20 +1010,44 @@ describe("BacklinksPanel", () => {
         children: []
       }
     ] as never);
+    const onOpenBacklink = vi.fn();
+    const onOpenOutgoingPage = vi.fn();
     const host = document.createElement("div");
     document.body.appendChild(host);
     const root = createRoot(host);
     await act(async () => {
       root.render(
         createElement(BacklinksPanel, {
-          targetPageId: "architecture",
+          targetPageId: "demo",
           relationIndex,
-          resolveOutgoingTitle: () => "Architecture Notes",
-          provider: { listBacklinks: async () => [] }
+          onOpenOutgoingPage,
+          onOpenBacklink,
+          resolveOutgoingTitle: () => "Architecture",
+          provider: {
+            listBacklinks: async () => [
+              {
+                sourceDocumentId: "specs",
+                sourceTitle: "Specs",
+                kind: "page-reference" as const
+              }
+            ]
+          }
         })
       );
     });
-    expect(host.textContent).toContain("Architecture Notes");
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 15));
+    });
+    const links = host.querySelectorAll(".oe-backlinks__link");
+    expect(links.length).toBeGreaterThanOrEqual(2);
+    await act(async () => {
+      (links[0] as HTMLButtonElement).click();
+      (links[1] as HTMLButtonElement).click();
+    });
+    expect(onOpenOutgoingPage).toHaveBeenCalledWith("architecture");
+    expect(onOpenBacklink).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceDocumentId: "specs" })
+    );
     await act(async () => {
       root.unmount();
     });

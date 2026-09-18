@@ -13,9 +13,10 @@ OpenEditor remains host-neutral (no Supabase / auth / product stores).
 | Child page | Host create then insert link | Host `createChildPage` then `childPage` (optional title dialog) |
 | Live title updates | Local catalog + some block rewrites | Runtime store `prime` / subscribe (no doc rewrite) |
 | Missing page | Trash / missing styling | Explicit missing state; reference retained |
-| Backlinks | Derived from notes graph | Host `BacklinkProvider` + local RelationIndex outgoing |
+| Backlinks | Derived from notes graph | Outgoing = RelationIndex (this doc); Incoming = host `BacklinkProvider` |
 | Host-neutral provider | Product-coupled | `PageProvider` / `DatabaseProvider` / `BacklinkProvider` |
 | Instance-scoped cache | App-level notes state | Per-preset `PageRuntimeStore` (no globals) |
+| Stale page search (@ / picker) | Product-specific | Latest-accepted `searchNow` + generation-gated picker callbacks (R1) |
 | Database editing | Product DB UI | Deferred (4F-3+) — view/relation refs only |
 | Board / calendar / formulas | Partial product surfaces | Deferred |
 

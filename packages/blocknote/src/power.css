@@ -534,7 +534,8 @@
 .oe-database-view__footnote,
 .oe-database-view__empty,
 .oe-backlinks__empty,
-.oe-backlinks__footnote {
+.oe-backlinks__footnote,
+.oe-backlinks__hint {
   margin: 0.25rem 0 0;
   font-size: 0.85em;
   color: #57534e;

@@ -65,11 +65,13 @@ export {
 export {
   applyWorkspacePickerKey,
   BacklinksPanel,
+  listOutgoingPageLinks,
   PageMentionPicker,
   WorkspacePagePicker,
   usePageLinks,
   useWorkspacePageSearch,
   type BacklinksPanelProps,
+  type OutgoingPageLink,
   type PageMentionPickerProps,
   type UsePageLinksOptions,
   type UseWorkspacePageSearchOptions,

@@ -54,9 +54,25 @@ Stale protection: invalidate/prime bumps a generation token; late responses are 
 1. Prefer `PageProvider.searchPages(query, options)`
 2. Else filter `PageProvider.listLinks`
 3. Debounce (~150ms) in picker UI
-4. Generation counter drops stale async results when the query changes
+4. Generation counter drops stale async **callback** results when the query changes
+5. **Local exclusion:** OpenEditor always removes `excludePageId` from results even if the host ignored the hint
+6. **`searchNow` latest-accepted:** a stale in-flight Promise resolves to the **latest accepted** pages (`stale: true`), not the obsolete payload and not `[]` — safe for BlockNote `getItems()` which may apply completions in Promise resolution order
 
-Unrelated editor text edits do **not** call search or `getPage`.
+### Stale-query guarantee (R1)
+
+Applies to both:
+
+- `WorkspacePagePicker` (`search` callbacks)
+- `@` mention suggestions (`createPageMentionSuggestionGetItems` → `searchNow`)
+
+```
+query "a"     -> request A
+query "arch"  -> request B
+B finishes    -> Architecture accepted
+A finishes    -> A is stale; visible/current = Architecture
+```
+
+Covered by direct tests on `createPageMentionSuggestionGetItems` and the picker.
 
 ## @ mention interaction
 
@@ -80,18 +96,24 @@ Never invent a page id. Never insert before host success.
 
 ## Backlink interaction
 
-| Side | Owner |
-| --- | --- |
-| Outgoing | `RelationIndex` (this document) |
-| Incoming | `BacklinkProvider` |
+| Side | Owner | Meaning |
+| --- | --- | --- |
+| **Outgoing** | `RelationIndex` of **this open document** | All page relationships originating here (`page-reference`, `child-page`), **not** filtered by `targetPageId` |
+| **Incoming** | `BacklinkProvider` | Workspace-wide links **to** `targetPageId` |
 
-States: loading / ready / empty / error + Refresh. Target changes bump a request generation so stale responses are ignored. Navigation uses `onOpenBacklink` — no assumed `sourceDocumentId === PageId`.
+States: loading / ready / empty / error + Refresh. Target changes bump a request generation so stale **incoming** responses are ignored. Outgoing is independent of `targetPageId`.
+
+Navigation:
+
+- Incoming → `onOpenBacklink(item)` (`sourceDocumentId` is not assumed to be a `PageId`)
+- Outgoing → `onOpenOutgoingPage?.(pageId)`
 
 ## Performance rules
 
 - Typing hot path: no `searchPages` / `getPage` / `listBacklinks`
 - Metadata fetch only when a visible reference calls `store.load`
 - Multiple references → shared in-flight + cache
+- Picker: one search engine per provider/debounce; one query effect (no double search on open)
 
 ## Non-goals (later)
 

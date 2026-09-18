@@ -172,6 +172,7 @@ export {
   type PageSearchEngine,
   type PageSearchEngineOptions,
   type PageSearchRequest,
+  type PageSearchResult,
   type PageSnapshot,
   type PageSnapshotStatus,
   type RelationIndex

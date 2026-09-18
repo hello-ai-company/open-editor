@@ -76,7 +76,7 @@ export function PowerDemoEditor() {
   );
   const databaseProvider = useMemo(() => createDemoDatabaseProvider(), []);
   const backlinks = useMemo(
-    () => createDemoBacklinkProvider("architecture"),
+    () => createDemoBacklinkProvider("demo"),
     []
   );
 
@@ -448,11 +448,14 @@ export function PowerDemoEditor() {
         {relationsOpen ? (
           <aside className="demo-actions" aria-label="Relations">
             <BacklinksPanel
-              targetPageId="architecture"
+              targetPageId="demo"
               provider={backlinks}
               relationIndex={relationIndex}
               resolveOutgoingTitle={(id) =>
                 pageStore.pages.find((p) => p.id === id)?.title
+              }
+              onOpenOutgoingPage={(pageId) =>
+                pageStore.provider.openPage?.(pageId)
               }
               onOpenBacklink={(item) =>
                 setLastOpenedPage(item.sourceDocumentId)

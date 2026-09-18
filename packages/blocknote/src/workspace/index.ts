@@ -63,5 +63,6 @@ export {
   createPageSearchEngine,
   type PageSearchEngine,
   type PageSearchEngineOptions,
-  type PageSearchRequest
+  type PageSearchRequest,
+  type PageSearchResult
 } from "./pageSearch.js";

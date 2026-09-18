@@ -1,5 +1,5 @@
 /**
- * Workspace interaction React surfaces (Phase 4F-2C).
+ * Workspace interaction React surfaces (Phase 4F-2C / R1).
  * Host-neutral pickers, search, and backlinks presentation.
  */
 import type {
@@ -7,7 +7,8 @@ import type {
   BacklinkProvider,
   EditorPageLink,
   PageId,
-  PageProvider
+  PageProvider,
+  RelationKind
 } from "@hello-ai-company/editor-core";
 import {
   useCallback,
@@ -20,10 +21,7 @@ import {
   type ReactElement
 } from "react";
 import type { RelationIndex } from "../workspace/relationIndex.js";
-import {
-  createPageSearchEngine,
-  type PageSearchEngine
-} from "../workspace/pageSearch.js";
+import { createPageSearchEngine } from "../workspace/pageSearch.js";
 
 export type WorkspacePagePickerMode = "mention" | "card" | "generic";
 
@@ -75,6 +73,9 @@ export function applyWorkspacePickerKey(
 /**
  * Production-grade workspace page picker.
  * Prefer provider.searchPages; fall back to listLinks / static pages.
+ *
+ * Lifecycle (R1): one stable engine per provider/debounce; one query effect.
+ * Initial open must not double-search.
  */
 export function WorkspacePagePicker(
   props: WorkspacePagePickerProps
@@ -86,11 +87,20 @@ export function WorkspacePagePicker(
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const engineRef = useRef<PageSearchEngine | null>(null);
 
-  const exclude = useMemo(
-    () => new Set(props.excludeIds ?? []),
-    [props.excludeIds]
+  const debounceMs = props.debounceMs ?? 150;
+  const excludeKey = (props.excludeIds ?? []).join("\0");
+  const primaryExclude = props.excludeIds?.[0];
+
+  const engine = useMemo(
+    () =>
+      props.provider
+        ? createPageSearchEngine({
+            provider: props.provider,
+            debounceMs
+          })
+        : null,
+    [props.provider, debounceMs]
   );
 
   useEffect(() => {
@@ -104,79 +114,22 @@ export function WorkspacePagePicker(
 
   useEffect(() => {
     if (!props.open) {
-      engineRef.current?.cancel();
+      engine?.cancel();
       return;
     }
 
-    if (props.provider) {
-      engineRef.current = createPageSearchEngine({
-        provider: props.provider,
-        debounceMs: props.debounceMs ?? 150
-      });
-    } else {
-      engineRef.current = null;
-    }
-
-    const run = (q: string) => {
-      setStatus("loading");
-      setErrorMessage(null);
-
-      if (engineRef.current) {
-        engineRef.current.search(
-          {
-            query: q,
-            excludePageId: props.excludeIds?.[0],
-            limit: 40
-          },
-          (pages) => {
-            const filtered = pages.filter((p) => !exclude.has(p.id));
-            setResults(filtered);
-            setStatus(filtered.length === 0 ? "empty" : "ready");
-            setHighlight(0);
-          },
-          (err) => {
-            setResults([]);
-            setStatus("error");
-            setErrorMessage(err.message);
-          }
-        );
-        return;
-      }
-
-      // Sync static pages fallback
-      const qLower = q.trim().toLowerCase();
-      const filtered = (props.pages ?? [])
-        .filter((page) => !exclude.has(page.id))
-        .filter(
-          (page) =>
-            !qLower ||
-            page.title.toLowerCase().includes(qLower) ||
-            page.id.toLowerCase().includes(qLower)
-        );
-      setResults(filtered);
-      setStatus(filtered.length === 0 ? "empty" : "ready");
-      setHighlight(0);
-    };
-
-    run(query);
-    return () => {
-      engineRef.current?.cancel();
-    };
-    // Re-run when query changes via controlled search below
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.open, props.provider, props.pages, exclude, props.excludeIds, props.debounceMs]);
-
-  useEffect(() => {
-    if (!props.open) return;
     setStatus("loading");
-    if (engineRef.current) {
-      engineRef.current.search(
+    setErrorMessage(null);
+
+    if (engine) {
+      engine.search(
         {
           query,
-          excludePageId: props.excludeIds?.[0],
+          excludePageId: primaryExclude,
           limit: 40
         },
         (pages) => {
+          const exclude = new Set(excludeKey ? excludeKey.split("\0") : []);
           const filtered = pages.filter((p) => !exclude.has(p.id));
           setResults(filtered);
           setStatus(filtered.length === 0 ? "empty" : "ready");
@@ -188,8 +141,11 @@ export function WorkspacePagePicker(
           setErrorMessage(err.message);
         }
       );
-      return;
+      return () => engine.cancel();
     }
+
+    // Sync static pages fallback
+    const exclude = new Set(excludeKey ? excludeKey.split("\0") : []);
     const qLower = query.trim().toLowerCase();
     const filtered = (props.pages ?? [])
       .filter((page) => !exclude.has(page.id))
@@ -202,7 +158,15 @@ export function WorkspacePagePicker(
     setResults(filtered);
     setStatus(filtered.length === 0 ? "empty" : "ready");
     setHighlight(0);
-  }, [query, props.open, props.pages, props.provider, props.excludeIds, exclude]);
+    return undefined;
+  }, [
+    engine,
+    props.open,
+    query,
+    primaryExclude,
+    excludeKey,
+    props.pages
+  ]);
 
   const pick = useCallback(
     (page: EditorPageLink | null) => {
@@ -341,20 +305,22 @@ export function PageMentionPicker(
   );
 }
 
-export type BacklinksPanelProps = {
-  targetPageId: PageId;
-  provider?: BacklinkProvider;
-  relationIndex?: RelationIndex;
-  title?: string;
-  /** Host-neutral navigation for an incoming backlink. */
-  onOpenBacklink?: (item: BacklinkItem) => void;
-  /** Optional label for outgoing page targets. */
-  resolveOutgoingTitle?: (pageId: string) => string | undefined;
+export type OutgoingPageLink = {
+  pageId: string;
+  kind: RelationKind;
 };
 
-type BacklinkLoadState = "idle" | "loading" | "ready" | "empty" | "error";
+const PAGE_RELATION_KINDS = new Set<RelationKind>([
+  "page-reference",
+  "child-page"
+]);
 
-const KIND_LABELS: Record<string, string> = {
+const OUTGOING_KIND_LABELS: Record<string, string> = {
+  "page-reference": "Page link",
+  "child-page": "Child page"
+};
+
+const INCOMING_KIND_LABELS: Record<string, string> = {
   "page-reference": "Mentioned in",
   "child-page": "Child of",
   "block-reference": "Block link",
@@ -362,9 +328,37 @@ const KIND_LABELS: Record<string, string> = {
   "database-row-relation": "Row relation"
 };
 
-function kindLabel(kind: string): string {
-  return KIND_LABELS[kind] ?? kind;
+/**
+ * All page relationships originating from this open document (RelationIndex).
+ * Dedupes by target pageId (first kind wins). Excludes database relations.
+ */
+export function listOutgoingPageLinks(
+  relationIndex: RelationIndex
+): OutgoingPageLink[] {
+  const seen = new Map<string, OutgoingPageLink>();
+  for (const edge of relationIndex.list()) {
+    if (edge.targetType !== "page") continue;
+    if (!PAGE_RELATION_KINDS.has(edge.kind)) continue;
+    if (seen.has(edge.targetId)) continue;
+    seen.set(edge.targetId, { pageId: edge.targetId, kind: edge.kind });
+  }
+  return [...seen.values()];
 }
+
+export type BacklinksPanelProps = {
+  targetPageId: PageId;
+  provider?: BacklinkProvider;
+  relationIndex?: RelationIndex;
+  title?: string;
+  /** Host-neutral navigation for an incoming backlink. */
+  onOpenBacklink?: (item: BacklinkItem) => void;
+  /** Host-neutral navigation for an outgoing page target. */
+  onOpenOutgoingPage?: (pageId: PageId) => void;
+  /** Optional label for outgoing page targets. */
+  resolveOutgoingTitle?: (pageId: string) => string | undefined;
+};
+
+type BacklinkLoadState = "idle" | "loading" | "ready" | "empty" | "error";
 
 export function BacklinksPanel(props: BacklinksPanelProps): ReactElement {
   const [incoming, setIncoming] = useState<BacklinkItem[]>([]);
@@ -408,15 +402,12 @@ export function BacklinksPanel(props: BacklinksPanelProps): ReactElement {
     };
   }, [props.provider, props.targetPageId, refreshToken]);
 
+  // Outgoing = ALL page relations from THIS document — independent of targetPageId
   const outgoing = useMemo(() => {
     void revision;
-    return (
-      props.relationIndex?.listOutgoingTo({
-        targetType: "page",
-        targetId: props.targetPageId
-      }) ?? []
-    );
-  }, [props.relationIndex, props.targetPageId, revision]);
+    if (!props.relationIndex) return [];
+    return listOutgoingPageLinks(props.relationIndex);
+  }, [props.relationIndex, revision]);
 
   return (
     <aside className="oe-backlinks" aria-label={props.title ?? "Relations"}>
@@ -432,19 +423,35 @@ export function BacklinksPanel(props: BacklinksPanelProps): ReactElement {
       </div>
       <section>
         <h4>Outgoing</h4>
+        <p className="oe-backlinks__hint">From this document</p>
         {outgoing.length === 0 ? (
           <p className="oe-backlinks__empty">No linked pages in this document</p>
         ) : (
           <ul>
-            {outgoing.map((edge) => {
+            {outgoing.map((link) => {
               const label =
-                props.resolveOutgoingTitle?.(edge.targetId) ?? edge.targetId;
+                props.resolveOutgoingTitle?.(link.pageId) ?? link.pageId;
               return (
-                <li key={edge.edgeId ?? `${edge.kind}:${edge.targetId}`}>
-                  <span className="oe-backlinks__kind">
-                    {kindLabel(edge.kind)}
-                  </span>
-                  <span className="oe-backlinks__name">{label}</span>
+                <li key={link.pageId}>
+                  {props.onOpenOutgoingPage ? (
+                    <button
+                      type="button"
+                      className="oe-backlinks__link"
+                      onClick={() => props.onOpenOutgoingPage?.(link.pageId)}
+                    >
+                      <span className="oe-backlinks__name">{label}</span>
+                      <span className="oe-backlinks__kind">
+                        {OUTGOING_KIND_LABELS[link.kind] ?? link.kind}
+                      </span>
+                    </button>
+                  ) : (
+                    <>
+                      <span className="oe-backlinks__kind">
+                        {OUTGOING_KIND_LABELS[link.kind] ?? link.kind}
+                      </span>
+                      <span className="oe-backlinks__name">{label}</span>
+                    </>
+                  )}
                 </li>
               );
             })}
@@ -453,6 +460,7 @@ export function BacklinksPanel(props: BacklinksPanelProps): ReactElement {
       </section>
       <section>
         <h4>Linked from</h4>
+        <p className="oe-backlinks__hint">Host backlinks to this page</p>
         {incomingState === "loading" ? (
           <p className="oe-backlinks__empty" role="status">
             Loading…
@@ -479,7 +487,7 @@ export function BacklinksPanel(props: BacklinksPanelProps): ReactElement {
                     {edge.sourceTitle ?? edge.sourceDocumentId}
                   </span>
                   <span className="oe-backlinks__kind">
-                    {kindLabel(edge.kind)}
+                    {INCOMING_KIND_LABELS[edge.kind] ?? edge.kind}
                   </span>
                 </button>
               </li>
@@ -488,8 +496,8 @@ export function BacklinksPanel(props: BacklinksPanelProps): ReactElement {
         ) : null}
       </section>
       <p className="oe-backlinks__footnote">
-        Outgoing edges come from this document&apos;s RelationIndex. Incoming
-        backlinks come from the host BacklinkProvider.
+        Outgoing = page relationships from this document&apos;s RelationIndex.
+        Incoming = host BacklinkProvider for the selected page.
       </p>
     </aside>
   );

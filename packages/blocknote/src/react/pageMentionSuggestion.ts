@@ -1,6 +1,10 @@
 /**
  * @ page-mention suggestion items for BlockNote SuggestionMenuController.
  * Reuses the same search engine as WorkspacePagePicker.
+ *
+ * Stale-query contract (R1): searchNow uses latest-accepted semantics, so a
+ * late-resolving getItems("a") Promise still yields the pages accepted for the
+ * newest query — never the obsolete payload and never an empty overwrite.
  */
 import type { EditorPageLink, PageProvider } from "@hello-ai-company/editor-core";
 import { createPageSearchEngine } from "../workspace/pageSearch.js";
@@ -56,6 +60,21 @@ function insertPageMention(
   }
 }
 
+function toItems(
+  pages: readonly EditorPageLink[],
+  options: CreatePageMentionSuggestionOptions
+): PageMentionSuggestionItem[] {
+  return pages.map((page) => ({
+    title: page.title || page.id,
+    subtext: page.preview,
+    pageId: page.id,
+    onItemClick: () => {
+      options.onSelect?.(page);
+      insertPageMention(options.editor, page.id);
+    }
+  }));
+}
+
 /**
  * Factory for SuggestionMenuController getItems with triggerCharacter="@".
  */
@@ -68,16 +87,19 @@ export function createPageMentionSuggestionGetItems(
   });
 
   return async (query: string) => {
-    let pages: EditorPageLink[] = [];
     if (options.provider?.searchPages || options.provider?.listLinks) {
-      pages = await engine.searchNow({
+      const result = await engine.searchNow({
         query,
         excludePageId: options.excludePageId,
         limit: 20
       });
-    } else if (options.getPages) {
+      // result.pages is latest-accepted when stale — safe for resolution-order consumers
+      return toItems(result.pages, options);
+    }
+
+    if (options.getPages) {
       const q = query.trim().toLowerCase();
-      pages = options
+      const pages = options
         .getPages()
         .filter((page) => page.id !== options.excludePageId)
         .filter(
@@ -87,17 +109,10 @@ export function createPageMentionSuggestionGetItems(
             page.id.toLowerCase().includes(q)
         )
         .slice(0, 20);
+      return toItems(pages, options);
     }
 
-    return pages.map((page) => ({
-      title: page.title || page.id,
-      subtext: page.preview,
-      pageId: page.id,
-      onItemClick: () => {
-        options.onSelect?.(page);
-        insertPageMention(options.editor, page.id);
-      }
-    }));
+    return [];
   };
 }
 

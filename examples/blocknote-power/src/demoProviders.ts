@@ -149,13 +149,13 @@ export function createDemoBacklinkProvider(
       }
       return [
         {
-          sourceDocumentId: "notes/kickoff",
-          sourceTitle: "Kickoff notes",
+          sourceDocumentId: "notes/specs",
+          sourceTitle: "Specs",
           kind: "page-reference"
         },
         {
-          sourceDocumentId: "notes/roadmap",
-          sourceTitle: "Roadmap",
+          sourceDocumentId: "notes/meeting",
+          sourceTitle: "Meeting Notes",
           kind: "page-reference"
         }
       ];
