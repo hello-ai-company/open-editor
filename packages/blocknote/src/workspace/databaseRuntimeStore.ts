@@ -1,8 +1,11 @@
 /**
- * Instance-scoped database interaction runtime (Phase 4F-3A).
+ * Instance-scoped database interaction runtime (Phase 4F-3A / 4F-3B).
  *
  * EditorDocument stores databaseId/viewId/viewType only.
- * This store holds ephemeral query/rows/mutation state — never persistence.
+ * This store holds ephemeral query/rows/mutation/filter state — never persistence.
+ *
+ * Phase 4F-3B filters and propertySort are ephemeral interaction state,
+ * not saved database view configuration.
  *
  * Invariants:
  * - Editor/preset instance scoped (no module globals)
@@ -10,17 +13,32 @@
  * - Concurrent identical listRows share one in-flight request
  * - Stale responses cannot overwrite newer generations
  * - Mutations refresh from host (provider is SoT); no opaque result parsing
- * - Reorder only when semantically safe (full position list, no query/trash)
+ * - Reorder only when semantically safe (full position list, no query/filters/propertySort/trash)
+ * - Structured filters / propertySort only when host advertises capabilities (fail-closed)
+ * - propertySort XOR legacy sortBy — never both in listRows options
  */
 
 import type {
+  DatabaseFilter,
   DatabaseListOptions,
+  DatabasePropertySort,
   DatabaseProvider,
   DatabaseRowItem,
   DatabaseRowsPage,
   EditorDatabase,
   JsonValue
 } from "@hello-ai-company/editor-core";
+import {
+  cloneFilters,
+  clonePropertySort,
+  filtersEqual,
+  propertySortEqual,
+  resolveDatabasePropertyDefinitions,
+  sanitizeFiltersAgainstMetadata,
+  sanitizePropertySortAgainstMetadata,
+  validateDatabaseFilters,
+  validatePropertySort
+} from "./databaseProperty.js";
 
 export type DatabaseViewStatus =
   | "idle"
@@ -48,6 +66,10 @@ export type DatabaseViewQueryState = {
   direction: DatabaseSortDirection;
   trashMode: DatabaseTrashMode;
   pageSize: number;
+  /** AND structured filters — ephemeral; default []. */
+  filters: readonly DatabaseFilter[];
+  /** Active property sort — mutually exclusive with legacy sort when set. */
+  propertySort: DatabasePropertySort | null;
 };
 
 export type DatabaseMutationState = {
@@ -90,6 +112,8 @@ export type DatabaseViewSnapshot = {
   errorMessage?: string;
   loadMoreError?: string;
   mutationError?: string;
+  /** Non-destructive notice when metadata invalidates active filters. */
+  filterNotice?: string;
   mutating: DatabaseMutationState;
   capabilities: DatabaseCapabilities;
   canReorder: boolean;
@@ -98,6 +122,7 @@ export type DatabaseViewSnapshot = {
   emptyReason?:
     | "no-rows"
     | "no-search-matches"
+    | "no-filter-matches"
     | "trash-empty"
     | "provider-unavailable";
 };
@@ -120,6 +145,20 @@ export type DatabaseRuntimeStore = {
     viewKey: string,
     sortBy: DatabaseSortBy,
     direction: DatabaseSortDirection
+  ) => void;
+  /**
+   * Apply validated AND filters. Clones input — caller-owned arrays are not retained.
+   * Triggers the same first-page reload path as setQuery (generation bump, pagination clear).
+   * @throws Error when filters fail validation against current metadata/capabilities
+   */
+  setFilters: (viewKey: string, filters: readonly DatabaseFilter[]) => void;
+  /**
+   * Apply property sort (or null to clear). Clears conflicting legacy-only claim in list options.
+   * @throws Error when sort fails validation
+   */
+  setPropertySort: (
+    viewKey: string,
+    sort: DatabasePropertySort | null
   ) => void;
   setTrashMode: (viewKey: string, mode: DatabaseTrashMode) => void;
   createRow: (
@@ -163,6 +202,7 @@ type ViewInternal = {
   errorMessage?: string;
   loadMoreError?: string;
   mutationError?: string;
+  filterNotice?: string;
   mutating: DatabaseMutationState;
   generation: number;
   /** Cursors already used for loadMore — prevent loops. */
@@ -178,7 +218,19 @@ function defaultQueryState(pageSize: number): DatabaseViewQueryState {
     sortBy: "position",
     direction: "asc",
     trashMode: "active",
-    pageSize
+    pageSize,
+    filters: [],
+    propertySort: null
+  };
+}
+
+function snapshotQueryState(
+  state: DatabaseViewQueryState
+): DatabaseViewQueryState {
+  return {
+    ...state,
+    filters: cloneFilters(state.filters),
+    propertySort: clonePropertySort(state.propertySort)
   };
 }
 
@@ -203,6 +255,8 @@ export function buildDatabaseQueryKey(
   return encodeDatabaseKeyParts([
     databaseId,
     state.query.trim(),
+    state.filters,
+    state.propertySort,
     state.sortBy,
     state.direction,
     state.trashMode,
@@ -211,16 +265,30 @@ export function buildDatabaseQueryKey(
   ]);
 }
 
-function listOptionsFromState(
+/**
+ * Map store query state → DatabaseListOptions.
+ *
+ * Precedence: when `propertySort != null`, send propertySort and omit legacy
+ * sortBy/direction so the host never receives an ambiguous dual sort claim.
+ * Structured filters are only attached when present (caller validates capability).
+ */
+export function listOptionsFromState(
   state: DatabaseViewQueryState,
   cursor?: string | null
 ): DatabaseListOptions {
   const opts: DatabaseListOptions = {
     limit: state.pageSize,
-    query: state.query.trim() || undefined,
-    sortBy: state.sortBy,
-    direction: state.direction
+    query: state.query.trim() || undefined
   };
+  if (state.propertySort) {
+    opts.propertySort = { ...state.propertySort };
+  } else {
+    opts.sortBy = state.sortBy;
+    opts.direction = state.direction;
+  }
+  if (state.filters.length > 0) {
+    opts.filters = cloneFilters(state.filters);
+  }
   if (cursor) opts.cursor = cursor;
   if (state.trashMode === "trash") {
     opts.trashedOnly = true;
@@ -249,6 +317,12 @@ function reorderEligibility(
   }
   if (view.queryState.query.trim()) {
     return { canReorder: false, reason: "Clear search to reorder" };
+  }
+  if (view.queryState.filters.length > 0) {
+    return { canReorder: false, reason: "Clear filters to reorder" };
+  }
+  if (view.queryState.propertySort != null) {
+    return { canReorder: false, reason: "Clear property sort to reorder" };
   }
   if (view.queryState.trashMode !== "active") {
     return { canReorder: false, reason: "Reorder unavailable in trash" };
@@ -289,6 +363,7 @@ function emptyReasonFor(
 ): DatabaseViewSnapshot["emptyReason"] {
   if (!caps.list) return "provider-unavailable";
   if (view.queryState.trashMode === "trash") return "trash-empty";
+  if (view.queryState.filters.length > 0) return "no-filter-matches";
   if (view.queryState.query.trim()) return "no-search-matches";
   return "no-rows";
 }
@@ -306,11 +381,12 @@ function toSnapshot(
     meta: view.meta,
     items: view.items,
     schema: view.schema,
-    queryState: { ...view.queryState },
+    queryState: snapshotQueryState(view.queryState),
     pagination: { ...view.pagination },
     errorMessage: view.errorMessage,
     loadMoreError: view.loadMoreError,
     mutationError: view.mutationError,
+    filterNotice: view.filterNotice,
     mutating: view.mutating,
     capabilities: caps,
     canReorder,
@@ -485,6 +561,47 @@ export function createDatabaseRuntimeStore(
       } else {
         view.meta = meta;
         view.metaStatus = "ready";
+        // Metadata refresh may invalidate active filters / propertySort.
+        const defs = resolveDatabasePropertyDefinitions({
+          legacySchema: view.schema,
+          definitions: meta.propertyDefinitions
+        });
+        const caps = meta.queryCapabilities;
+        const sanitized = sanitizeFiltersAgainstMetadata(
+          view.queryState.filters,
+          defs,
+          caps
+        );
+        const nextSort = sanitizePropertySortAgainstMetadata(
+          view.queryState.propertySort,
+          defs,
+          caps
+        );
+        const filtersChanged = !filtersEqual(
+          view.queryState.filters,
+          sanitized.filters
+        );
+        const sortChanged = !propertySortEqual(
+          view.queryState.propertySort,
+          nextSort
+        );
+        if (filtersChanged || sortChanged) {
+          view.queryState = {
+            ...view.queryState,
+            filters: cloneFilters(sanitized.filters),
+            propertySort: clonePropertySort(nextSort)
+          };
+          if (sanitized.removed.length > 0) {
+            view.filterNotice =
+              "Some filters were cleared because property metadata changed";
+          } else if (sortChanged && view.queryState.propertySort === null) {
+            view.filterNotice =
+              "Property sort cleared because property metadata changed";
+          }
+          // Reload authoritative rows with sanitized query (same safe path).
+          void loadFirstPage(view);
+          return;
+        }
       }
       notify();
     } catch {
@@ -689,11 +806,67 @@ export function createDatabaseRuntimeStore(
       const view = requireView(viewKey);
       if (
         view.queryState.sortBy === sortBy &&
-        view.queryState.direction === direction
+        view.queryState.direction === direction &&
+        view.queryState.propertySort === null
       ) {
         return;
       }
-      view.queryState = { ...view.queryState, sortBy, direction };
+      // Legacy sort clears propertySort so options stay unambiguous.
+      view.queryState = {
+        ...view.queryState,
+        sortBy,
+        direction,
+        propertySort: null
+      };
+      void loadFirstPage(view);
+    },
+
+    setFilters(viewKey, filters) {
+      const view = requireView(viewKey);
+      const defs = resolveDatabasePropertyDefinitions({
+        legacySchema: view.schema,
+        definitions: view.meta?.propertyDefinitions
+      });
+      const validated = validateDatabaseFilters(
+        filters,
+        defs,
+        view.meta?.queryCapabilities
+      );
+      if (!validated.ok) {
+        throw new Error(validated.error);
+      }
+      const next = cloneFilters(validated.filters);
+      if (filtersEqual(view.queryState.filters, next)) return;
+      view.queryState = { ...view.queryState, filters: next };
+      view.filterNotice = undefined;
+      void loadFirstPage(view);
+    },
+
+    setPropertySort(viewKey, sort) {
+      const view = requireView(viewKey);
+      if (sort === null) {
+        if (view.queryState.propertySort === null) return;
+        view.queryState = { ...view.queryState, propertySort: null };
+        view.filterNotice = undefined;
+        void loadFirstPage(view);
+        return;
+      }
+      const defs = resolveDatabasePropertyDefinitions({
+        legacySchema: view.schema,
+        definitions: view.meta?.propertyDefinitions
+      });
+      const validated = validatePropertySort(
+        sort,
+        defs,
+        view.meta?.queryCapabilities
+      );
+      if (!validated.ok) {
+        throw new Error(validated.error);
+      }
+      const next = clonePropertySort(validated.sort);
+      if (propertySortEqual(view.queryState.propertySort, next)) return;
+      view.queryState = { ...view.queryState, propertySort: next };
+      view.filterNotice = undefined;
       void loadFirstPage(view);
     },
 
