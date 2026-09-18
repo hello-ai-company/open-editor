@@ -150,6 +150,9 @@ Phase **4F-2C** turns these primitives into production UX (PageRuntimeStore,
 WorkspacePagePicker, `@` mentions, BacklinksPanel). See
 [workspace-interaction.md](./workspace-interaction.md).
 
+Phase **4F-3A** adds the interactive database table engine. See
+[database-table-interaction.md](./database-table-interaction.md).
+
 On block **update**, RelationIndex clears edges for the **previous** subtree
 (`prevBlock`) before inserting edges from the new subtree, so nested children
 that disappear cannot leave stale relations.

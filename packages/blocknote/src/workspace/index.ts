@@ -39,6 +39,31 @@ export {
   type DatabaseViewRuntime
 } from "./databaseView.js";
 
+export {
+  createDatabaseRuntimeStore,
+  createDatabaseViewRuntimeFromStore,
+  databaseViewKey,
+  buildDatabaseQueryKey,
+  type DatabaseCapabilities,
+  type DatabaseRuntimeStore,
+  type DatabaseRuntimeStoreOptions,
+  type DatabaseTrashMode,
+  type DatabaseViewQueryState,
+  type DatabaseViewSnapshot,
+  type DatabaseViewStatus,
+  type DatabaseSortBy,
+  type DatabaseSortDirection
+} from "./databaseRuntimeStore.js";
+
+export {
+  formatDatabaseCellDisplay,
+  isEditablePropertyKind,
+  normalizeDatabasePropertyType,
+  parseEditedCellValue,
+  valuesEqualForEdit,
+  type NormalizedPropertyKind
+} from "./databaseProperty.js";
+
 export { createDatabaseRelationInlineContentSpec } from "./databaseRelation.js";
 
 export { createWorkspaceContentCommands } from "./commands.js";
