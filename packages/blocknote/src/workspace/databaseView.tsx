@@ -1,8 +1,9 @@
 /**
- * Database view block — interactive table / board / calendar (Phase 4F-3A–4F-4A).
+ * Database view block — interactive table / board / calendar / list / gallery (Phase 4F-3A–4F-4B).
  * Document stores identity/view config only; rows come from DatabaseRuntimeStore.
  * 4F-3B: typed property editors, structured filters, and property sort UX.
  * 4F-4A: Board + Calendar renderers via shared shell + renderer dispatch.
+ * 4F-4B: List + Gallery renderers (read-only presentation).
  */
 import { createReactBlockSpec } from "@blocknote/react";
 import type {
@@ -23,6 +24,8 @@ import {
 } from "react";
 import { renderBoardView } from "./databaseBoardRenderer.js";
 import { renderCalendarView } from "./databaseCalendarRenderer.js";
+import { renderGalleryView } from "./databaseGalleryRenderer.js";
+import { renderListView } from "./databaseListRenderer.js";
 import { catchStoreMutation } from "./databaseMutationUtils.js";
 import {
   databaseViewInstanceKey,
@@ -79,15 +82,17 @@ export { catchStoreMutation } from "./databaseMutationUtils.js";
 function DeferredRenderer(ctx: DatabaseViewRendererContext): ReactElement {
   return (
     <p className="oe-database-view__empty" role="status">
-      Interactive {ctx.viewType} renderer is deferred. Table, Board, and Calendar
-      engines are available for those viewType values.
+      Interactive {ctx.viewType} renderer is deferred. Table, Board, Calendar,
+      List, and Gallery engines are available for those viewType values.
     </p>
   );
 }
 
 const DEFAULT_RENDERERS: DatabaseViewRendererMap = {
   board: renderBoardView,
-  calendar: renderCalendarView
+  calendar: renderCalendarView,
+  list: renderListView,
+  gallery: renderGalleryView
 };
 
 function emptyMessage(snap: DatabaseViewSnapshot): string {

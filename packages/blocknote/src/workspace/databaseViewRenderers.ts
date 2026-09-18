@@ -1,5 +1,5 @@
 /**
- * Database view renderer contract + default dispatch (Phase 4F-4A / R1).
+ * Database view renderer contract + default dispatch (Phase 4F-4A / 4F-4B).
  *
  * Runtime/preset owns optional renderer overrides — never a module-global registry.
  * Renderers are React components (hooks-safe), not bare functions invoked by the shell.
@@ -47,8 +47,6 @@ export type DatabaseViewRendererMap = Partial<
 const DEFERRED_VIEWS = new Set<DatabaseViewType>([
   "timeline",
   "gantt",
-  "list",
-  "gallery",
   "chart",
   "feed",
   "map",

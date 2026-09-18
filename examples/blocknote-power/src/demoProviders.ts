@@ -378,7 +378,9 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         views: [
           { id: "main-table", title: "Table", viewType: "table" },
           { id: "main-board", title: "Board", viewType: "board" },
-          { id: "main-calendar", title: "Calendar", viewType: "calendar" }
+          { id: "main-calendar", title: "Calendar", viewType: "calendar" },
+          { id: "main-list", title: "List", viewType: "list" },
+          { id: "main-gallery", title: "Gallery", viewType: "gallery" }
         ]
       };
     },

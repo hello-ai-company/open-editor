@@ -88,13 +88,26 @@ export {
 } from "./databaseCalendarModel.js";
 
 export {
+  buildDatabaseRowPresentation,
+  cloneDatabaseRowRecord,
   formatDatabaseCardFieldValue,
   resolveDatabaseCardPreviewFields,
-  resolveDatabaseRowTitle
+  resolveDatabaseRowSecondaryText,
+  resolveDatabaseRowTitle,
+  safeResolveRowMedia,
+  type DatabaseRowPresentation,
+  type DatabaseRowPreviewField
 } from "./databaseRowPresentation.js";
+
+export type {
+  DatabaseRowMedia,
+  DatabaseRowMediaRequest
+} from "./databaseViewRuntime.js";
 
 export { renderBoardView } from "./databaseBoardRenderer.js";
 export { renderCalendarView } from "./databaseCalendarRenderer.js";
+export { renderGalleryView } from "./databaseGalleryRenderer.js";
+export { renderListView } from "./databaseListRenderer.js";
 
 export {
   createDatabaseRuntimeStore,

@@ -59,7 +59,7 @@ export const sampleDocument = createEditorDocument([
     id: "h2c",
     type: "heading",
     props: { level: 2 },
-    content: [{ type: "text", text: "Tasks (same database, three views)", styles: {} }]
+    content: [{ type: "text", text: "Tasks (same database, five views)", styles: {} }]
   },
   {
     id: "db-table",
@@ -92,13 +92,33 @@ export const sampleDocument = createEditorDocument([
     }
   },
   {
+    id: "db-list",
+    type: "databaseView",
+    props: {
+      databaseId: "tasks",
+      viewId: "main-list",
+      viewType: "list",
+      titleHint: "Tasks"
+    }
+  },
+  {
+    id: "db-gallery",
+    type: "databaseView",
+    props: {
+      databaseId: "tasks",
+      viewId: "main-gallery",
+      viewType: "gallery",
+      titleHint: "Tasks"
+    }
+  },
+  {
     id: "c1",
     type: "callout",
     props: { variant: "info", title: "Portable" },
     content: [
       {
         type: "text",
-        text: "databaseView props hold databaseId/viewId/viewType only — never the row array. Board grouping and Calendar cursor are ephemeral UI state.",
+        text: "databaseView props hold databaseId/viewId/viewType only — never the row array. Board grouping, Calendar cursor, List order, and Gallery media resolution are ephemeral UI / host state.",
         styles: {}
       }
     ]
@@ -106,6 +126,6 @@ export const sampleDocument = createEditorDocument([
   {
     id: "s1",
     type: "status",
-    props: { state: "doing", label: "4F-4A" }
+    props: { state: "doing", label: "4F-4B" }
   }
 ]);
