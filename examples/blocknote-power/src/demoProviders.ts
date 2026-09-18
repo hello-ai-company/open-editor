@@ -11,6 +11,9 @@ export type DemoPageStore = {
   provider: PageProvider;
   subscribe: (listener: () => void) => () => void;
   bump: () => void;
+  rename: (pageId: string, title: string) => void;
+  remove: (pageId: string) => EditorPageLink | null;
+  restore: (page: EditorPageLink) => void;
 };
 
 export function createDemoPageStore(
@@ -64,7 +67,25 @@ export function createDemoPageStore(
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    bump
+    bump,
+    rename(pageId, title) {
+      const page = pages.find((entry) => entry.id === pageId);
+      if (!page) return;
+      page.title = title;
+      bump();
+    },
+    remove(pageId) {
+      const index = pages.findIndex((entry) => entry.id === pageId);
+      if (index < 0) return null;
+      const [removed] = pages.splice(index, 1);
+      bump();
+      return removed ?? null;
+    },
+    restore(page) {
+      if (pages.some((entry) => entry.id === page.id)) return;
+      pages.push(page);
+      bump();
+    }
   };
 }
 
@@ -121,18 +142,20 @@ export function createDemoBacklinkProvider(
 ): BacklinkProvider {
   return {
     async listBacklinks(query) {
+      // Simulate latency so loading state is visible
+      await new Promise((r) => setTimeout(r, 40));
       if (query.targetType !== "page" || query.targetId !== targetPageId) {
         return [];
       }
       return [
         {
-          sourceDocumentId: "notes/kickoff",
-          sourceTitle: "Kickoff notes",
+          sourceDocumentId: "notes/specs",
+          sourceTitle: "Specs",
           kind: "page-reference"
         },
         {
-          sourceDocumentId: "notes/roadmap",
-          sourceTitle: "Roadmap",
+          sourceDocumentId: "notes/meeting",
+          sourceTitle: "Meeting Notes",
           kind: "page-reference"
         }
       ];

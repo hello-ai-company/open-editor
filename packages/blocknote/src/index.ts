@@ -147,6 +147,9 @@ export {
   createPageMentionDom,
   createPageMentionInlineContentSpec,
   createPageMentionResolverFromLinks,
+  createPageRuntimeStore,
+  createPageRuntimesFromStore,
+  createPageSearchEngine,
   createRelationIndex,
   createWorkspaceContentCommands,
   extractRelationEdges,
@@ -154,6 +157,7 @@ export {
   isDatabaseViewType,
   resolveChildPageDisplay,
   resolvePageCardDisplay,
+  snapshotToResolveResult,
   type ChildPageDisplay,
   type ChildPageRuntime,
   type DatabaseViewRuntime,
@@ -163,6 +167,14 @@ export {
   type PageMentionResolver,
   type PageMentionRuntime,
   type PageMentionSpecOptions,
+  type PageRuntimeStore,
+  type PageRuntimeStoreOptions,
+  type PageSearchEngine,
+  type PageSearchEngineOptions,
+  type PageSearchRequest,
+  type PageSearchResult,
+  type PageSnapshot,
+  type PageSnapshotStatus,
   type RelationIndex
 } from "./workspace/index.js";
 

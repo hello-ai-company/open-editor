@@ -1,14 +1,23 @@
 import { createReactBlockSpec } from "@blocknote/react";
 import type { PageId } from "@hello-ai-company/editor-core";
-import { useSyncExternalStore, type ReactElement } from "react";
+import { useEffect, useSyncExternalStore, type ReactElement } from "react";
+import type { PageRuntimeStore } from "./pageRuntimeStore.js";
 import { PAGE_CARD_TYPE } from "./types.js";
 
+export type PageCardResolveResult = {
+  title: string;
+  preview?: string;
+  imageUrl?: string;
+  imageAlt?: string;
+  missing?: boolean;
+  loading?: boolean;
+  error?: boolean;
+};
+
 export type PageCardRuntime = {
-  resolve?: (pageId: PageId) => {
-    title: string;
-    preview?: string;
-    missing?: boolean;
-  } | null;
+  /** Preferred: instance-scoped metadata store. */
+  store?: PageRuntimeStore;
+  resolve?: (pageId: PageId) => PageCardResolveResult | null;
   onOpen?: (pageId: PageId) => void;
   missingLabel?: string;
   untitledLabel?: string;
@@ -18,7 +27,11 @@ export type PageCardRuntime = {
 export type PageCardDisplay = {
   title: string;
   preview?: string;
+  imageUrl?: string;
+  imageAlt?: string;
   missing: boolean;
+  loading: boolean;
+  error: boolean;
 };
 
 /** Pure display resolve — used by render and isolation tests. */
@@ -27,12 +40,63 @@ export function resolvePageCardDisplay(
   pageId: string,
   titleHint = ""
 ): PageCardDisplay {
+  if (runtime.store && pageId) {
+    const snap = runtime.store.get(pageId);
+    if (snap.status === "loading" || snap.status === "idle") {
+      return {
+        title: titleHint || runtime.untitledLabel || "Untitled",
+        loading: true,
+        missing: false,
+        error: false
+      };
+    }
+    if (snap.status === "missing") {
+      return {
+        title: runtime.missingLabel ?? "Missing page",
+        missing: true,
+        loading: false,
+        error: false
+      };
+    }
+    if (snap.status === "error") {
+      return {
+        title: runtime.missingLabel ?? "Missing page",
+        missing: true,
+        loading: false,
+        error: true
+      };
+    }
+    return {
+      title:
+        snap.title.trim() ||
+        titleHint ||
+        runtime.untitledLabel ||
+        "Untitled",
+      preview: snap.preview,
+      imageUrl: snap.imageUrl,
+      imageAlt: snap.imageAlt,
+      missing: false,
+      loading: false,
+      error: false
+    };
+  }
+
   const resolved = runtime.resolve?.(pageId);
+  if (resolved?.loading) {
+    return {
+      title: titleHint || runtime.untitledLabel || "Untitled",
+      loading: true,
+      missing: false,
+      error: false
+    };
+  }
   const missing = !pageId || !resolved || Boolean(resolved.missing);
   if (missing) {
     return {
       title: runtime.missingLabel ?? "Missing page",
-      missing: true
+      missing: true,
+      loading: false,
+      error: Boolean(resolved?.error)
     };
   }
   return {
@@ -42,7 +106,11 @@ export function resolvePageCardDisplay(
       runtime.untitledLabel ||
       "Untitled",
     preview: resolved.preview,
-    missing: false
+    imageUrl: resolved.imageUrl,
+    imageAlt: resolved.imageAlt,
+    missing: false,
+    loading: false,
+    error: false
   };
 }
 
@@ -52,7 +120,17 @@ function PageCardView(props: {
 }): ReactElement {
   const { runtime, block } = props;
   const pageId = block.props.pageId;
-  const subscribe = runtime.subscribe ?? ((_listener: () => void) => () => {});
+
+  useEffect(() => {
+    if (pageId && runtime.store) {
+      void runtime.store.load(pageId);
+    }
+  }, [pageId, runtime.store]);
+
+  const subscribe =
+    runtime.store?.subscribe ??
+    runtime.subscribe ??
+    ((_listener: () => void) => () => {});
   const snapshot = useSyncExternalStore(
     subscribe,
     () =>
@@ -65,21 +143,47 @@ function PageCardView(props: {
       )
   );
   const display = JSON.parse(snapshot) as PageCardDisplay;
+  const stateClass = display.loading
+    ? " oe-page-card--loading"
+    : display.error
+      ? " oe-page-card--error"
+      : display.missing
+        ? " oe-page-card--missing"
+        : "";
 
   return (
     <button
       type="button"
-      className={`oe-page-card${display.missing ? " oe-page-card--missing" : ""}`}
+      className={`oe-page-card${stateClass}`}
       data-oe-page-card={pageId}
       data-missing={display.missing ? "true" : "false"}
-      aria-label={display.title}
+      data-loading={display.loading ? "true" : "false"}
+      data-error={display.error ? "true" : "false"}
+      aria-label={
+        display.loading
+          ? "Loading page"
+          : display.missing
+            ? display.title
+            : display.title
+      }
+      aria-busy={display.loading || undefined}
+      disabled={display.loading}
       onClick={(event) => {
         event.preventDefault();
-        if (!display.missing) runtime.onOpen?.(pageId);
+        if (!display.missing && !display.loading) runtime.onOpen?.(pageId);
       }}
     >
-      <span className="oe-page-card__title">{display.title}</span>
-      {display.preview ? (
+      {display.imageUrl ? (
+        <img
+          className="oe-page-card__image"
+          src={display.imageUrl}
+          alt={display.imageAlt ?? ""}
+        />
+      ) : null}
+      <span className="oe-page-card__title">
+        {display.loading ? "Loading…" : display.title}
+      </span>
+      {display.preview && !display.loading ? (
         <span className="oe-page-card__preview">{display.preview}</span>
       ) : null}
     </button>

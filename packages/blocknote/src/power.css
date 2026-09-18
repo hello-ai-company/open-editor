@@ -459,6 +459,26 @@
   cursor: default;
 }
 
+.oe-page-card--loading,
+.oe-child-page--loading {
+  opacity: 0.85;
+  cursor: wait;
+}
+
+.oe-page-card--error,
+.oe-child-page--error {
+  border-color: #b91c1c;
+}
+
+.oe-page-card__image,
+.oe-child-page__image {
+  max-width: 100%;
+  max-height: 4.5rem;
+  object-fit: cover;
+  border-radius: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
 .oe-page-card__title,
 .oe-child-page__title {
   font-weight: 650;
@@ -514,7 +534,8 @@
 .oe-database-view__footnote,
 .oe-database-view__empty,
 .oe-backlinks__empty,
-.oe-backlinks__footnote {
+.oe-backlinks__footnote,
+.oe-backlinks__hint {
   margin: 0.25rem 0 0;
   font-size: 0.85em;
   color: #57534e;
@@ -543,6 +564,29 @@
   background: #fff;
 }
 
+.oe-page-picker__heading {
+  margin: 0;
+  font-weight: 650;
+}
+
+.oe-page-picker__input {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #d6d3d1;
+  border-radius: 0.35rem;
+  font: inherit;
+}
+
+.oe-page-picker__status {
+  margin: 0;
+  font-size: 0.9em;
+  color: #57534e;
+}
+
+.oe-page-picker__status--error {
+  color: #b91c1c;
+}
+
 .oe-page-picker__list {
   list-style: none;
   margin: 0;
@@ -551,6 +595,7 @@
   overflow: auto;
 }
 
+.oe-page-picker__option,
 .oe-page-picker__list button {
   display: flex;
   flex-direction: column;
@@ -563,8 +608,71 @@
   cursor: pointer;
 }
 
+.oe-page-picker__option:hover,
+.oe-page-picker__option--active,
 .oe-page-picker__list button:hover {
   background: var(--oe-ui-accent-soft, #e8f1f8);
+}
+
+.oe-page-picker__title {
+  font-weight: 600;
+}
+
+.oe-page-picker__preview {
+  font-size: 0.85em;
+  color: #57534e;
+}
+
+.oe-page-picker__cancel {
+  justify-self: start;
+}
+
+.oe-backlinks__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.oe-backlinks__title {
+  margin: 0;
+}
+
+.oe-backlinks__refresh {
+  font: inherit;
+  font-size: 0.85em;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid #d6d3d1;
+  border-radius: 0.3rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.oe-backlinks__kind {
+  display: block;
+  font-size: 0.75em;
+  color: #78716c;
+}
+
+.oe-backlinks__name {
+  font-weight: 600;
+}
+
+.oe-backlinks__link {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 0.25rem 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.oe-backlinks__link:hover .oe-backlinks__name {
+  color: #1d4e89;
 }
 
 @media (max-width: 639px) {

@@ -63,14 +63,34 @@ export {
   type OutlineNode
 } from "../index/outline.js";
 export {
+  applyWorkspacePickerKey,
   BacklinksPanel,
+  listOutgoingPageLinks,
   PageMentionPicker,
+  WorkspacePagePicker,
   usePageLinks,
+  useWorkspacePageSearch,
   type BacklinksPanelProps,
+  type OutgoingPageLink,
   type PageMentionPickerProps,
-  type UsePageLinksOptions
+  type UsePageLinksOptions,
+  type UseWorkspacePageSearchOptions,
+  type WorkspacePagePickerMode,
+  type WorkspacePagePickerProps
 } from "./workspaceUi.js";
+export {
+  createPageMentionSuggestionGetItems,
+  insertStructuredPageMention,
+  type CreatePageMentionSuggestionOptions,
+  type PageMentionSuggestionItem
+} from "./pageMentionSuggestion.js";
 export {
   createRelationIndex,
   type RelationIndex
 } from "../workspace/relationIndex.js";
+export {
+  createPageRuntimeStore,
+  createPageRuntimesFromStore,
+  type PageRuntimeStore,
+  type PageSnapshot
+} from "../workspace/pageRuntimeStore.js";

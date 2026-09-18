@@ -93,6 +93,16 @@ export type EditorCommandContext = {
         viewType?: string;
         titleHint?: string;
       } | null>;
+  /**
+   * Optional UI seam to collect child-page creation details.
+   * Return null to cancel (nothing is inserted).
+   * When absent, createChildPage uses title "Untitled".
+   * Never invents a page id — host createChildPage remains required.
+   */
+  requestChildPageCreate?: () =>
+    | { title?: string }
+    | null
+    | Promise<{ title?: string } | null>;
 };
 
 export type EditorCommand = {

@@ -8,6 +8,8 @@ import { PAGE_MENTION_TYPE } from "./types.js";
 export type PageMentionResolver = (pageId: PageId) => {
   title: string;
   missing?: boolean;
+  loading?: boolean;
+  error?: boolean;
 } | null;
 
 export type PageMentionRuntime = {
@@ -34,14 +36,17 @@ export function formatPageMentionLabel(
   resolver?: PageMentionResolver,
   missingLabel = "Missing page",
   untitledLabel = "Untitled"
-): { label: string; missing: boolean } {
-  if (!pageId) return { label: missingLabel, missing: true };
+): { label: string; missing: boolean; loading: boolean } {
+  if (!pageId) return { label: missingLabel, missing: true, loading: false };
   const resolved = resolver?.(pageId);
+  if (resolved?.loading) {
+    return { label: untitledLabel, missing: false, loading: true };
+  }
   if (!resolved || resolved.missing) {
-    return { label: missingLabel, missing: true };
+    return { label: missingLabel, missing: true, loading: false };
   }
   const title = resolved.title.trim() || untitledLabel;
-  return { label: title, missing: false };
+  return { label: title, missing: false, loading: false };
 }
 
 export function applyPageMentionLabel(
@@ -49,7 +54,7 @@ export function applyPageMentionLabel(
   pageId: string,
   runtime: PageMentionRuntime
 ): void {
-  const { label, missing } = formatPageMentionLabel(
+  const { label, missing, loading } = formatPageMentionLabel(
     pageId,
     runtime.resolve,
     runtime.missingLabel ?? "Missing page",
@@ -57,9 +62,14 @@ export function applyPageMentionLabel(
   );
   span.dataset.pageId = pageId;
   span.dataset.missing = missing ? "true" : "false";
-  span.setAttribute("role", missing ? "note" : "link");
-  span.title = missing ? (runtime.missingLabel ?? "Missing page") : label;
-  span.textContent = `@${label}`;
+  span.dataset.loading = loading ? "true" : "false";
+  span.setAttribute("role", missing || loading ? "note" : "link");
+  span.title = loading
+    ? "Loading…"
+    : missing
+      ? (runtime.missingLabel ?? "Missing page")
+      : label;
+  span.textContent = loading ? "@…" : `@${label}`;
 }
 
 export function createPageMentionDom(
@@ -75,7 +85,13 @@ export function createPageMentionDom(
   const activate = (event: Event) => {
     event.preventDefault();
     event.stopPropagation();
-    if (span.dataset.missing === "true" || !pageId) return;
+    if (
+      span.dataset.missing === "true" ||
+      span.dataset.loading === "true" ||
+      !pageId
+    ) {
+      return;
+    }
     runtime.onNavigate?.(pageId);
   };
   span.addEventListener("click", activate);
