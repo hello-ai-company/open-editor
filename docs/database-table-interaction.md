@@ -1,10 +1,11 @@
-# Database View Interaction (Phase 4F-3A / 4F-3B / 4F-4A)
+# Database View Interaction (Phase 4F-3A / 4F-3B / 4F-4A / 4F-4B)
 
 EditorDocument stores **database references / view identity**. The host owns **row entities and persistence**.
 
 > Rows are never embedded into `databaseView` block props.
 > Phase 4F-3B filters and property sort are **ephemeral interaction state** — not saved view configuration.
 > Phase 4F-4A Board grouping and Calendar scale/cursor/date-property selection are also **ephemeral** — not EditorDocument.
+> Phase 4F-4B List/Gallery presentation (including host `resolveRowMedia`) is **ephemeral / host-owned** — media URLs never enter EditorDocument.
 
 ```
 DatabaseRuntimeStore snapshot (snap.items)
@@ -14,13 +15,13 @@ Shared Database View Shell
   ├ title / search / filters / sort / refresh / trash / load more
   └ renderer dispatch
           │
-   ┌──────┼──────────┐
-   ▼      ▼          ▼
- Table   Board    Calendar
-          │
-          ▼
+   ┌──────┼──────────┬──────────┬──────────┐
+   ▼      ▼          ▼          ▼          ▼
+ Table   Board    Calendar    List     Gallery
+          │                      │          │
+          ▼                      ▼          ▼
  presentation-only transforms
- (group columns / date placement)
+ (group columns / date placement / row order display / host media)
 ```
 
 ```
@@ -45,6 +46,10 @@ DatabaseProvider.listRows(options)
           │
           ▼
 Host query engine
+
+Optional host seams (runtime, not document):
+ ├ onOpenRow(request)
+ └ resolveRowMedia(request) → DatabaseRowMedia | null
 ```
 
 ## Board & Calendar (4F-4A)
@@ -60,7 +65,22 @@ Host query engine
 | Row open | Optional `runtime.onOpenRow({ databaseId, rowKey, viewId, viewType })` |
 | Renderer override | `runtime.renderers` per editor instance — no module-global registry |
 
-Unsupported `viewType` values (timeline, gantt, list, gallery, chart, feed, map, dashboard) stay deferred.
+## List & Gallery (4F-4B)
+
+| Concern | Behavior |
+| --- | --- |
+| Row source | Same `snap.items` (provider order); presentation only |
+| List title / secondary | Shared title helper + secondary text helper; preview chips capped |
+| List completion | **Not inferred** from status/boolean — no auto checkbox heuristic |
+| List reorder | **Deferred** — never `reorderRows` under List |
+| Gallery media | Host `runtime.resolveRowMedia` only; null/empty → placeholder; resolver throws isolated per card |
+| Media persistence | `resolveRowMedia` results **never** enter EditorDocument / block props |
+| Partial pages | Show loaded rows + “Showing loaded rows only” notice |
+| Row open | Same `onOpenRow` seam with `viewType: "list" \| "gallery"` |
+| Renderer override | `runtime.renderers.list` / `.gallery` per editor instance |
+
+Unsupported `viewType` values (timeline, gantt, chart, feed, map, dashboard) stay deferred.
+
 ## Identity semantics
 
 | Concept | Role |
@@ -69,6 +89,7 @@ Unsupported `viewType` values (timeline, gantt, list, gallery, chart, feed, map,
 | `property.name` | Display metadata (headers); renaming must not break row lookup |
 | Row values | Host-owned; OpenEditor never becomes a database backend |
 | Filters | Executed **host-side** via `listRows` options — never fake-filter loaded pages |
+| Gallery media | Host-owned via `resolveRowMedia`; opaque `rowKey` passed through; never serialized |
 
 ## View keys
 
@@ -151,6 +172,8 @@ Enabled only when:
 - `pagination.nextCursor === null`
 - `items.length === pagination.total` (fail-closed, including `total === 0`)
 
+Board, List, and Gallery **never** call `reorderRows`.
+
 ## Property types
 
 ### Typed metadata (`propertyDefinitions`)
@@ -170,7 +193,7 @@ Do not treat `[]` as “absent”.
 **Mutation authority (4F-3B R3):** when the host implements `getDatabase`, row create/update UI stays display-only until `metaStatus === "ready"`. This prevents a race where `listRows` returns first and temporary legacy editors bypass typed `readOnly` / empty definitions. Hosts without `getDatabase` may still mutate from legacy schema.
 
 | Type | Edit (typed) | New Row | Notes |
-| --- | --- | --- | --- |
+| --- | --- | --- |
 | text | text input | yes | |
 | number | number input | yes | Invalid draft does not commit / does not become a string |
 | boolean | checkbox | yes | |
@@ -207,8 +230,10 @@ first-page reload — only `loadingMore` / `refreshing` are superseded.
 
 ## Non-goals (later)
 
-Timeline / gantt / list / gallery / chart / feed / map / dashboard /
+Timeline / gantt / chart / feed / map / dashboard /
+List drag reorder / List completion heuristics /
 formulas / rollups / relation editors / schema designer /
 OR filters / multi-sort / saved views (`groupBy`, calendar scale) /
 Board within-column reorder / calendar datetime-timezone /
-Personal AI adapter / AG Grid.
+Personal AI adapter / AG Grid /
+persisting gallery media into EditorDocument.
