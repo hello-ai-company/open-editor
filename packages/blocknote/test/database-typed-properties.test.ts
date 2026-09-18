@@ -33,6 +33,11 @@ import {
   validateDatabaseFilters,
   validatePropertySort
 } from "../src/workspace/databaseProperty.js";
+import {
+  encodePropertySortSelectValue,
+  parseSortSelectValue,
+  resolveCreateRowPayload
+} from "../src/workspace/databaseView.js";
 
 type MemRow = {
   rowKey: string;
@@ -530,6 +535,137 @@ describe("4F-3B — filter / sort validation", () => {
     const result = sanitizeFiltersAgainstMetadata(active, nextDefs, caps);
     expect(result.filters).toHaveLength(0);
     expect(result.removed).toHaveLength(1);
+  });
+});
+
+describe("4F-3B R1 — typed create never falls back to legacy", () => {
+  it("readOnly text is omitted when typed metadata exists and status is unselected", () => {
+    const definitions: readonly DatabasePropertyDefinition[] = [
+      {
+        id: "systemTitle",
+        name: "System title",
+        type: "text",
+        readOnly: true
+      },
+      {
+        id: "status",
+        name: "Status",
+        type: "status",
+        options: [
+          { value: "todo", label: "To do" },
+          { value: "doing", label: "Doing" }
+        ]
+      }
+    ];
+    const resolved = resolveDatabasePropertyDefinitions({
+      legacySchema: { systemTitle: "text", status: "status" },
+      definitions
+    });
+    const typed = buildTypedCreateRowPayload(resolved, {
+      // status left unselected → typed payload may be {}
+      status: ""
+    });
+    expect(typed).toEqual({});
+    const row = resolveCreateRowPayload({
+      hasTypedDefinitions: true,
+      typedResult: typed,
+      legacySchema: { systemTitle: "text", status: "status" },
+      draft: { systemTitle: "", status: "" }
+    });
+    expect(row).toEqual({});
+    expect(row).not.toHaveProperty("systemTitle");
+    expect(row).not.toHaveProperty("status");
+  });
+
+  it("legacy fallback still applies when typed metadata is absent", () => {
+    const row = resolveCreateRowPayload({
+      hasTypedDefinitions: false,
+      typedResult: {},
+      legacySchema: { title: "text", status: "select" },
+      draft: { title: "Hello", status: "ignored" }
+    });
+    expect(row).toEqual({ title: "Hello" });
+    expect(row).not.toHaveProperty("status");
+  });
+});
+
+describe("4F-3B R1 — opaque property ID sort encoding", () => {
+  it("round-trips property IDs that contain ':'", () => {
+    for (const propertyId of ["custom:score", "a:b:c", "score"]) {
+      for (const direction of ["asc", "desc"] as const) {
+        const encoded = encodePropertySortSelectValue(propertyId, direction);
+        const parsed = parseSortSelectValue(encoded);
+        expect(parsed).toEqual({
+          kind: "property",
+          propertyId,
+          direction
+        });
+      }
+    }
+  });
+
+  it("legacy position/title values still parse", () => {
+    expect(parseSortSelectValue("position:asc")).toEqual({
+      kind: "legacy",
+      sortBy: "position",
+      direction: "asc"
+    });
+    expect(parseSortSelectValue("title:desc")).toEqual({
+      kind: "legacy",
+      sortBy: "title",
+      direction: "desc"
+    });
+  });
+
+  it("setPropertySort receives exact opaque propertyId from encoded select value", async () => {
+    const definitions: readonly DatabasePropertyDefinition[] = [
+      { id: "title", name: "Title", type: "text" },
+      { id: "custom:score", name: "Score", type: "number" },
+      { id: "a:b:c", name: "Nested", type: "text" }
+    ];
+    const seed: MemRow[] = [
+      {
+        rowKey: "a",
+        sortOrder: 0,
+        deletedAt: null,
+        row: { title: "A", "custom:score": 1, "a:b:c": "x" }
+      },
+      {
+        rowKey: "b",
+        sortOrder: 1,
+        deletedAt: null,
+        row: { title: "B", "custom:score": 9, "a:b:c": "y" }
+      }
+    ];
+    const provider = createTypedMemoryProvider(seed, {
+      pageSize: 10,
+      definitions
+    });
+    const store = await readyStore(provider, 10);
+
+    for (const propertyId of ["custom:score", "a:b:c"] as const) {
+      for (const direction of ["asc", "desc"] as const) {
+        const encoded = encodePropertySortSelectValue(propertyId, direction);
+        const parsed = parseSortSelectValue(encoded);
+        expect(parsed?.kind).toBe("property");
+        if (parsed?.kind !== "property") return;
+        store.setPropertySort("tasks::main", {
+          propertyId: parsed.propertyId,
+          direction: parsed.direction
+        });
+        await vi.waitFor(() => {
+          expect(store.getView("tasks::main").status).not.toBe("loading");
+        });
+        expect(store.getView("tasks::main").queryState.propertySort).toEqual({
+          propertyId,
+          direction
+        });
+        expect(provider.lastListOptions?.propertySort).toEqual({
+          propertyId,
+          direction
+        });
+      }
+    }
   });
 });
 

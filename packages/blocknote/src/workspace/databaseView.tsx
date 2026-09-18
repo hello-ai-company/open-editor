@@ -109,6 +109,106 @@ function nextFilterDraftId(): string {
   return `fd-${filterDraftSeq}`;
 }
 
+/**
+ * Collision-safe select value for property sorts (4F-3B R1).
+ * Property IDs are host-owned opaque strings and may contain ":".
+ */
+export function encodePropertySortSelectValue(
+  propertyId: string,
+  direction: "asc" | "desc"
+): string {
+  return JSON.stringify({
+    kind: "property",
+    propertyId,
+    direction
+  });
+}
+
+export type ParsedSortSelectValue =
+  | {
+      kind: "property";
+      propertyId: string;
+      direction: "asc" | "desc";
+    }
+  | {
+      kind: "legacy";
+      sortBy: DatabaseSortBy;
+      direction: DatabaseSortDirection;
+    };
+
+/**
+ * Parse toolbar sort &lt;select&gt; values.
+ * Property sorts use JSON; legacy position/title keep `sortBy:direction`.
+ */
+export function parseSortSelectValue(
+  raw: string
+): ParsedSortSelectValue | null {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        !Array.isArray(parsed) &&
+        "kind" in parsed &&
+        (parsed as { kind: unknown }).kind === "property" &&
+        "propertyId" in parsed &&
+        typeof (parsed as { propertyId: unknown }).propertyId === "string" &&
+        "direction" in parsed &&
+        ((parsed as { direction: unknown }).direction === "asc" ||
+          (parsed as { direction: unknown }).direction === "desc")
+      ) {
+        return {
+          kind: "property",
+          propertyId: (parsed as { propertyId: string }).propertyId,
+          direction: (parsed as { direction: "asc" | "desc" }).direction
+        };
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+  const [sortBy, direction] = trimmed.split(":");
+  if (
+    (sortBy === "position" || sortBy === "title") &&
+    (direction === "asc" || direction === "desc")
+  ) {
+    return { kind: "legacy", sortBy, direction };
+  }
+  return null;
+}
+
+/**
+ * Choose createRow payload (4F-3B R1).
+ * When explicit typed metadata exists, never fall back to the legacy schema builder —
+ * even if the typed payload is empty (e.g. optional status left unselected).
+ */
+export function resolveCreateRowPayload(input: {
+  hasTypedDefinitions: boolean;
+  typedResult:
+    | Record<string, string | number | boolean>
+    | { error: string };
+  legacySchema: Record<string, string>;
+  draft: Record<string, string>;
+}): Record<string, string | number | boolean> | { error: string } {
+  if ("error" in input.typedResult && typeof input.typedResult.error === "string") {
+    return { error: input.typedResult.error };
+  }
+  const typedPayload = input.typedResult as Record<
+    string,
+    string | number | boolean
+  >;
+  if (input.hasTypedDefinitions) {
+    return typedPayload;
+  }
+  if (Object.keys(typedPayload).length > 0) {
+    return typedPayload;
+  }
+  return buildCreateRowPayload(input.legacySchema, input.draft);
+}
+
 function operatorsForType(type: DatabasePropertyType): string[] {
   switch (type) {
     case "text":
@@ -542,18 +642,25 @@ function InteractiveDatabaseTable(props: {
 
   const submitCreate = async () => {
     setCreateError(null);
+    const hasTypedDefinitions = Boolean(
+      snap.meta?.propertyDefinitions?.length
+    );
     const typed = buildTypedCreateRowPayload(resolved, draft);
-    if ("error" in typed && typeof typed.error === "string") {
-      setCreateError(typed.error);
+    const row = resolveCreateRowPayload({
+      hasTypedDefinitions,
+      typedResult: typed,
+      legacySchema: snap.schema,
+      draft
+    });
+    if ("error" in row && typeof row.error === "string") {
+      setCreateError(row.error);
       return;
     }
-    const rowPayload = typed as Record<string, string | number | boolean>;
-    const row =
-      Object.keys(rowPayload).length > 0
-        ? rowPayload
-        : buildCreateRowPayload(snap.schema, draft);
     try {
-      await store.createRow(viewKey, row);
+      await store.createRow(
+        viewKey,
+        row as Record<string, string | number | boolean>
+      );
       setCreating(false);
       setDraft({});
       setCreateError(null);
@@ -563,18 +670,24 @@ function InteractiveDatabaseTable(props: {
   };
 
   const sortSelectValue = snap.queryState.propertySort
-    ? `prop:${snap.queryState.propertySort.propertyId}:${snap.queryState.propertySort.direction}`
+    ? encodePropertySortSelectValue(
+        snap.queryState.propertySort.propertyId,
+        snap.queryState.propertySort.direction
+      )
     : `${snap.queryState.sortBy}:${snap.queryState.direction}`;
 
   const onSortChange = (raw: string) => {
-    if (raw.startsWith("prop:")) {
-      const parts = raw.split(":");
-      const propertyId = parts[1] ?? "";
-      const direction = (parts[2] === "desc" ? "desc" : "asc") as
-        | "asc"
-        | "desc";
+    const parsed = parseSortSelectValue(raw);
+    if (!parsed) {
+      setFilterError("Invalid sort selection");
+      return;
+    }
+    if (parsed.kind === "property") {
       try {
-        store.setPropertySort(viewKey, { propertyId, direction });
+        store.setPropertySort(viewKey, {
+          propertyId: parsed.propertyId,
+          direction: parsed.direction
+        });
       } catch (err) {
         setFilterError(
           err instanceof Error ? err.message : "Invalid property sort"
@@ -582,11 +695,7 @@ function InteractiveDatabaseTable(props: {
       }
       return;
     }
-    const [sortBy, direction] = raw.split(":") as [
-      DatabaseSortBy,
-      DatabaseSortDirection
-    ];
-    store.setSort(viewKey, sortBy, direction);
+    store.setSort(viewKey, parsed.sortBy, parsed.direction);
   };
 
   const applyFilters = () => {
@@ -948,20 +1057,18 @@ function InteractiveDatabaseTable(props: {
             <option value="title:asc">Title ↑</option>
             <option value="title:desc">Title ↓</option>
             {supportsPropertySort
-              ? sortablePropertyDefs.flatMap((def) => [
-                  <option
-                    key={`prop:${def.id}:asc`}
-                    value={`prop:${def.id}:asc`}
-                  >
-                    {def.name} ↑
-                  </option>,
-                  <option
-                    key={`prop:${def.id}:desc`}
-                    value={`prop:${def.id}:desc`}
-                  >
-                    {def.name} ↓
-                  </option>
-                ])
+              ? sortablePropertyDefs.flatMap((def) => {
+                  const asc = encodePropertySortSelectValue(def.id, "asc");
+                  const desc = encodePropertySortSelectValue(def.id, "desc");
+                  return [
+                    <option key={asc} value={asc}>
+                      {def.name} ↑
+                    </option>,
+                    <option key={desc} value={desc}>
+                      {def.name} ↓
+                    </option>
+                  ];
+                })
               : null}
           </select>
         </label>

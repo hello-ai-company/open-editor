@@ -37,7 +37,11 @@ export {
 export {
   catchStoreMutation,
   createDatabaseViewBlockSpec,
-  type DatabaseViewRuntime
+  encodePropertySortSelectValue,
+  parseSortSelectValue,
+  resolveCreateRowPayload,
+  type DatabaseViewRuntime,
+  type ParsedSortSelectValue
 } from "./databaseView.js";
 
 export {
