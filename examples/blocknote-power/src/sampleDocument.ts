@@ -59,7 +59,7 @@ export const sampleDocument = createEditorDocument([
     id: "h2c",
     type: "heading",
     props: { level: 2 },
-    content: [{ type: "text", text: "Tasks (same database, seven views)", styles: {} }]
+    content: [{ type: "text", text: "Tasks (same database, nine views)", styles: {} }]
   },
   {
     id: "db-table",
@@ -132,13 +132,33 @@ export const sampleDocument = createEditorDocument([
     }
   },
   {
+    id: "db-chart",
+    type: "databaseView",
+    props: {
+      databaseId: "tasks",
+      viewId: "main-chart",
+      viewType: "chart",
+      titleHint: "Tasks"
+    }
+  },
+  {
+    id: "db-feed",
+    type: "databaseView",
+    props: {
+      databaseId: "tasks",
+      viewId: "main-feed",
+      viewType: "feed",
+      titleHint: "Tasks"
+    }
+  },
+  {
     id: "c1",
     type: "callout",
     props: { variant: "info", title: "Portable" },
     content: [
       {
         type: "text",
-        text: "databaseView props hold databaseId/viewId/viewType only — never the row array. Board grouping, Calendar cursor, List/Gallery presentation, and Timeline/Gantt date-property selection are ephemeral UI / host state.",
+        text: "databaseView props hold databaseId/viewId/viewType only — never the row array. Board grouping, Calendar cursor, List/Gallery presentation, Timeline/Gantt date-property selection, Chart metric selection, and Feed date selection are ephemeral UI / host state.",
         styles: {}
       }
     ]
@@ -146,6 +166,6 @@ export const sampleDocument = createEditorDocument([
   {
     id: "s1",
     type: "status",
-    props: { state: "doing", label: "4F-4C" }
+    props: { state: "doing", label: "4F-4D" }
   }
 ]);

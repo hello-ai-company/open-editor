@@ -94,19 +94,25 @@ export {
   resolveDatabaseCardPreviewFields,
   resolveDatabaseRowSecondaryText,
   resolveDatabaseRowTitle,
+  safeResolveFeedRowMedia,
   safeResolveRowMedia,
   type DatabaseRowPresentation,
   type DatabaseRowPreviewField
 } from "./databaseRowPresentation.js";
 
 export type {
+  DatabaseAnyRowMediaRequest,
+  DatabaseFeedRowMediaRequest,
   DatabaseRowMedia,
-  DatabaseRowMediaRequest
+  DatabaseRowMediaRequest,
+  DatabaseRowMediaViewType
 } from "./databaseViewRuntime.js";
 
 export { renderBoardView } from "./databaseBoardRenderer.js";
 export { renderCalendarView } from "./databaseCalendarRenderer.js";
+export { renderChartView } from "./databaseChartRenderer.js";
 export { renderGalleryView } from "./databaseGalleryRenderer.js";
+export { renderFeedView } from "./databaseFeedRenderer.js";
 export { renderListView } from "./databaseListRenderer.js";
 export { renderGanttView } from "./databaseGanttRenderer.js";
 export { renderTimelineView } from "./databaseTimelineRenderer.js";

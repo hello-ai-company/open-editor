@@ -8,6 +8,7 @@ import {
   type ResolvedPropertyDefinition
 } from "./databaseProperty.js";
 import type {
+  DatabaseFeedRowMediaRequest,
   DatabaseRowMedia,
   DatabaseRowMediaRequest,
   DatabaseViewRuntime
@@ -195,9 +196,22 @@ export function buildDatabaseRowPresentation(
     : { title, previewFields };
 }
 
+function normalizeResolvedMedia(
+  media: DatabaseRowMedia | null | undefined
+): DatabaseRowMedia | null {
+  if (!media || typeof media.src !== "string") return null;
+  const src = media.src.trim();
+  if (!src) return null;
+  return {
+    src,
+    alt: typeof media.alt === "string" ? media.alt : undefined
+  };
+}
+
 /**
  * Host media resolver with fail-closed behavior for Gallery cards.
  * Caller must pass a defensive row clone — never a RuntimeStore live reference.
+ * Uses Gallery-only `resolveRowMedia` (4F-4B contract).
  */
 export function safeResolveRowMedia(
   runtime: Pick<DatabaseViewRuntime, "resolveRowMedia">,
@@ -206,14 +220,25 @@ export function safeResolveRowMedia(
   const resolver = runtime.resolveRowMedia;
   if (!resolver) return null;
   try {
-    const media = resolver(request);
-    if (!media || typeof media.src !== "string") return null;
-    const src = media.src.trim();
-    if (!src) return null;
-    return {
-      src,
-      alt: typeof media.alt === "string" ? media.alt : undefined
-    };
+    return normalizeResolvedMedia(resolver(request));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Host media resolver with fail-closed behavior for Feed cards (4F-4D).
+ * Caller must pass a defensive row clone — never a RuntimeStore live reference.
+ * Uses additive `resolveFeedRowMedia` — does not call Gallery `resolveRowMedia`.
+ */
+export function safeResolveFeedRowMedia(
+  runtime: Pick<DatabaseViewRuntime, "resolveFeedRowMedia">,
+  request: DatabaseFeedRowMediaRequest
+): DatabaseRowMedia | null {
+  const resolver = runtime.resolveFeedRowMedia;
+  if (!resolver) return null;
+  try {
+    return normalizeResolvedMedia(resolver(request));
   } catch {
     return null;
   }
