@@ -945,6 +945,149 @@ describe("4F-3A R2 — idle isolation + query key safety", () => {
   });
 });
 
+describe("4F-3A R3 — write mutating + first-page/loadMore races", () => {
+  it("query change during create keeps write mutating busy (P1-1)", async () => {
+    let resolveCreate!: (value: unknown) => void;
+    let resolveQuery!: (page: DatabaseRowsPage) => void;
+    const provider: DatabaseProvider = {
+      listRows: async (_db, opts) => {
+        if (opts?.query === "roadmap") {
+          return new Promise((resolve) => {
+            resolveQuery = resolve;
+          });
+        }
+        return {
+          databaseId: "tasks",
+          rows: [],
+          items: [
+            { rowKey: "a", sortOrder: 0, row: { title: "Alpha" } }
+          ],
+          schema: { title: "text" },
+          config: {},
+          pagination: { limit: 10, nextCursor: null, hasMore: false, total: 1 }
+        };
+      },
+      createRow: () =>
+        new Promise((resolve) => {
+          resolveCreate = resolve;
+        }),
+      deleteRow: async () => null
+    };
+    const store = createDatabaseRuntimeStore({ provider, defaultPageSize: 10 });
+    store.ensureView("tasks::main", "tasks");
+    await store.load("tasks::main");
+
+    const createPromise = store.createRow("tasks::main", { title: "New" });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(store.getView("tasks::main").mutating?.kind).toBe("creating");
+
+    store.setQuery("tasks::main", "roadmap");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(store.getView("tasks::main").status).toBe("loading");
+    expect(store.getView("tasks::main").mutating?.kind).toBe("creating");
+
+    await expect(
+      store.deleteRow("tasks::main", "a")
+    ).rejects.toThrow(/loading|mutation/i);
+
+    resolveCreate({ ok: true });
+    resolveQuery({
+      databaseId: "tasks",
+      rows: [],
+      items: [],
+      schema: { title: "text" },
+      config: {},
+      pagination: { limit: 10, nextCursor: null, hasMore: false, total: 0 }
+    });
+    await createPromise;
+    expect(store.getView("tasks::main").mutating).toBeNull();
+  });
+
+  it("first-page reload clears pagination so loadMore cannot use stale cursor (P1-2)", async () => {
+    let resolveFirst!: (page: DatabaseRowsPage) => void;
+    let loadMoreCalls = 0;
+    const provider: DatabaseProvider = {
+      listRows: async (_db, opts) => {
+        if (opts?.cursor) {
+          loadMoreCalls += 1;
+          return {
+            databaseId: "tasks",
+            rows: [],
+            items: [
+              {
+                rowKey: "stale-append",
+                sortOrder: 99,
+                row: { title: "Should not append" }
+              }
+            ],
+            schema: { title: "text" },
+            config: {},
+            pagination: {
+              limit: 1,
+              nextCursor: null,
+              hasMore: false,
+              total: 2
+            }
+          };
+        }
+        if (opts?.query === "roadmap") {
+          return new Promise((resolve) => {
+            resolveFirst = resolve;
+          });
+        }
+        return {
+          databaseId: "tasks",
+          rows: [],
+          items: [
+            { rowKey: "a", sortOrder: 0, row: { title: "A" } }
+          ],
+          schema: { title: "text" },
+          config: {},
+          pagination: {
+            limit: 1,
+            nextCursor: "a",
+            hasMore: true,
+            total: 2
+          }
+        };
+      }
+    };
+    const store = createDatabaseRuntimeStore({ provider, defaultPageSize: 1 });
+    store.ensureView("tasks::main", "tasks");
+    await store.load("tasks::main");
+    expect(store.getView("tasks::main").pagination.hasMore).toBe(true);
+    expect(store.getView("tasks::main").pagination.nextCursor).toBe("a");
+
+    store.setQuery("tasks::main", "roadmap");
+    await new Promise((r) => setTimeout(r, 0));
+    const mid = store.getView("tasks::main");
+    expect(mid.status).toBe("loading");
+    expect(mid.pagination.hasMore).toBe(false);
+    expect(mid.pagination.nextCursor).toBeNull();
+
+    await store.loadMore("tasks::main");
+    expect(loadMoreCalls).toBe(0);
+
+    resolveFirst({
+      databaseId: "tasks",
+      rows: [],
+      items: [
+        { rowKey: "r1", sortOrder: 0, row: { title: "roadmap" } }
+      ],
+      schema: { title: "text" },
+      config: {},
+      pagination: { limit: 1, nextCursor: null, hasMore: false, total: 1 }
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(
+      store.getView("tasks::main").items.some((i) => i.rowKey === "stale-append")
+    ).toBe(false);
+    expect(store.getView("tasks::main").items.map((i) => i.rowKey)).toEqual([
+      "r1"
+    ]);
+  });
+});
+
 describe("architecture — rows never persist into EditorDocument", () => {
   it("serialized databaseView props exclude rows/items/schema/query", async () => {
     const provider = createMemoryProvider(seedRows, { pageSize: 10 });

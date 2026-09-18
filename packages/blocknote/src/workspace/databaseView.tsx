@@ -173,7 +173,8 @@ function InteractiveDatabaseTable(props: {
 
   const schemaKeys = Object.keys(snap.schema);
   const createKeys = creatableSchemaKeys(snap.schema);
-  const busy = Boolean(snap.mutating);
+  // First-page reload keeps prior rows visible, but must block Load more / writes.
+  const busy = Boolean(snap.mutating) || snap.status === "loading";
 
   const onSearchChange = (value: string) => {
     setSearchInput(value);

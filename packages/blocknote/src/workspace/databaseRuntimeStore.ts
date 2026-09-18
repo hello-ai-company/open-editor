@@ -502,8 +502,13 @@ export function createDatabaseRuntimeStore(
     view.mutationError = undefined;
     view.seenCursors.clear();
     view.loadMoreInFlight = false;
-    // Supersede in-flight loadMore / other mutation busy flags (4F-3A R2).
-    view.mutating = null;
+    // Invalidate prior pagination so Load more cannot use a stale cursor (R3).
+    view.pagination = emptyPagination(view.queryState.pageSize);
+    // Only supersede read/refresh busy — never clear in-flight writes (R3).
+    const kind = view.mutating?.kind;
+    if (kind === "loadingMore" || kind === "refreshing") {
+      view.mutating = null;
+    }
     notify();
 
     void loadMeta(view, gen);
@@ -564,6 +569,22 @@ export function createDatabaseRuntimeStore(
     }
   }
 
+  function assertCanStartWrite(view: ViewInternal): void {
+    if (view.status === "loading") {
+      throw new Error("View is loading");
+    }
+    const kind = view.mutating?.kind;
+    if (
+      kind === "creating" ||
+      kind === "updating" ||
+      kind === "deleting" ||
+      kind === "restoring" ||
+      kind === "reordering"
+    ) {
+      throw new Error("Another mutation is in progress");
+    }
+  }
+
   return {
     buildQueryKey: buildDatabaseQueryKey,
 
@@ -597,8 +618,11 @@ export function createDatabaseRuntimeStore(
 
     async loadMore(viewKey) {
       const view = requireView(viewKey);
+      // Fail-closed while first-page reload is in flight (stale cursor risk).
+      if (view.status === "loading") return;
       if (!view.pagination.hasMore || !view.pagination.nextCursor) return;
       if (view.loadMoreInFlight) return;
+      if (view.mutating && view.mutating.kind !== "loadingMore") return;
 
       const cursor = view.pagination.nextCursor;
       if (view.seenCursors.has(cursor)) {
@@ -685,6 +709,7 @@ export function createDatabaseRuntimeStore(
       if (!provider?.createRow) {
         throw new Error("Create not supported");
       }
+      assertCanStartWrite(view);
       view.mutating = { kind: "creating" };
       view.mutationError = undefined;
       notify();
@@ -705,6 +730,7 @@ export function createDatabaseRuntimeStore(
       if (!provider?.updateRow) {
         throw new Error("Update not supported");
       }
+      assertCanStartWrite(view);
       view.mutating = { kind: "updating", rowKey };
       view.mutationError = undefined;
       notify();
@@ -725,6 +751,7 @@ export function createDatabaseRuntimeStore(
       if (!provider?.deleteRow) {
         throw new Error("Delete not supported");
       }
+      assertCanStartWrite(view);
       view.mutating = { kind: "deleting", rowKey };
       view.mutationError = undefined;
       notify();
@@ -745,6 +772,7 @@ export function createDatabaseRuntimeStore(
       if (!provider?.restoreRow) {
         throw new Error("Restore not supported");
       }
+      assertCanStartWrite(view);
       view.mutating = { kind: "restoring", rowKey };
       view.mutationError = undefined;
       notify();
@@ -766,6 +794,7 @@ export function createDatabaseRuntimeStore(
       if (!eligibility.canReorder || !provider?.reorderRows) {
         throw new Error(eligibility.reason ?? "Reorder not available");
       }
+      assertCanStartWrite(view);
       view.mutating = { kind: "reordering" };
       view.mutationError = undefined;
       notify();
@@ -796,6 +825,7 @@ export function createDatabaseRuntimeStore(
       if (!eligibility.canReorder || !provider?.reorderRows) {
         throw new Error(eligibility.reason ?? "Reorder not available");
       }
+      assertCanStartWrite(view);
       view.mutating = { kind: "reordering" };
       view.mutationError = undefined;
       notify();

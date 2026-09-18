@@ -109,6 +109,12 @@ Readonly / unknown fields are omitted from the create payload (never sent as `""
 
 Explicit **Load more** only. Repeated cursors disable further loads (no infinite loop).
 
+First-page reload (query/sort/trash) immediately clears `hasMore` / `nextCursor` so a
+stale cursor cannot be used. `loadMore` is a no-op while `status === "loading"`.
+
+Write mutations (`creating` / `updating` / …) keep `mutating` busy across a concurrent
+first-page reload — only `loadingMore` / `refreshing` are superseded.
+
 ## Non-goals (later)
 
 Board / calendar / timeline / formulas / rollups / schema designer / Personal AI adapter.
