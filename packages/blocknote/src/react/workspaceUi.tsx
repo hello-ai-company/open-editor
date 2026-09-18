@@ -179,15 +179,18 @@ export function usePageLinks(options: UsePageLinksOptions): {
   pages: EditorPageLink[];
   reload: () => Promise<void>;
 } {
+  // Depend on stable primitive members — a fresh options object each render
+  // must not recreate reload / re-fetch forever.
+  const { listLinks, refreshToken } = options;
   const [pages, setPages] = useState<EditorPageLink[]>([]);
   const reload = useCallback(async () => {
-    const next = await options.listLinks();
+    const next = await listLinks();
     setPages(next);
-  }, [options]);
+  }, [listLinks]);
 
   useEffect(() => {
     void reload();
-  }, [reload, options.refreshToken]);
+  }, [reload, refreshToken]);
 
   return { pages, reload };
 }

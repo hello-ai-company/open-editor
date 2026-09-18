@@ -1,5 +1,6 @@
 export {
   CHILD_PAGE_TYPE,
+  DATABASE_RELATION_TYPE,
   DATABASE_VIEW_TYPE,
   DATABASE_VIEW_TYPES,
   PAGE_CARD_TYPE,
@@ -20,26 +21,25 @@ export {
 } from "./pageMention.js";
 
 export {
-  bindPageCardRuntime,
   createPageCardBlockSpec,
-  getPageCardRuntime,
-  setPageCardRuntime,
+  resolvePageCardDisplay,
+  type PageCardDisplay,
   type PageCardRuntime
 } from "./pageCard.js";
 
 export {
-  bindChildPageRuntime,
   createChildPageBlockSpec,
-  getChildPageRuntime,
+  resolveChildPageDisplay,
+  type ChildPageDisplay,
   type ChildPageRuntime
 } from "./childPage.js";
 
 export {
-  bindDatabaseViewRuntime,
   createDatabaseViewBlockSpec,
-  getDatabaseViewRuntime,
   type DatabaseViewRuntime
 } from "./databaseView.js";
+
+export { createDatabaseRelationInlineContentSpec } from "./databaseRelation.js";
 
 export { createWorkspaceContentCommands } from "./commands.js";
 

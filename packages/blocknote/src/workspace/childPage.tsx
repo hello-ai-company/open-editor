@@ -1,6 +1,6 @@
 import { createReactBlockSpec } from "@blocknote/react";
 import type { PageId } from "@hello-ai-company/editor-core";
-import type { ReactElement } from "react";
+import { useSyncExternalStore, type ReactElement } from "react";
 import { CHILD_PAGE_TYPE } from "./types.js";
 
 export type ChildPageRuntime = {
@@ -15,69 +15,94 @@ export type ChildPageRuntime = {
   subscribe?: (listener: () => void) => () => void;
 };
 
-let sharedChildPageRuntime: ChildPageRuntime = {};
+export type ChildPageDisplay = {
+  title: string;
+  preview?: string;
+  missing: boolean;
+};
 
-export function getChildPageRuntime(): ChildPageRuntime {
-  return sharedChildPageRuntime;
+export function resolveChildPageDisplay(
+  runtime: ChildPageRuntime,
+  pageId: string,
+  titleHint = ""
+): ChildPageDisplay {
+  const resolved = runtime.resolve?.(pageId);
+  const missing = !pageId || !resolved || Boolean(resolved.missing);
+  if (missing) {
+    return {
+      title: runtime.missingLabel ?? "Missing page",
+      missing: true
+    };
+  }
+  return {
+    title:
+      resolved.title.trim() ||
+      titleHint ||
+      runtime.untitledLabel ||
+      "Untitled",
+    preview: resolved.preview,
+    missing: false
+  };
 }
 
-export function bindChildPageRuntime(
-  runtime: ChildPageRuntime
-): ChildPageRuntime {
-  sharedChildPageRuntime = runtime;
-  return sharedChildPageRuntime;
-}
-
-function ChildPageRender(props: {
+function ChildPageView(props: {
+  runtime: ChildPageRuntime;
   block: { props: { pageId: string; titleHint: string } };
 }): ReactElement {
-  const runtime = getChildPageRuntime();
-  const pageId = props.block.props.pageId;
-  const resolved = runtime.resolve?.(pageId);
-  const missing = !pageId || !resolved || resolved.missing;
-  const title = missing
-    ? (runtime.missingLabel ?? "Missing page")
-    : resolved.title.trim() ||
-      props.block.props.titleHint ||
-      runtime.untitledLabel ||
-      "Untitled";
-  const preview = missing ? undefined : resolved.preview;
+  const { runtime, block } = props;
+  const pageId = block.props.pageId;
+  const subscribe = runtime.subscribe ?? ((_listener: () => void) => () => {});
+  const snapshot = useSyncExternalStore(
+    subscribe,
+    () =>
+      JSON.stringify(
+        resolveChildPageDisplay(runtime, pageId, block.props.titleHint)
+      ),
+    () =>
+      JSON.stringify(
+        resolveChildPageDisplay(runtime, pageId, block.props.titleHint)
+      )
+  );
+  const display = JSON.parse(snapshot) as ChildPageDisplay;
 
   return (
     <button
       type="button"
-      className={`oe-child-page${missing ? " oe-child-page--missing" : ""}`}
+      className={`oe-child-page${display.missing ? " oe-child-page--missing" : ""}`}
       data-oe-child-page={pageId}
-      data-missing={missing ? "true" : "false"}
-      aria-label={`Child page: ${title}`}
+      data-missing={display.missing ? "true" : "false"}
+      aria-label={`Child page: ${display.title}`}
       onClick={(event) => {
         event.preventDefault();
-        if (!missing) runtime.onOpen?.(pageId);
+        if (!display.missing) runtime.onOpen?.(pageId);
       }}
     >
       <span className="oe-child-page__badge">Child</span>
-      <span className="oe-child-page__title">{title}</span>
-      {preview ? (
-        <span className="oe-child-page__preview">{preview}</span>
+      <span className="oe-child-page__title">{display.title}</span>
+      {display.preview ? (
+        <span className="oe-child-page__preview">{display.preview}</span>
       ) : null}
     </button>
   );
 }
 
 /**
- * Child-page attachment block. Creation is a host side-effect via PageProvider;
- * the document only stores the returned page id after successful creation.
+ * Child-page attachment block. Runtime is captured by closure — never global.
  */
-export const createChildPageBlockSpec = createReactBlockSpec(
-  {
-    type: CHILD_PAGE_TYPE,
-    propSchema: {
-      pageId: { default: "" as const },
-      titleHint: { default: "" as const }
+export function createChildPageBlockSpec(runtime: ChildPageRuntime = {}) {
+  return createReactBlockSpec(
+    {
+      type: CHILD_PAGE_TYPE,
+      propSchema: {
+        pageId: { default: "" as const },
+        titleHint: { default: "" as const }
+      },
+      content: "none" as const
     },
-    content: "none" as const
-  },
-  {
-    render: (props): ReactElement => <ChildPageRender block={props.block} />
-  }
-);
+    {
+      render: (props): ReactElement => (
+        <ChildPageView runtime={runtime} block={props.block} />
+      )
+    }
+  )();
+}

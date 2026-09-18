@@ -1,6 +1,6 @@
 import { createReactBlockSpec } from "@blocknote/react";
 import type { PageId } from "@hello-ai-company/editor-core";
-import type { ReactElement } from "react";
+import { useSyncExternalStore, type ReactElement } from "react";
 import { PAGE_CARD_TYPE } from "./types.js";
 
 export type PageCardRuntime = {
@@ -15,51 +15,72 @@ export type PageCardRuntime = {
   subscribe?: (listener: () => void) => () => void;
 };
 
-let sharedPageCardRuntime: PageCardRuntime = {};
+export type PageCardDisplay = {
+  title: string;
+  preview?: string;
+  missing: boolean;
+};
 
-export function getPageCardRuntime(): PageCardRuntime {
-  return sharedPageCardRuntime;
+/** Pure display resolve — used by render and isolation tests. */
+export function resolvePageCardDisplay(
+  runtime: PageCardRuntime,
+  pageId: string,
+  titleHint = ""
+): PageCardDisplay {
+  const resolved = runtime.resolve?.(pageId);
+  const missing = !pageId || !resolved || Boolean(resolved.missing);
+  if (missing) {
+    return {
+      title: runtime.missingLabel ?? "Missing page",
+      missing: true
+    };
+  }
+  return {
+    title:
+      resolved.title.trim() ||
+      titleHint ||
+      runtime.untitledLabel ||
+      "Untitled",
+    preview: resolved.preview,
+    missing: false
+  };
 }
 
-export function setPageCardRuntime(runtime: PageCardRuntime): void {
-  sharedPageCardRuntime = runtime;
-}
-
-export function bindPageCardRuntime(runtime: PageCardRuntime): PageCardRuntime {
-  sharedPageCardRuntime = runtime;
-  return sharedPageCardRuntime;
-}
-
-function PageCardRender(props: {
+function PageCardView(props: {
+  runtime: PageCardRuntime;
   block: { props: { pageId: string; titleHint: string } };
 }): ReactElement {
-  const runtime = getPageCardRuntime();
-  const pageId = props.block.props.pageId;
-  const resolved = runtime.resolve?.(pageId);
-  const missing = !pageId || !resolved || resolved.missing;
-  const title = missing
-    ? (runtime.missingLabel ?? "Missing page")
-    : resolved.title.trim() ||
-      props.block.props.titleHint ||
-      runtime.untitledLabel ||
-      "Untitled";
-  const preview = missing ? undefined : resolved.preview;
+  const { runtime, block } = props;
+  const pageId = block.props.pageId;
+  const subscribe = runtime.subscribe ?? ((_listener: () => void) => () => {});
+  const snapshot = useSyncExternalStore(
+    subscribe,
+    () =>
+      JSON.stringify(
+        resolvePageCardDisplay(runtime, pageId, block.props.titleHint)
+      ),
+    () =>
+      JSON.stringify(
+        resolvePageCardDisplay(runtime, pageId, block.props.titleHint)
+      )
+  );
+  const display = JSON.parse(snapshot) as PageCardDisplay;
 
   return (
     <button
       type="button"
-      className={`oe-page-card${missing ? " oe-page-card--missing" : ""}`}
+      className={`oe-page-card${display.missing ? " oe-page-card--missing" : ""}`}
       data-oe-page-card={pageId}
-      data-missing={missing ? "true" : "false"}
-      aria-label={title}
+      data-missing={display.missing ? "true" : "false"}
+      aria-label={display.title}
       onClick={(event) => {
         event.preventDefault();
-        if (!missing) runtime.onOpen?.(pageId);
+        if (!display.missing) runtime.onOpen?.(pageId);
       }}
     >
-      <span className="oe-page-card__title">{title}</span>
-      {preview ? (
-        <span className="oe-page-card__preview">{preview}</span>
+      <span className="oe-page-card__title">{display.title}</span>
+      {display.preview ? (
+        <span className="oe-page-card__preview">{display.preview}</span>
       ) : null}
     </button>
   );
@@ -67,18 +88,22 @@ function PageCardRender(props: {
 
 /**
  * Standalone block representing an existing page.
- * Persist identity (+ optional titleHint); live metadata comes from the host.
+ * Runtime is captured by closure — never module-global.
  */
-export const createPageCardBlockSpec = createReactBlockSpec(
-  {
-    type: PAGE_CARD_TYPE,
-    propSchema: {
-      pageId: { default: "" as const },
-      titleHint: { default: "" as const }
+export function createPageCardBlockSpec(runtime: PageCardRuntime = {}) {
+  return createReactBlockSpec(
+    {
+      type: PAGE_CARD_TYPE,
+      propSchema: {
+        pageId: { default: "" as const },
+        titleHint: { default: "" as const }
+      },
+      content: "none" as const
     },
-    content: "none" as const
-  },
-  {
-    render: (props): ReactElement => <PageCardRender block={props.block} />
-  }
-);
+    {
+      render: (props): ReactElement => (
+        <PageCardView runtime={runtime} block={props.block} />
+      )
+    }
+  )();
+}

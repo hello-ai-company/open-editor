@@ -20,10 +20,8 @@ import {
   type BlockReferenceSpecOptions
 } from "../references/blockReference.js";
 import {
-  bindChildPageRuntime,
-  bindDatabaseViewRuntime,
-  bindPageCardRuntime,
   createChildPageBlockSpec,
+  createDatabaseRelationInlineContentSpec,
   createDatabaseViewBlockSpec,
   createPageCardBlockSpec,
   createPageMentionInlineContentSpec,
@@ -48,6 +46,7 @@ type RefInline = {
 
 type WorkspaceInline = {
   pageMention: ReturnType<typeof createPageMentionInlineContentSpec>;
+  databaseRelation: ReturnType<typeof createDatabaseRelationInlineContentSpec>;
 };
 
 type WorkspaceBlocks = {
@@ -96,8 +95,9 @@ export type OpenEditorPowerPresetOptions<
   includeBlockActions?: boolean;
   includeBlockReference?: IncludeRef;
   /**
-   * When false, pageMention / pageCard / childPage / databaseView are omitted
-   * from both schema and command registry (schema ↔ commands must agree).
+   * When false, pageMention / pageCard / childPage / databaseView /
+   * databaseRelation are omitted from both schema and command registry
+   * (schema ↔ commands must agree).
    */
   includeWorkspaceContent?: IncludeWorkspace;
   blockReference?: BlockReferenceSpecOptions;
@@ -186,16 +186,11 @@ export function createOpenEditorPowerPreset<
     if (pm.subscribe) pageMentionRuntime.subscribe = pm.subscribe;
   }
 
+  // Each preset captures its own runtime objects by closure — never module-global.
   const pageCardRuntime: PageCardRuntime = options?.pageCardRuntime ?? {};
   const childPageRuntime: ChildPageRuntime = options?.childPageRuntime ?? {};
   const databaseViewRuntime: DatabaseViewRuntime =
     options?.databaseViewRuntime ?? {};
-
-  if (includeWorkspace) {
-    bindPageCardRuntime(pageCardRuntime);
-    bindChildPageRuntime(childPageRuntime);
-    bindDatabaseViewRuntime(databaseViewRuntime);
-  }
 
   const refSpec = (
     includeRef
@@ -214,7 +209,8 @@ export function createOpenEditorPowerPreset<
           pageMention: createPageMentionInlineContentSpec({
             ...options?.pageMention,
             runtime: pageMentionRuntime
-          })
+          }),
+          databaseRelation: createDatabaseRelationInlineContentSpec()
         }
       : {}
   ) as WorkspaceInlineSpecs<IncludeWorkspace>;
@@ -222,9 +218,9 @@ export function createOpenEditorPowerPreset<
   const workspaceBlocks = (
     includeWorkspace
       ? {
-          pageCard: createPageCardBlockSpec(),
-          childPage: createChildPageBlockSpec(),
-          databaseView: createDatabaseViewBlockSpec()
+          pageCard: createPageCardBlockSpec(pageCardRuntime),
+          childPage: createChildPageBlockSpec(childPageRuntime),
+          databaseView: createDatabaseViewBlockSpec(databaseViewRuntime)
         }
       : {}
   ) as WorkspaceBlockSpecs<IncludeWorkspace>;

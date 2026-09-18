@@ -54,4 +54,24 @@ describe("relation edge helpers", () => {
       "custom"
     );
   });
+
+  it("treats same row id in two databases as distinct targets", () => {
+    const a = relationEdgeId({
+      sourceDocumentId: "doc",
+      sourceBlockId: "b1",
+      targetType: "database-row",
+      targetId: "row-1",
+      targetDatabaseId: "db-a",
+      kind: "database-row-relation"
+    });
+    const b = relationEdgeId({
+      sourceDocumentId: "doc",
+      sourceBlockId: "b1",
+      targetType: "database-row",
+      targetId: "row-1",
+      targetDatabaseId: "db-b",
+      kind: "database-row-relation"
+    });
+    expect(a).not.toBe(b);
+  });
 });

@@ -216,8 +216,10 @@ export type BacklinkItem = {
  * edges from its document — backlinks must come from the host.
  */
 export type BacklinkQuery = {
-  targetType: "page" | "block" | "database" | "row";
+  targetType: "page" | "block" | "database" | "database-row";
   targetId: string;
+  /** Required when querying `database-row` targets (row keys are DB-scoped). */
+  targetDatabaseId?: string;
   limit?: number;
 };
 

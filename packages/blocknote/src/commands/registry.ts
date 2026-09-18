@@ -74,8 +74,10 @@ export type EditorCommandContext = {
     | null
     | Promise<string | { pageId: string; title?: string } | null>;
   /**
-   * Optional host picker for database view insertion.
-   * When absent, insert uses a demo default id only if database provider exists.
+   * Host picker for database view insertion.
+   * Required for `database.insert-view` — OpenEditor never invents databaseId.
+   * `viewId` may default to OpenEditor-owned `"main"` after a real DB is chosen.
+   * Invalid `viewType` falls back to `"table"`.
    */
   requestDatabaseViewPick?: () =>
     | {

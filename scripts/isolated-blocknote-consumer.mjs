@@ -53,7 +53,10 @@ function smokeBase(dir) {
   writeFileSync(
     join(dir, "smoke.mjs"),
     `
-import { createEditorDocument } from "@hello-ai-company/editor-core";
+import {
+  createEditorDocument,
+  relationEdgeId
+} from "@hello-ai-company/editor-core";
 import {
   fromBlockNote,
   toBlockNote,
@@ -63,7 +66,11 @@ import {
   createDocumentIndex,
   createOpenEditorPowerPreset,
   createDocumentOutline,
-  toPartialBlockCopy
+  toPartialBlockCopy,
+  createRelationIndex,
+  extractRelationEdges,
+  PAGE_MENTION_TYPE,
+  DATABASE_RELATION_TYPE
 } from "@hello-ai-company/editor-blocknote";
 
 const doc = createEditorDocument([
@@ -82,10 +89,50 @@ if (createDocumentOutline(index).length !== 1) throw new Error("outline failed")
 const preset = createOpenEditorPowerPreset();
 if (!preset.schema) throw new Error("preset missing");
 if (!preset.schema.inlineContentSchema?.pageMention) throw new Error("pageMention missing");
+if (!preset.schema.inlineContentSchema?.databaseRelation) throw new Error("databaseRelation missing");
 if (!preset.schema.blockSchema?.databaseView) throw new Error("databaseView missing");
 if (!preset.registry.get("page.insert-mention")) throw new Error("workspace commands missing");
 const withoutWs = createOpenEditorPowerPreset({ includeWorkspaceContent: false });
 if (withoutWs.registry.get("page.insert-mention")) throw new Error("workspace commands should be absent");
+if (withoutWs.schema.inlineContentSchema?.databaseRelation) throw new Error("databaseRelation should be absent");
+
+const edges = extractRelationEdges("doc", [
+  {
+    id: "p1",
+    type: "paragraph",
+    content: [
+      { type: PAGE_MENTION_TYPE, props: { pageId: "a" } },
+      { type: DATABASE_RELATION_TYPE, props: { databaseId: "db-a", rowId: "row-1" } }
+    ]
+  }
+]);
+if (edges.length !== 2) throw new Error("relation extract failed");
+const rowA = relationEdgeId({
+  sourceDocumentId: "doc",
+  targetType: "database-row",
+  targetId: "row-1",
+  targetDatabaseId: "db-a",
+  kind: "database-row-relation"
+});
+const rowB = relationEdgeId({
+  sourceDocumentId: "doc",
+  targetType: "database-row",
+  targetId: "row-1",
+  targetDatabaseId: "db-b",
+  kind: "database-row-relation"
+});
+if (rowA === rowB) throw new Error("row identity must be database-scoped");
+const relIndex = createRelationIndex();
+relIndex.replaceFromBlocks("doc", [
+  {
+    id: "p1",
+    type: "paragraph",
+    content: [{ type: DATABASE_RELATION_TYPE, props: { databaseId: "db-a", rowId: "row-1" } }]
+  }
+]);
+if (relIndex.listByKind("database-row-relation").length !== 1) {
+  throw new Error("relation index missing row relation");
+}
 const copy = toPartialBlockCopy({
   id: "x",
   type: "callout",

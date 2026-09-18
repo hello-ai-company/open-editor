@@ -16,20 +16,8 @@ export type DatabaseViewRuntime = {
   getTitle?: (databaseId: string) => string | undefined;
 };
 
-let sharedDatabaseViewRuntime: DatabaseViewRuntime = {};
-
-export function getDatabaseViewRuntime(): DatabaseViewRuntime {
-  return sharedDatabaseViewRuntime;
-}
-
-export function bindDatabaseViewRuntime(
-  runtime: DatabaseViewRuntime
-): DatabaseViewRuntime {
-  sharedDatabaseViewRuntime = runtime;
-  return sharedDatabaseViewRuntime;
-}
-
 function DatabaseViewRender(props: {
+  runtime: DatabaseViewRuntime;
   block: {
     props: {
       databaseId: string;
@@ -39,7 +27,7 @@ function DatabaseViewRender(props: {
     };
   };
 }): ReactElement {
-  const runtime = getDatabaseViewRuntime();
+  const { runtime } = props;
   const { databaseId, viewId, viewType, titleHint } = props.block.props;
   const [meta, setMeta] = useState<EditorDatabase | null>(null);
   const [page, setPage] = useState<DatabaseRowsPage | null>(null);
@@ -76,7 +64,7 @@ function DatabaseViewRender(props: {
     return () => {
       cancelled = true;
     };
-  }, [databaseId, runtime.database, viewId, viewType]);
+  }, [databaseId, runtime, viewId, viewType]);
 
   const title =
     meta?.title ||
@@ -147,27 +135,31 @@ function DatabaseViewRender(props: {
 
 /**
  * Database view block — identity + view config only.
- * Rows are never persisted in EditorDocument.
+ * Runtime (provider) is captured by closure — never module-global.
  */
-export const createDatabaseViewBlockSpec = createReactBlockSpec(
-  {
-    type: DATABASE_VIEW_TYPE,
-    propSchema: {
-      databaseId: { default: "" as const },
-      viewId: { default: "main" as const },
-      viewType: {
-        default: "table" as const,
-        values: [...DATABASE_VIEW_TYPES]
+export function createDatabaseViewBlockSpec(
+  runtime: DatabaseViewRuntime = {}
+) {
+  return createReactBlockSpec(
+    {
+      type: DATABASE_VIEW_TYPE,
+      propSchema: {
+        databaseId: { default: "" as const },
+        viewId: { default: "main" as const },
+        viewType: {
+          default: "table" as const,
+          values: [...DATABASE_VIEW_TYPES]
+        },
+        titleHint: { default: "" as const }
       },
-      titleHint: { default: "" as const }
+      content: "none" as const
     },
-    content: "none" as const
-  },
-  {
-    render: (props): ReactElement => (
-      <DatabaseViewRender block={props.block} />
-    )
-  }
-);
+    {
+      render: (props): ReactElement => (
+        <DatabaseViewRender runtime={runtime} block={props.block} />
+      )
+    }
+  )();
+}
 
 export type { DatabaseViewType };

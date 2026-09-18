@@ -4,12 +4,11 @@ import {
   DATABASE_VIEW_TYPE,
   PAGE_CARD_TYPE,
   PAGE_MENTION_TYPE,
+  isDatabaseViewType,
   type DatabaseViewType
 } from "./types.js";
 
-function hasPagePicker(ctx: {
-  requestPagePick?: unknown;
-}): boolean {
+function hasPagePicker(ctx: { requestPagePick?: unknown }): boolean {
   return typeof ctx.requestPagePick === "function";
 }
 
@@ -25,9 +24,18 @@ function hasDatabaseProvider(ctx: {
   return typeof ctx.providers?.database?.listRows === "function";
 }
 
+function hasDatabasePicker(ctx: {
+  requestDatabaseViewPick?: unknown;
+}): boolean {
+  return typeof ctx.requestDatabaseViewPick === "function";
+}
+
 /**
  * Workspace content commands — register only when corresponding schema
  * primitives are included (schema ↔ command surface must agree).
+ *
+ * OpenEditor never invents host database IDs. `database.insert-view` requires
+ * an explicit `requestDatabaseViewPick` selection.
  */
 export function createWorkspaceContentCommands(): EditorCommand[] {
   return [
@@ -149,33 +157,40 @@ export function createWorkspaceContentCommands(): EditorCommand[] {
       aliases: ["database", "table view"],
       keywords: ["database", "rows", "table"],
       surfaces: ["slash", "palette"],
-      isEnabled: (ctx) =>
-        hasDatabaseProvider(ctx)
-          ? true
-          : { ok: false, reason: "Database provider not available" },
-      run: async (ctx) => {
-        if (!hasDatabaseProvider(ctx)) return;
-        const cursor = ctx.editor.getTextCursorPosition();
-        let databaseId = "tasks";
-        let viewId = "main-table";
-        let viewType: DatabaseViewType = "table";
-        let titleHint = "";
-
-        if (ctx.requestDatabaseViewPick) {
-          const picked = await ctx.requestDatabaseViewPick();
-          if (!picked) return;
-          databaseId = picked.databaseId;
-          viewId = picked.viewId ?? viewId;
-          viewType = (picked.viewType as DatabaseViewType) ?? viewType;
-          titleHint = picked.titleHint ?? "";
+      isEnabled: (ctx) => {
+        if (!hasDatabaseProvider(ctx)) {
+          return { ok: false, reason: "Database provider not available" };
         }
+        if (!hasDatabasePicker(ctx)) {
+          return { ok: false, reason: "Database picker not available" };
+        }
+        return true;
+      },
+      run: async (ctx) => {
+        if (!hasDatabaseProvider(ctx) || !ctx.requestDatabaseViewPick) return;
+        const cursor = ctx.editor.getTextCursorPosition();
+        const picked = await ctx.requestDatabaseViewPick();
+        if (!picked?.databaseId) return;
+
+        // viewId is OpenEditor-owned view configuration after a real DB is chosen.
+        const viewId = picked.viewId?.trim() || "main";
+        const rawViewType = picked.viewType ?? "";
+        const viewType: DatabaseViewType = isDatabaseViewType(rawViewType)
+          ? rawViewType
+          : "table";
+        const titleHint = picked.titleHint ?? "";
 
         ctx.editor.transact(() => {
           ctx.editor.insertBlocks(
             [
               {
                 type: DATABASE_VIEW_TYPE,
-                props: { databaseId, viewId, viewType, titleHint }
+                props: {
+                  databaseId: picked.databaseId,
+                  viewId,
+                  viewType,
+                  titleHint
+                }
               }
             ],
             cursor.block,

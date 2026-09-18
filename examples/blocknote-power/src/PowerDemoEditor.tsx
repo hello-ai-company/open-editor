@@ -193,6 +193,16 @@ export function PowerDemoEditor() {
     });
   }, []);
 
+  const requestDatabaseViewPick = useCallback(async () => {
+    // Host-owned selection — never invent a databaseId in the editor command.
+    return {
+      databaseId: "tasks",
+      viewId: "main-table",
+      viewType: "table" as const,
+      titleHint: "Tasks"
+    };
+  }, []);
+
   const ctx = useMemo(
     () => ({
       editor: editor as never,
@@ -200,6 +210,7 @@ export function PowerDemoEditor() {
       documentIndex: index,
       requestBlockPick,
       requestPagePick,
+      requestDatabaseViewPick,
       providers: {
         pages: pageStore.provider,
         database: databaseProvider,
@@ -213,6 +224,7 @@ export function PowerDemoEditor() {
       index,
       pageStore.provider,
       requestBlockPick,
+      requestDatabaseViewPick,
       requestPagePick
     ]
   );

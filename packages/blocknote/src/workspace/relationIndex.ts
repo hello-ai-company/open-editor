@@ -1,15 +1,15 @@
 import type {
   EditorBlock,
   RelationEdge,
-  RelationKind
+  RelationKind,
+  RelationTargetType
 } from "@hello-ai-company/editor-core";
 import { withRelationEdgeId } from "@hello-ai-company/editor-core";
 import type { OpenEditorBlockChange } from "../bridge/batchedSink.js";
-import {
-  BLOCK_REFERENCE_TYPE
-} from "../references/blockReference.js";
+import { BLOCK_REFERENCE_TYPE } from "../references/blockReference.js";
 import {
   CHILD_PAGE_TYPE,
+  DATABASE_RELATION_TYPE,
   DATABASE_VIEW_TYPE,
   PAGE_CARD_TYPE,
   PAGE_MENTION_TYPE
@@ -27,8 +27,9 @@ export type RelationIndex = {
   list: () => readonly RelationEdge[];
   listByKind: (kind: RelationKind) => RelationEdge[];
   listOutgoingTo: (
-    targetType: RelationEdge["targetType"],
-    targetId: string
+    targetType: RelationTargetType,
+    targetId: string,
+    options?: { targetDatabaseId?: string }
   ) => RelationEdge[];
   size: () => number;
   getRevision: () => number;
@@ -84,6 +85,22 @@ function extractFromInlineContent(
         );
       }
     }
+    if (type === DATABASE_RELATION_TYPE) {
+      const databaseId = readProp(props, "databaseId");
+      const rowId = readProp(props, "rowId");
+      if (databaseId && rowId) {
+        out.push(
+          withRelationEdgeId({
+            sourceDocumentId: documentId,
+            sourceBlockId: blockId,
+            targetType: "database-row",
+            targetId: rowId,
+            targetDatabaseId: databaseId,
+            kind: "database-row-relation"
+          })
+        );
+      }
+    }
     if (node.content !== undefined) {
       extractFromInlineContent(documentId, blockId, node.content, out);
     }
@@ -130,7 +147,7 @@ function extractFromBlock(
           sourceBlockId: block.id,
           targetType: "database",
           targetId: databaseId,
-          kind: "database-relation"
+          kind: "database-view-reference"
         })
       );
     }
@@ -176,28 +193,15 @@ export function createRelationIndex(): RelationIndex {
     blockToEdgeIds.delete(blockId);
   }
 
-  function removeSubtreeEdges(root: EditorBlock | { id: string }): void {
+  function removeSubtreeEdges(root: EditorBlock): void {
     const ids = new Set<string>();
-    if ("type" in root) {
-      collectBlockIds(root as EditorBlock, ids);
-    } else {
-      ids.add(root.id);
-      // Best-effort: drop known edges keyed by this block and descendants tracked
-      for (const [blockId] of blockToEdgeIds) {
-        if (blockId === root.id) ids.add(blockId);
-      }
-    }
+    collectBlockIds(root, ids);
     for (const blockId of ids) clearBlockEdges(blockId);
   }
 
-  function upsertBlockEdges(block: EditorBlock): void {
+  function addSubtreeEdges(block: EditorBlock): void {
     const next: RelationEdge[] = [];
     extractFromBlock(documentId, block, next);
-    // Clear previous edges for this subtree, then write fresh
-    const ids = new Set<string>();
-    collectBlockIds(block, ids);
-    for (const id of ids) clearBlockEdges(id);
-
     for (const edge of next) {
       const edgeId = edge.edgeId!;
       byEdgeId.set(edgeId, edge);
@@ -211,27 +215,27 @@ export function createRelationIndex(): RelationIndex {
     }
   }
 
+  function upsertBlockEdges(
+    block: EditorBlock,
+    prevBlock?: EditorBlock
+  ): void {
+    // Clear edges belonging to the *previous* subtree first so nested children
+    // that disappear on update do not leave stale relations behind.
+    if (prevBlock) {
+      removeSubtreeEdges(prevBlock);
+    } else {
+      removeSubtreeEdges(block);
+    }
+    addSubtreeEdges(block);
+  }
+
   return {
     replaceFromBlocks(nextDocumentId, blocks) {
       documentId = nextDocumentId;
       byEdgeId.clear();
       blockToEdgeIds.clear();
       for (const block of blocks) {
-        const edges: RelationEdge[] = [];
-        extractFromBlock(documentId, block, edges);
-        for (const edge of edges) {
-          const edgeId = edge.edgeId!;
-          byEdgeId.set(edgeId, edge);
-          const blockId = edge.sourceBlockId ?? "";
-          if (blockId) {
-            let set = blockToEdgeIds.get(blockId);
-            if (!set) {
-              set = new Set();
-              blockToEdgeIds.set(blockId, set);
-            }
-            set.add(edgeId);
-          }
-        }
+        addSubtreeEdges(block);
       }
       notify();
     },
@@ -241,16 +245,24 @@ export function createRelationIndex(): RelationIndex {
       if (nextDocumentId) documentId = nextDocumentId;
       for (const change of changes) {
         if (change.type === "delete") {
-          clearBlockEdges(change.blockId);
-          if (change.block) removeSubtreeEdges(change.block);
+          if (change.block) {
+            removeSubtreeEdges(change.block);
+          } else {
+            clearBlockEdges(change.blockId);
+          }
           continue;
         }
-        if (
-          change.type === "insert" ||
-          change.type === "update" ||
-          change.type === "move"
-        ) {
-          upsertBlockEdges(change.block);
+        if (change.type === "insert") {
+          addSubtreeEdges(change.block);
+          continue;
+        }
+        if (change.type === "update") {
+          upsertBlockEdges(change.block, change.prevBlock);
+          continue;
+        }
+        if (change.type === "move") {
+          // Contents unchanged; still refresh in case nested refs moved with ids.
+          upsertBlockEdges(change.block, change.prevBlock);
         }
       }
       notify();
@@ -264,11 +276,19 @@ export function createRelationIndex(): RelationIndex {
       return [...byEdgeId.values()].filter((edge) => edge.kind === kind);
     },
 
-    listOutgoingTo(targetType, targetId) {
-      return [...byEdgeId.values()].filter(
-        (edge) =>
-          edge.targetType === targetType && edge.targetId === targetId
-      );
+    listOutgoingTo(targetType, targetId, options) {
+      return [...byEdgeId.values()].filter((edge) => {
+        if (edge.targetType !== targetType || edge.targetId !== targetId) {
+          return false;
+        }
+        if (
+          options?.targetDatabaseId !== undefined &&
+          edge.targetDatabaseId !== options.targetDatabaseId
+        ) {
+          return false;
+        }
+        return true;
+      });
     },
 
     size() {
