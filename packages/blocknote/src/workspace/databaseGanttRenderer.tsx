@@ -16,6 +16,7 @@ import {
 } from "./databaseCalendarModel.js";
 import {
   compareCanonicalDateKeys,
+  parseCanonicalDateKey,
   shiftInclusiveRange
 } from "./databaseDateAxisModel.js";
 import {
@@ -177,28 +178,54 @@ export function GanttRenderer(
     );
   };
 
+  /** Single-endpoint edit — never fabricates the opposite missing endpoint. */
+  const applyEndpointUpdate = (
+    item: DatabaseRowItem,
+    propertyId: string,
+    nextDateKey: string
+  ): void => {
+    const completeRow = buildCalendarDateUpdateRow(
+      item,
+      propertyId,
+      nextDateKey
+    );
+    if (!completeRow) return;
+    catchStoreMutation(
+      store.updateRow(viewKey, item.rowKey, completeRow, item.sortOrder)
+    );
+  };
+
   const mutateStart = (item: DatabaseRowItem, nextStartKey: string): void => {
-    if (!startProp || !endProp || !canEditGanttEndpoint(startProp, mutateCtx)) {
+    if (!startProp || !canEditGanttEndpoint(startProp, mutateCtx)) {
       return;
     }
-    const currentEnd = String(item.row[endProp.id] ?? "");
-    const endKey = sameProperty ? nextStartKey : currentEnd;
-    if (!sameProperty && endKey && compareCanonicalDateKeys(nextStartKey, endKey) > 0) {
+    if (sameProperty) {
+      applyEndpointUpdate(item, startProp.id, nextStartKey);
       return;
     }
-    applyRangeUpdate(item, nextStartKey, endKey || nextStartKey);
+    if (!endProp) return;
+    // Ordering check only when the opposite endpoint is a valid canonical date.
+    const other = parseCanonicalDateKey(item.row[endProp.id]);
+    if (other && compareCanonicalDateKeys(nextStartKey, other.dateKey) > 0) {
+      return;
+    }
+    applyEndpointUpdate(item, startProp.id, nextStartKey);
   };
 
   const mutateEnd = (item: DatabaseRowItem, nextEndKey: string): void => {
-    if (!startProp || !endProp || !canEditGanttEndpoint(endProp, mutateCtx)) {
+    if (!endProp || !canEditGanttEndpoint(endProp, mutateCtx)) {
       return;
     }
-    const currentStart = String(item.row[startProp.id] ?? "");
-    const startKey = sameProperty ? nextEndKey : currentStart;
-    if (!sameProperty && startKey && compareCanonicalDateKeys(startKey, nextEndKey) > 0) {
+    if (sameProperty) {
+      applyEndpointUpdate(item, endProp.id, nextEndKey);
       return;
     }
-    applyRangeUpdate(item, startKey || nextEndKey, nextEndKey);
+    if (!startProp) return;
+    const other = parseCanonicalDateKey(item.row[startProp.id]);
+    if (other && compareCanonicalDateKeys(other.dateKey, nextEndKey) > 0) {
+      return;
+    }
+    applyEndpointUpdate(item, endProp.id, nextEndKey);
   };
 
   const moveWholeRange = (

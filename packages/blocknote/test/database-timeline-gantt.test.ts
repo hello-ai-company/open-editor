@@ -1697,3 +1697,198 @@ describe("4F-4C — EditorDocument identity-only", () => {
     expect(serialized).not.toContain("schedule:start");
   });
 });
+
+// —— 4F-4C R1: preserve missing Gantt endpoints ——
+
+const R1_GANTT_DEFS: readonly DatabasePropertyDefinition[] = [
+  { id: "title", name: "Title", type: "text" },
+  { id: "start", name: "Start", type: "date" },
+  { id: "end", name: "End", type: "date" }
+];
+
+describe("4F-4C R1 — Gantt endpoint edit never fabricates opposite", () => {
+  it("1. start=\"\" end=\"\" Set Start → only start written", async () => {
+    const provider = createTimelineGanttProvider(
+      [
+        {
+          rowKey: "a",
+          sortOrder: 0,
+          deletedAt: null,
+          row: { title: "Alpha", start: "", end: "" }
+        }
+      ],
+      { definitions: R1_GANTT_DEFS }
+    );
+    const store = await readyStore(provider);
+    const snap = store.getView("tasks::main");
+    const definitions = resolveDatabasePropertyDefinitions({
+      legacySchema: snap.schema,
+      definitions: snap.meta?.propertyDefinitions
+    });
+    const updateSpy = vi.spyOn(provider, "updateRow");
+    const { host, cleanup } = await mount(
+      GanttRenderer,
+      buildContext({
+        snapshot: snap,
+        store,
+        definitions,
+        runtime: { store, database: provider },
+        viewType: "gantt",
+        mutationsAllowed: true
+      })
+    );
+    const startInput = host.querySelector(
+      'input[aria-label="Set start date for Alpha"]'
+    ) as HTMLInputElement | null;
+    expect(startInput).toBeTruthy();
+    await setDateInputValue(startInput!, "2026-09-20");
+    await vi.waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+    });
+    expect(updateSpy).toHaveBeenCalledWith(
+      "tasks",
+      "a",
+      { title: "Alpha", start: "2026-09-20", end: "" },
+      0
+    );
+    await cleanup();
+  });
+
+  it("2. start=\"\" end set — Set End keeps start empty", async () => {
+    const provider = createTimelineGanttProvider(
+      [
+        {
+          rowKey: "a",
+          sortOrder: 0,
+          deletedAt: null,
+          row: { title: "Alpha", start: "", end: "2026-09-14" }
+        }
+      ],
+      { definitions: R1_GANTT_DEFS }
+    );
+    const store = await readyStore(provider);
+    const snap = store.getView("tasks::main");
+    const definitions = resolveDatabasePropertyDefinitions({
+      legacySchema: snap.schema,
+      definitions: snap.meta?.propertyDefinitions
+    });
+    const updateSpy = vi.spyOn(provider, "updateRow");
+    const { host, cleanup } = await mount(
+      GanttRenderer,
+      buildContext({
+        snapshot: snap,
+        store,
+        definitions,
+        runtime: { store, database: provider },
+        viewType: "gantt",
+        mutationsAllowed: true
+      })
+    );
+    const endInput = host.querySelector(
+      'input[aria-label="Set end date for Alpha"]'
+    ) as HTMLInputElement | null;
+    expect(endInput).toBeTruthy();
+    await setDateInputValue(endInput!, "2026-09-20");
+    await vi.waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+    });
+    expect(updateSpy).toHaveBeenCalledWith(
+      "tasks",
+      "a",
+      { title: "Alpha", start: "", end: "2026-09-20" },
+      0
+    );
+    await cleanup();
+  });
+
+  it("3. start set end=\"\" — Set Start keeps end empty", async () => {
+    const provider = createTimelineGanttProvider(
+      [
+        {
+          rowKey: "a",
+          sortOrder: 0,
+          deletedAt: null,
+          row: { title: "Alpha", start: "2026-09-10", end: "" }
+        }
+      ],
+      { definitions: R1_GANTT_DEFS }
+    );
+    const store = await readyStore(provider);
+    const snap = store.getView("tasks::main");
+    const definitions = resolveDatabasePropertyDefinitions({
+      legacySchema: snap.schema,
+      definitions: snap.meta?.propertyDefinitions
+    });
+    const updateSpy = vi.spyOn(provider, "updateRow");
+    const { host, cleanup } = await mount(
+      GanttRenderer,
+      buildContext({
+        snapshot: snap,
+        store,
+        definitions,
+        runtime: { store, database: provider },
+        viewType: "gantt",
+        mutationsAllowed: true
+      })
+    );
+    const startInput = host.querySelector(
+      'input[aria-label="Set start date for Alpha"]'
+    ) as HTMLInputElement | null;
+    expect(startInput).toBeTruthy();
+    await setDateInputValue(startInput!, "2026-09-12");
+    await vi.waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+    });
+    expect(updateSpy).toHaveBeenCalledWith(
+      "tasks",
+      "a",
+      { title: "Alpha", start: "2026-09-12", end: "" },
+      0
+    );
+    await cleanup();
+  });
+
+  it("4. valid range Set Start > end → no provider call", async () => {
+    const provider = createTimelineGanttProvider(
+      [
+        {
+          rowKey: "a",
+          sortOrder: 0,
+          deletedAt: null,
+          row: { title: "Alpha", start: "2026-09-10", end: "2026-09-14" }
+        }
+      ],
+      { definitions: R1_GANTT_DEFS }
+    );
+    const store = await readyStore(provider);
+    const snap = store.getView("tasks::main");
+    const definitions = resolveDatabasePropertyDefinitions({
+      legacySchema: snap.schema,
+      definitions: snap.meta?.propertyDefinitions
+    });
+    const updateSpy = vi.spyOn(provider, "updateRow");
+    const { host, cleanup } = await mount(
+      GanttRenderer,
+      buildContext({
+        snapshot: snap,
+        store,
+        definitions,
+        runtime: { store, database: provider },
+        viewType: "gantt",
+        mutationsAllowed: true
+      })
+    );
+    const startInput = host.querySelector(
+      'input[aria-label="Start date for Alpha"]'
+    ) as HTMLInputElement | null;
+    expect(startInput).toBeTruthy();
+    await setDateInputValue(startInput!, "2026-09-20");
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(store.getView("tasks::main").items[0]!.row).toEqual({
+      title: "Alpha",
+      start: "2026-09-10",
+      end: "2026-09-14"
+    });
+    await cleanup();
+  });
+});
