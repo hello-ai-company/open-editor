@@ -49,6 +49,7 @@ export function PowerDemoEditor() {
   const index = useMemo(() => createDocumentIndex(), []);
   const relationIndex = useMemo(() => createRelationIndex(), []);
   const [pageRevision, setPageRevision] = useState(0);
+  const [lastOpenedPage, setLastOpenedPage] = useState<string | null>(null);
   const [lastOpenedRow, setLastOpenedRow] = useState<string | null>(null);
 
   const pageStore = useMemo(
