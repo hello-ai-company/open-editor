@@ -78,10 +78,17 @@ import type {
   DatabaseMapLocationRequest,
   DatabaseViewRuntime
 } from "../src/workspace/databaseViewRuntime.js";
-import { DATABASE_VIEW_TYPES } from "../src/workspace/types.js";
+import { DATABASE_VIEW_TYPES, isDatabaseViewType } from "../src/workspace/types.js";
 import { categoryKeyEncode } from "../src/workspace/databaseChartModel.js";
 import { renderChartView } from "../src/workspace/databaseChartRenderer.js";
 import { renderFeedView } from "../src/workspace/databaseFeedRenderer.js";
+import { SharedDatabaseViewShell } from "../src/workspace/databaseView.js";
+import { renderBoardView } from "../src/workspace/databaseBoardRenderer.js";
+import { renderCalendarView } from "../src/workspace/databaseCalendarRenderer.js";
+import { renderGalleryView } from "../src/workspace/databaseGalleryRenderer.js";
+import { renderListView } from "../src/workspace/databaseListRenderer.js";
+import { renderGanttView } from "../src/workspace/databaseGanttRenderer.js";
+import { renderTimelineView } from "../src/workspace/databaseTimelineRenderer.js";
 
 // —— helpers ——
 
@@ -1295,5 +1302,179 @@ describe("4F-4E — TS consumer: additive resolveMapLocation", () => {
       "no-location"
     ]);
     expect(resolveDatabaseRowTitle(items[0]!, [TITLE])).toBe("Z");
+  });
+});
+
+// —— 4F-4E R1: unknown viewType fail-closed (no silent → table) ——
+
+describe("4F-4E R1 — unknown viewType must not become table", () => {
+  async function mountShell(input: {
+    viewType: string;
+    provider: ReturnType<typeof createMapDashProvider>;
+    store: Awaited<ReturnType<typeof readyStore>>;
+  }) {
+    const { viewType, provider, store } = input;
+    const snap = store.getView("tasks::main");
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        createElement(SharedDatabaseViewShell, {
+          snap,
+          store,
+          viewKey: "tasks::main",
+          viewId: "main",
+          viewType,
+          titleHint: "Tasks",
+          runtime: { store, database: provider }
+        })
+      );
+    });
+    return {
+      host,
+      async cleanup() {
+        await act(async () => {
+          root.unmount();
+        });
+        host.remove();
+      }
+    };
+  }
+
+  it("future-view shows unsupported state — Table renderer NOT used; no mutation UI", async () => {
+    const provider = createMapDashProvider(SEED_ROWS);
+    const store = await readyStore(provider);
+    const listBefore = provider.listCalls;
+    const updateBefore = provider.updateCalls;
+
+    const mounted = await mountShell({
+      viewType: "future-view",
+      provider,
+      store
+    });
+
+    expect(
+      mounted.host.querySelector("[data-oe-unsupported-view-type]")
+    ).toBeTruthy();
+    const status = mounted.host.querySelector('[role="status"]');
+    expect(status?.textContent).toMatch(/Unsupported database view type/i);
+    expect(status?.textContent).toContain("future-view");
+    expect(
+      mounted.host
+        .querySelector("[data-view-type]")
+        ?.getAttribute("data-view-type")
+    ).toBe("future-view");
+
+    // No fabricated Table semantics
+    expect(mounted.host.querySelector(".oe-database-view__table")).toBeNull();
+    expect(mounted.host.querySelector("[data-oe-map]")).toBeNull();
+    expect(mounted.host.querySelector("[data-oe-dashboard]")).toBeNull();
+    expect(
+      mounted.host.querySelector('button[aria-label^="Edit "]')
+    ).toBeNull();
+    expect(mounted.host.textContent).not.toMatch(/\bNew row\b/);
+
+    // No additional provider semantic churn from unsupported paint
+    expect(provider.updateCalls).toBe(updateBefore);
+    expect(provider.createCalls).toBe(0);
+    expect(provider.reorderCalls).toBe(0);
+    expect(provider.listCalls).toBe(listBefore);
+
+    await mounted.cleanup();
+  });
+
+  it("kanban-v2 is also unsupported (not coerced to table)", async () => {
+    const provider = createMapDashProvider([SEED_ROWS[0]!]);
+    const store = await readyStore(provider);
+    const mounted = await mountShell({
+      viewType: "kanban-v2",
+      provider,
+      store
+    });
+    expect(
+      mounted.host.querySelector("[data-oe-unsupported-view-type]")
+    ).toBeTruthy();
+    expect(mounted.host.textContent).toContain("kanban-v2");
+    expect(mounted.host.querySelector(".oe-database-view__table")).toBeNull();
+    await mounted.cleanup();
+  });
+
+  it("all 11 DATABASE_VIEW_TYPES remain supported (not unsupported)", async () => {
+    expect(DATABASE_VIEW_TYPES).toHaveLength(11);
+    for (const vt of DATABASE_VIEW_TYPES) {
+      expect(isDatabaseViewType(vt)).toBe(true);
+      expect(isDeferredDatabaseViewType(vt)).toBe(false);
+    }
+    expect(isDatabaseViewType("future-view")).toBe(false);
+    expect(isDatabaseViewType("kanban-v2")).toBe(false);
+
+    const provider = createMapDashProvider(SEED_ROWS);
+    const store = await readyStore(provider);
+
+    const tableMount = await mountShell({
+      viewType: "table",
+      provider,
+      store
+    });
+    expect(
+      tableMount.host.querySelector("[data-oe-unsupported-view-type]")
+    ).toBeNull();
+    expect(
+      tableMount.host.querySelector(".oe-database-view__table")
+    ).toBeTruthy();
+    await tableMount.cleanup();
+
+    const mapMount = await mountShell({
+      viewType: "map",
+      provider,
+      store
+    });
+    expect(
+      mapMount.host.querySelector("[data-oe-unsupported-view-type]")
+    ).toBeNull();
+    expect(mapMount.host.querySelector("[data-oe-map]")).toBeTruthy();
+    await mapMount.cleanup();
+
+    const dashMount = await mountShell({
+      viewType: "dashboard",
+      provider,
+      store
+    });
+    expect(
+      dashMount.host.querySelector("[data-oe-unsupported-view-type]")
+    ).toBeNull();
+    expect(dashMount.host.querySelector("[data-oe-dashboard]")).toBeTruthy();
+    await dashMount.cleanup();
+
+    const defaults: DatabaseViewRendererMap = {
+      board: renderBoardView,
+      calendar: renderCalendarView,
+      list: renderListView,
+      gallery: renderGalleryView,
+      feed: renderFeedView,
+      timeline: renderTimelineView,
+      gantt: renderGanttView,
+      chart: renderChartView,
+      map: renderMapView,
+      dashboard: renderDashboardView
+    };
+    for (const vt of DATABASE_VIEW_TYPES) {
+      if (vt === "table") continue;
+      expect(
+        resolveDatabaseViewRenderer({
+          viewType: vt,
+          runtime: {},
+          defaults
+        })
+      ).not.toBeNull();
+    }
+    expect(
+      resolveDatabaseViewRenderer({
+        viewType: "future-view",
+        runtime: {},
+        defaults
+      })
+    ).toBeNull();
   });
 });
