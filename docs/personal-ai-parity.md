@@ -47,7 +47,7 @@ OpenEditor remains host-neutral (no Supabase / auth / product stores).
 | Chart loaded-only semantics | Product-dependent | **Explicit** “Showing loaded rows only” notice |
 | Feed | Product feed | Feed renderer (provider-order presentation cards) |
 | Feed row open | Product drawer | Optional `onOpenRow` (`viewType: "feed"`) |
-| Feed media | Product media discovery | Host `resolveRowMedia` (`viewType: "feed"`) |
+| Feed media | Product media discovery | Host `resolveFeedRowMedia` (`viewType: "feed"`) |
 | Feed owner | Product field | **Not inferred** (no portable user property type) |
 | Feed date | Product due heuristics | Explicit typed `date` property selector (by id) |
 | Feed drag reorder | Personal AI behavior | **Intentionally not exposed** |
@@ -66,7 +66,7 @@ OpenEditor remains host-neutral (no Supabase / auth / product stores).
 - Cursor pagination + query/sort options
 - Property identity = id; display name is metadata only
 - Board / Calendar / List / Gallery / Timeline / Gantt / Chart / Feed as presentation transforms over `snap.items`
-- Host-neutral row-open + optional Gallery/Feed media seams (no OpenEditor drawer / upload)
+- Host-neutral row-open + optional Gallery (`resolveRowMedia`) / Feed (`resolveFeedRowMedia`) media seams (no OpenEditor drawer / upload)
 - Shared civil-date axis for Timeline/Gantt (bounded ticks; no per-day DOM for huge spans)
 - Chart = loaded-snapshot aggregation (not a second query engine)
 - Feed = provider-order cards (not an activity / audit log)

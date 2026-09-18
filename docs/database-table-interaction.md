@@ -47,8 +47,10 @@ Host query engine
 
 Optional host seams (runtime, not document):
  ├ onOpenRow(request)
- └ resolveRowMedia(request) → DatabaseRowMedia | null
-     viewType: "gallery" | "feed"
+ ├ resolveRowMedia(request) → DatabaseRowMedia | null
+ │     viewType: "gallery" only (4F-4B contract — do not widen)
+ └ resolveFeedRowMedia(request) → DatabaseRowMedia | null
+       viewType: "feed" (4F-4D additive seam)
 ```
 
 ## Board & Calendar (4F-4A)
@@ -110,7 +112,7 @@ Optional host seams (runtime, not document):
 | Feed layout | Media + title + secondary + optional date + ≤4 property chips |
 | Feed date | First typed `date` default; ephemeral by id; display `YYYY-MM-DD` / No date / Invalid date |
 | Feed order | Exact provider/`snap.items` order — date selection **never** sorts |
-| Feed media | Shared `resolveRowMedia` with `viewType: "feed"`; defensive deep clone of row |
+| Feed media | Additive `resolveFeedRowMedia` (`viewType: "feed"`); defensive deep clone of row |
 | Feed mutations | **Read-only** — no drag reorder / completion heuristics / owner inference |
 | Partial pages | “Showing loaded rows only” — Chart counts are loaded-row statistics only |
 | Config persistence | Chart metric / Feed date / media / aggregation **never** enter EditorDocument |

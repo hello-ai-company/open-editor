@@ -17,7 +17,7 @@ import {
 } from "./databaseFeedModel.js";
 import {
   cloneDatabaseRowRecord,
-  safeResolveRowMedia
+  safeResolveFeedRowMedia
 } from "./databaseRowPresentation.js";
 import type { DatabaseViewRendererContext } from "./databaseViewRenderers.js";
 
@@ -121,7 +121,7 @@ export function FeedRenderer(
             : undefined;
           const dateMeta = formatFeedDateMeta(dateValue);
 
-          const media = safeResolveRowMedia(runtime, {
+          const media = safeResolveFeedRowMedia(runtime, {
             databaseId: snap.databaseId,
             rowKey: item.rowKey,
             row: cloneDatabaseRowRecord(item.row),

@@ -160,6 +160,109 @@ console.log("isolated-blocknote-consumer react: ok");
   run("npm", ["install", "--omit=dev", "--legacy-peer-deps"], dir);
   run("node", ["smoke.mjs"], dir);
   run("node", ["smoke-react.mjs"], dir);
+
+  // 4F-4D R1: prove legacy Gallery-only resolveRowMedia still typechecks under strict.
+  writeFileSync(
+    join(dir, "tsconfig.json"),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          target: "ES2022",
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          strict: true,
+          noEmit: true,
+          skipLibCheck: true,
+          esModuleInterop: true,
+          jsx: "react-jsx"
+        },
+        include: ["media-api-compat.ts"]
+      },
+      null,
+      2
+    )
+  );
+
+  writeFileSync(
+    join(dir, "media-api-compat.ts"),
+    `
+import type { JsonValue } from "@hello-ai-company/editor-core";
+import type {
+  DatabaseFeedRowMediaRequest,
+  DatabaseRowMedia,
+  DatabaseRowMediaRequest,
+  DatabaseViewRuntime
+} from "@hello-ai-company/editor-blocknote";
+
+/** Exact 4F-4B Gallery-only host callback shape. */
+type LegacyGalleryRequest = {
+  databaseId: string;
+  rowKey: string;
+  row: Readonly<Record<string, JsonValue>>;
+  viewId: string;
+  viewType: "gallery";
+};
+
+const legacyGalleryResolver = (
+  request: LegacyGalleryRequest
+): DatabaseRowMedia | null => {
+  void request.viewType;
+  return null;
+};
+
+const galleryTypedResolver = (
+  request: DatabaseRowMediaRequest
+): DatabaseRowMedia | null => {
+  const _vt: "gallery" = request.viewType;
+  void _vt;
+  return { src: "https://example.test/g.png" };
+};
+
+const feedResolver = (
+  request: DatabaseFeedRowMediaRequest
+): DatabaseRowMedia | null => {
+  const _vt: "feed" = request.viewType;
+  void _vt;
+  return { src: "https://example.test/f.png" };
+};
+
+const runtime: DatabaseViewRuntime = {
+  resolveRowMedia: legacyGalleryResolver
+};
+
+const runtimeGalleryTyped: DatabaseViewRuntime = {
+  resolveRowMedia: galleryTypedResolver
+};
+
+const runtimeFeed: DatabaseViewRuntime = {
+  resolveFeedRowMedia: feedResolver
+};
+
+const runtimeBoth: DatabaseViewRuntime = {
+  resolveRowMedia: legacyGalleryResolver,
+  resolveFeedRowMedia: feedResolver
+};
+
+void runtime;
+void runtimeGalleryTyped;
+void runtimeFeed;
+void runtimeBoth;
+`
+  );
+
+  run(
+    "npm",
+    [
+      "install",
+      "--no-save",
+      "--legacy-peer-deps",
+      "typescript@5.8.3",
+      "@types/react@19"
+    ],
+    dir
+  );
+  run("npx", ["tsc", "-p", "tsconfig.json"], dir);
+  console.log("isolated-blocknote-consumer media-api-compat (tsc --strict): ok");
 }
 
 function smokeOptional(dir, feature, peerPkg) {

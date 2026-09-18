@@ -56,6 +56,7 @@ import {
 } from "../src/workspace/databaseGalleryRenderer.js";
 import {
   cloneDatabaseRowRecord,
+  safeResolveFeedRowMedia,
   safeResolveRowMedia
 } from "../src/workspace/databaseRowPresentation.js";
 import {
@@ -72,9 +73,8 @@ import {
   type ResolvedPropertyDefinition
 } from "../src/workspace/databaseProperty.js";
 import type {
+  DatabaseFeedRowMediaRequest,
   DatabaseRowMedia,
-  DatabaseRowMediaRequest,
-  DatabaseRowMediaViewType,
   DatabaseViewRuntime
 } from "../src/workspace/databaseViewRuntime.js";
 
@@ -1369,9 +1369,9 @@ describe("4F-4D — FeedRenderer", () => {
     await cleanup();
   });
 
-  it("media: viewType===feed; Gallery remains gallery; placeholders; alt fallback", async () => {
+  it("media: resolveFeedRowMedia viewType===feed; Gallery resolveRowMedia remains gallery", async () => {
     const opaqueKey = 'gal"><script>';
-    const seen: DatabaseRowMediaRequest[] = [];
+    const seen: DatabaseFeedRowMediaRequest[] = [];
     const provider = createChartFeedProvider([
       {
         rowKey: opaqueKey,
@@ -1450,8 +1450,8 @@ describe("4F-4D — FeedRenderer", () => {
       legacySchema: snap.schema,
       definitions: snap.meta?.propertyDefinitions
     });
-    const resolveRowMedia = (
-      request: DatabaseRowMediaRequest
+    const resolveFeedRowMedia = (
+      request: DatabaseFeedRowMediaRequest
     ): DatabaseRowMedia | null => {
       seen.push(request);
       if (request.rowKey === "throw") throw new Error("resolver failed");
@@ -1474,7 +1474,7 @@ describe("4F-4D — FeedRenderer", () => {
         definitions,
         viewId: "main-feed",
         viewType: "feed",
-        runtime: { store, database: provider, resolveRowMedia }
+        runtime: { store, database: provider, resolveFeedRowMedia }
       })
     );
     expect(seen.every((r) => r.viewType === "feed")).toBe(true);
@@ -1497,8 +1497,8 @@ describe("4F-4D — FeedRenderer", () => {
     expect(feed.host.textContent).toContain("Throws");
     await feed.cleanup();
 
-    // Gallery remains gallery for media compat.
-    const gallerySeen: DatabaseRowMediaViewType[] = [];
+    // Gallery still uses resolveRowMedia with viewType "gallery" only.
+    const gallerySeen: Array<"gallery"> = [];
     const gallery = await mount(
       GalleryRenderer,
       buildContext({
@@ -1520,11 +1520,6 @@ describe("4F-4D — FeedRenderer", () => {
     expect(gallerySeen.length).toBeGreaterThan(0);
     expect(gallerySeen.every((v) => v === "gallery")).toBe(true);
     await gallery.cleanup();
-
-    // Host can branch on viewType gallery|feed via the typed union.
-    const branch: DatabaseRowMediaViewType[] = ["gallery", "feed"];
-    expect(branch).toContain("feed");
-    expect(branch).toContain("gallery");
   });
 
   it("host mutates request.row → RuntimeStore + provider unchanged, updateRow 0", async () => {
@@ -1554,9 +1549,9 @@ describe("4F-4D — FeedRenderer", () => {
     const storeRowBefore = snap.items[0]!.row;
 
     let seenRequestRow: Record<string, JsonValue> | undefined;
-    const resolveRowMedia = (
+    const resolveFeedRowMedia = (
       request: Parameters<
-        NonNullable<DatabaseViewRuntime["resolveRowMedia"]>
+        NonNullable<DatabaseViewRuntime["resolveFeedRowMedia"]>
       >[0]
     ): null => {
       seenRequestRow = request.row as Record<string, JsonValue>;
@@ -1580,7 +1575,7 @@ describe("4F-4D — FeedRenderer", () => {
         store,
         definitions,
         viewType: "feed",
-        runtime: { store, database: provider, resolveRowMedia }
+        runtime: { store, database: provider, resolveFeedRowMedia }
       })
     );
 
@@ -1599,7 +1594,7 @@ describe("4F-4D — FeedRenderer", () => {
     await cleanup();
   });
 
-  it("Runtime A vs B media isolation", async () => {
+  it("Runtime A vs B Feed media isolation", async () => {
     const provider = createChartFeedProvider([SEED_ROWS[0]!]);
     const store = await readyStore(provider);
     const snap = store.getView("tasks::main");
@@ -1616,13 +1611,13 @@ describe("4F-4D — FeedRenderer", () => {
     const rootB = createRoot(hostB);
 
     const resolveA = vi.fn(
-      (_request: DatabaseRowMediaRequest): DatabaseRowMedia => ({
+      (_request: DatabaseFeedRowMediaRequest): DatabaseRowMedia => ({
         src: "data:image/svg+xml,A",
         alt: "A"
       })
     );
     const resolveB = vi.fn(
-      (_request: DatabaseRowMediaRequest): DatabaseRowMedia => ({
+      (_request: DatabaseFeedRowMediaRequest): DatabaseRowMedia => ({
         src: "data:image/svg+xml,B",
         alt: "B"
       })
@@ -1637,7 +1632,11 @@ describe("4F-4D — FeedRenderer", () => {
             store,
             definitions,
             viewType: "feed",
-            runtime: { store, database: provider, resolveRowMedia: resolveA }
+            runtime: {
+              store,
+              database: provider,
+              resolveFeedRowMedia: resolveA
+            }
           })
         )
       );
@@ -1649,7 +1648,11 @@ describe("4F-4D — FeedRenderer", () => {
             store,
             definitions,
             viewType: "feed",
-            runtime: { store, database: provider, resolveRowMedia: resolveB }
+            runtime: {
+              store,
+              database: provider,
+              resolveFeedRowMedia: resolveB
+            }
           })
         )
       );
@@ -1768,25 +1771,25 @@ describe("4F-4D — EditorDocument identity-only", () => {
     expect(serialized).not.toContain("metric");
     expect(serialized).not.toContain("aggregation");
     expect(serialized).not.toContain("resolveRowMedia");
+    expect(serialized).not.toContain("resolveFeedRowMedia");
     expect(serialized).not.toContain("data:image");
   });
 });
 
-// —— safeResolveRowMedia feed/gallery API ——
+// —— 4F-4D R1 media API: Gallery contract preserved; Feed additive ——
 
-describe("4F-4D — safeResolveRowMedia gallery|feed API", () => {
-  it("host can branch on viewType gallery|feed", () => {
-    const seen: DatabaseRowMediaViewType[] = [];
+describe("4F-4D R1 — Gallery resolveRowMedia + additive resolveFeedRowMedia", () => {
+  it("safeResolveRowMedia is Gallery-only; Feed uses safeResolveFeedRowMedia", () => {
+    const gallerySeen: Array<"gallery"> = [];
+    const feedSeen: Array<"feed"> = [];
     const runtime: DatabaseViewRuntime = {
       resolveRowMedia: (request) => {
-        seen.push(request.viewType);
-        if (request.viewType === "feed") {
-          return { src: "https://example.test/feed.png" };
-        }
-        if (request.viewType === "gallery") {
-          return { src: "https://example.test/gallery.png" };
-        }
-        return null;
+        gallerySeen.push(request.viewType);
+        return { src: "https://example.test/gallery.png" };
+      },
+      resolveFeedRowMedia: (request) => {
+        feedSeen.push(request.viewType);
+        return { src: "https://example.test/feed.png" };
       }
     };
     const base = {
@@ -1796,11 +1799,33 @@ describe("4F-4D — safeResolveRowMedia gallery|feed API", () => {
       viewId: "main"
     };
     expect(
-      safeResolveRowMedia(runtime, { ...base, viewType: "feed" })?.src
-    ).toBe("https://example.test/feed.png");
-    expect(
       safeResolveRowMedia(runtime, { ...base, viewType: "gallery" })?.src
     ).toBe("https://example.test/gallery.png");
-    expect(seen).toEqual(["feed", "gallery"]);
+    expect(
+      safeResolveFeedRowMedia(runtime, { ...base, viewType: "feed" })?.src
+    ).toBe("https://example.test/feed.png");
+    // Gallery resolver must not be invoked for Feed.
+    expect(gallerySeen).toEqual(["gallery"]);
+    expect(feedSeen).toEqual(["feed"]);
+  });
+
+  it("legacy Gallery-only callback parameter remains assignable to DatabaseViewRuntime", () => {
+    type LegacyGalleryRequest = {
+      databaseId: string;
+      rowKey: string;
+      row: Readonly<Record<string, JsonValue>>;
+      viewId: string;
+      viewType: "gallery";
+    };
+    const legacyGalleryResolver = (
+      request: LegacyGalleryRequest
+    ): DatabaseRowMedia | null => {
+      void request;
+      return null;
+    };
+    const runtime: DatabaseViewRuntime = {
+      resolveRowMedia: legacyGalleryResolver
+    };
+    expect(runtime.resolveRowMedia).toBe(legacyGalleryResolver);
   });
 });

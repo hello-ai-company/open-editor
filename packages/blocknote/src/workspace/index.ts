@@ -94,12 +94,15 @@ export {
   resolveDatabaseCardPreviewFields,
   resolveDatabaseRowSecondaryText,
   resolveDatabaseRowTitle,
+  safeResolveFeedRowMedia,
   safeResolveRowMedia,
   type DatabaseRowPresentation,
   type DatabaseRowPreviewField
 } from "./databaseRowPresentation.js";
 
 export type {
+  DatabaseAnyRowMediaRequest,
+  DatabaseFeedRowMediaRequest,
   DatabaseRowMedia,
   DatabaseRowMediaRequest,
   DatabaseRowMediaViewType

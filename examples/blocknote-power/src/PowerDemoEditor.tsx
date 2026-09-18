@@ -158,11 +158,19 @@ export function PowerDemoEditor() {
         },
         resolveRowMedia: (request) => {
           if (request.databaseId !== "tasks") return null;
-          // Gallery + Feed share one host seam; viewType is "gallery" | "feed".
-          if (request.viewType !== "gallery" && request.viewType !== "feed") {
-            return null;
-          }
           // Deterministic tiny SVG data URL from rowKey (never stored in EditorDocument).
+          const hue =
+            Math.abs(
+              [...request.rowKey].reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
+            ) % 360;
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="48" viewBox="0 0 64 48"><rect width="64" height="48" fill="hsl(${hue} 28% 72%)"/><text x="32" y="28" text-anchor="middle" font-size="10" fill="#44403c">${request.rowKey.slice(0, 6)}</text></svg>`;
+          return {
+            src: `data:image/svg+xml,${encodeURIComponent(svg)}`,
+            alt: request.rowKey
+          };
+        },
+        resolveFeedRowMedia: (request) => {
+          if (request.databaseId !== "tasks") return null;
           const hue =
             Math.abs(
               [...request.rowKey].reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
