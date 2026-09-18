@@ -92,7 +92,6 @@ export function ListRenderer(
                 <ul
                   className="oe-database-list__chips"
                   aria-label={`Properties for ${rowTitle}`}
-                  id={`${baseId}-${item.rowKey}-chips`}
                 >
                   {previewFields.map(({ def, text }) => (
                     <li key={def.id} className="oe-database-list__chip">

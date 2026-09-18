@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   buildDatabaseRowPresentation,
+  cloneDatabaseRowRecord,
   safeResolveRowMedia
 } from "./databaseRowPresentation.js";
 import type { DatabaseViewRendererContext } from "./databaseViewRenderers.js";
@@ -66,10 +67,11 @@ export function GalleryRenderer(
           const { title: cardTitle, secondaryText, previewFields } =
             presentation;
 
+          // Defensive deep clone — never hand RuntimeStore live row refs to host.
           const media = safeResolveRowMedia(runtime, {
             databaseId: snap.databaseId,
             rowKey: item.rowKey,
-            row: item.row,
+            row: cloneDatabaseRowRecord(item.row),
             viewId,
             viewType: "gallery"
           });
@@ -117,7 +119,6 @@ export function GalleryRenderer(
                 <ul
                   className="oe-database-gallery__chips"
                   aria-label={`Properties for ${cardTitle}`}
-                  id={`${baseId}-${item.rowKey}-chips`}
                 >
                   {previewFields.map(({ def, text }) => (
                     <li key={def.id} className="oe-database-gallery__chip">

@@ -192,6 +192,7 @@ export {
   resolveDatabaseRowSecondaryText,
   resolveDatabaseRowTitle,
   resolveDatabaseViewRenderer,
+  cloneDatabaseRowRecord,
   safeResolveRowMedia,
   validateDatabaseFilter,
   validateDatabaseFilters,

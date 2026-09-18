@@ -30,6 +30,7 @@ import {
 } from "@hello-ai-company/editor-core";
 import {
   buildDatabaseRowPresentation,
+  cloneDatabaseRowRecord,
   resolveDatabaseRowSecondaryText,
   resolveDatabaseRowTitle,
   safeResolveRowMedia
@@ -455,21 +456,19 @@ describe("4F-4B — resolveDatabaseRowSecondaryText", () => {
     ).toBeUndefined();
   });
 
-  it("uses first text property when no title id exists", () => {
+  it("excludes the title-source property when title falls back to first text", () => {
     const name = typed({ id: "name", name: "Name", type: "text" });
     const blurb = typed({ id: "blurb", name: "Blurb", type: "text" });
-    expect(
-      resolveDatabaseRowSecondaryText(row("r4", { name: "N", blurb: "B" }), [
-        name,
-        blurb
-      ])
-    ).toBe("N");
-    // When first text is used as title by resolveDatabaseRowTitle, secondary
-    // still returns first non-title-id text (name is not id "title").
-    expect(resolveDatabaseRowTitle(row("r4", { name: "N", blurb: "B" }), [
-      name,
-      blurb
-    ])).toBe("N");
+    const item = row("r4", { name: "N", blurb: "B" });
+    expect(resolveDatabaseRowTitle(item, [name, blurb])).toBe("N");
+    // R1: secondary must not reuse the same property that supplied the title.
+    expect(resolveDatabaseRowSecondaryText(item, [name, blurb])).toBe("B");
+    const presentation = buildDatabaseRowPresentation(item, [name, blurb]);
+    expect(presentation).toEqual({
+      title: "N",
+      secondaryText: "B",
+      previewFields: []
+    });
   });
 
   it("buildDatabaseRowPresentation caps preview and excludes secondary field", () => {
@@ -1088,5 +1087,181 @@ describe("4F-4B — EditorDocument identity-only (no media)", () => {
     expect(serialized).not.toContain("data:image");
     expect(serialized).not.toContain('"src"');
     expect(serialized).not.toContain("secondaryText");
+  });
+});
+
+// —— 4F-4B R1 ——
+
+describe("4F-4B R1 — media row isolation / title-secondary / opaque HTML ids", () => {
+  it("P1-1: resolveRowMedia cannot mutate RuntimeStore or provider rows", async () => {
+    const nested: Record<string, JsonValue> = {
+      deep: { label: "keep" }
+    };
+    const provider = createListGalleryProvider([
+      {
+        rowKey: "a",
+        sortOrder: 0,
+        deletedAt: null,
+        row: {
+          title: "Alpha",
+          summary: "First task",
+          status: "todo",
+          due: "2026-09-01",
+          done: false,
+          meta: nested
+        }
+      }
+    ]);
+    const updateSpy = vi.spyOn(provider, "updateRow");
+    const store = await readyStore(provider);
+    const snap = store.getView("tasks::main");
+    const storeRowBefore = snap.items[0]!.row;
+    expect(storeRowBefore.title).toBe("Alpha");
+
+    let seenRequestRow: Record<string, JsonValue> | undefined;
+    const resolveRowMedia = (
+      request: Parameters<
+        NonNullable<DatabaseViewRuntime["resolveRowMedia"]>
+      >[0]
+    ): null => {
+      seenRequestRow = request.row as Record<string, JsonValue>;
+      // Hostile host: mutate request.row without going through provider.
+      (request.row as Record<string, JsonValue>).title = "MUTATED";
+      const meta = request.row.meta as Record<string, JsonValue> | undefined;
+      if (meta && typeof meta === "object" && !Array.isArray(meta)) {
+        const deep = meta.deep as Record<string, JsonValue> | undefined;
+        if (deep) deep.label = "MUTATED_NESTED";
+      }
+      return null;
+    };
+
+    const definitions = resolveDatabasePropertyDefinitions({
+      legacySchema: snap.schema,
+      definitions: snap.meta?.propertyDefinitions
+    });
+    const { cleanup } = await mount(
+      GalleryRenderer,
+      buildContext({
+        snapshot: snap,
+        store,
+        definitions,
+        viewType: "gallery",
+        runtime: { store, database: provider, resolveRowMedia }
+      })
+    );
+
+    expect(seenRequestRow).toBeTruthy();
+    // Request row must be a defensive clone, not the live store object.
+    expect(seenRequestRow).not.toBe(store.getView("tasks::main").items[0]!.row);
+    expect(cloneDatabaseRowRecord(storeRowBefore).title).toBe("Alpha");
+
+    const after = store.getView("tasks::main");
+    expect(after.items[0]!.row.title).toBe("Alpha");
+    const afterMeta = after.items[0]!.row.meta as
+      | { deep?: { label?: string } }
+      | undefined;
+    expect(afterMeta?.deep?.label).toBe("keep");
+    expect(provider.rows[0]!.row.title).toBe("Alpha");
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(provider.updateCalls).toBe(0);
+
+    await cleanup();
+  });
+
+  it("P1-2: title fallback property is excluded from secondary and chips", () => {
+    const name = typed({ id: "name", name: "Name", type: "text" });
+    const blurb = typed({ id: "blurb", name: "Blurb", type: "text" });
+    const status = typed({
+      id: "status",
+      name: "Status",
+      type: "status",
+      options: [{ value: "todo", label: "Backlog" }]
+    });
+    const item = row("x", { name: "N", blurb: "B", status: "todo" });
+    const presentation = buildDatabaseRowPresentation(item, [
+      name,
+      blurb,
+      status
+    ]);
+    expect(presentation.title).toBe("N");
+    expect(presentation.secondaryText).toBe("B");
+    expect(
+      presentation.previewFields.map((f) => f.def.id)
+    ).not.toContain("name");
+    expect(
+      presentation.previewFields.map((f) => f.def.id)
+    ).not.toContain("blurb");
+  });
+
+  it("P1-3: List/Gallery do not put raw opaque rowKey into HTML id", async () => {
+    const opaqueKey = 'a b:c/d"quoted"';
+    const provider = createListGalleryProvider([
+      {
+        rowKey: opaqueKey,
+        sortOrder: 0,
+        deletedAt: null,
+        row: {
+          title: "Opaque Id",
+          summary: "Secondary",
+          status: "todo",
+          due: "",
+          done: false
+        }
+      }
+    ]);
+    const store = await readyStore(provider);
+    const snap = store.getView("tasks::main");
+    const definitions = resolveDatabasePropertyDefinitions({
+      legacySchema: snap.schema,
+      definitions: snap.meta?.propertyDefinitions
+    });
+
+    const list = await mount(
+      ListRenderer,
+      buildContext({
+        snapshot: snap,
+        store,
+        definitions,
+        viewType: "list",
+        runtime: { store, database: provider }
+      })
+    );
+    const listIds = Array.from(list.host.querySelectorAll("[id]")).map(
+      (el) => el.id
+    );
+    for (const id of listIds) {
+      expect(id.includes(opaqueKey)).toBe(false);
+      expect(id).not.toMatch(/a b:c/);
+    }
+    expect(
+      list.host
+        .querySelector(".oe-database-list__row")
+        ?.getAttribute("data-row-key")
+    ).toBe(opaqueKey);
+    await list.cleanup();
+
+    const gallery = await mount(
+      GalleryRenderer,
+      buildContext({
+        snapshot: snap,
+        store,
+        definitions,
+        viewType: "gallery",
+        runtime: { store, database: provider }
+      })
+    );
+    const galleryIds = Array.from(gallery.host.querySelectorAll("[id]")).map(
+      (el) => el.id
+    );
+    for (const id of galleryIds) {
+      expect(id.includes(opaqueKey)).toBe(false);
+      expect(id).not.toMatch(/a b:c/);
+    }
+    expect(
+      gallery.host
+        .querySelector(".oe-database-gallery__card")
+        ?.getAttribute("data-row-key")
+    ).toBe(opaqueKey);
+    await gallery.cleanup();
   });
 });

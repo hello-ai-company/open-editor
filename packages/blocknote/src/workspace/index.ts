@@ -89,6 +89,7 @@ export {
 
 export {
   buildDatabaseRowPresentation,
+  cloneDatabaseRowRecord,
   formatDatabaseCardFieldValue,
   resolveDatabaseCardPreviewFields,
   resolveDatabaseRowSecondaryText,

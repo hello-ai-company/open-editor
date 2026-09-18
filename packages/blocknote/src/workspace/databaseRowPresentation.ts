@@ -1,5 +1,5 @@
 /**
- * Shared row presentation helpers for Board / Calendar / List / Gallery (4F-4A / 4F-4B).
+ * Shared row presentation helpers for Board / Calendar / List / Gallery (4F-4A / 4F-4B / R1).
  */
 import type { DatabaseRowItem, JsonValue } from "@hello-ai-company/editor-core";
 import {
@@ -17,6 +17,52 @@ type RowLike =
   | DatabaseRowItem
   | { rowKey: string; row: Record<string, JsonValue> };
 
+/** Which text property supplied the title, when any. */
+type TitleResolution = {
+  text: string;
+  /** Property id used for the title text; omitted when title falls back to rowKey. */
+  propertyId?: string;
+};
+
+/**
+ * Deep-clone a row record for host presentation seams (e.g. resolveRowMedia).
+ * Never pass RuntimeStore live row references to host callbacks.
+ */
+export function cloneDatabaseRowRecord(
+  row: Readonly<Record<string, JsonValue>>
+): Record<string, JsonValue> {
+  // JsonValue is JSON-serializable; deep clone so nested objects/arrays are isolated.
+  return JSON.parse(JSON.stringify(row)) as Record<string, JsonValue>;
+}
+
+/**
+ * Resolve title text and the property (if any) that produced it.
+ *
+ * 1. property id `"title"` when type is text and non-empty
+ * 2. otherwise first text property with non-empty display
+ * 3. otherwise rowKey (no propertyId)
+ */
+function resolveDatabaseRowTitleSource(
+  row: RowLike,
+  definitions: readonly ResolvedPropertyDefinition[]
+): TitleResolution {
+  const titleDef = definitions.find(
+    (d) => d.id === "title" && d.type === "text"
+  );
+  if (titleDef) {
+    const raw = row.row[titleDef.id];
+    const text = formatDatabaseCellDisplay(raw, "text").trim();
+    if (text) return { text, propertyId: titleDef.id };
+  }
+  const firstText = definitions.find((d) => d.type === "text");
+  if (firstText) {
+    const raw = row.row[firstText.id];
+    const text = formatDatabaseCellDisplay(raw, "text").trim();
+    if (text) return { text, propertyId: firstText.id };
+  }
+  return { text: row.rowKey };
+}
+
 /**
  * Resolve a compact display title for a row.
  *
@@ -28,32 +74,23 @@ export function resolveDatabaseRowTitle(
   row: RowLike,
   definitions: readonly ResolvedPropertyDefinition[]
 ): string {
-  const titleDef = definitions.find(
-    (d) => d.id === "title" && d.type === "text"
-  );
-  if (titleDef) {
-    const raw = row.row[titleDef.id];
-    const text = formatDatabaseCellDisplay(raw, "text").trim();
-    if (text) return text;
-  }
-  const firstText = definitions.find((d) => d.type === "text");
-  if (firstText) {
-    const raw = row.row[firstText.id];
-    const text = formatDatabaseCellDisplay(raw, "text").trim();
-    if (text) return text;
-  }
-  return row.rowKey;
+  return resolveDatabaseRowTitleSource(row, definitions).text;
 }
 
 /**
- * First non-title text property with a non-empty string value.
+ * First text property that was not used as the row title, with a non-empty string value.
  * Never JSON-dumps objects; never assumes a `"content"` property id.
  */
 export function resolveDatabaseRowSecondaryText(
   row: RowLike,
   definitions: readonly ResolvedPropertyDefinition[]
 ): string | undefined {
+  const titleSource = resolveDatabaseRowTitleSource(row, definitions);
   for (const def of definitions) {
+    if (titleSource.propertyId !== undefined && def.id === titleSource.propertyId) {
+      continue;
+    }
+    // Also skip the conventional title id even when empty / unused as display title.
     if (def.id === "title" && def.type === "text") continue;
     if (def.type !== "text") continue;
     const raw = row.row[def.id];
@@ -120,16 +157,20 @@ export function buildDatabaseRowPresentation(
     excludePropertyIds?: ReadonlySet<string>;
   } = {}
 ): DatabaseRowPresentation {
-  const title = resolveDatabaseRowTitle(row, definitions);
+  const titleSource = resolveDatabaseRowTitleSource(row, definitions);
+  const title = titleSource.text;
   const secondaryText = resolveDatabaseRowSecondaryText(row, definitions);
   const max = options.maxPreviewFields ?? 5;
   const exclude = new Set(options.excludePropertyIds ?? []);
+  if (titleSource.propertyId !== undefined) {
+    exclude.add(titleSource.propertyId);
+  }
 
   // Avoid duplicating the secondary text field in chips when it matches a text property.
   if (secondaryText !== undefined) {
     for (const def of definitions) {
       if (def.type !== "text") continue;
-      if (def.id === "title") continue;
+      if (exclude.has(def.id)) continue;
       const raw = row.row[def.id];
       if (typeof raw === "string" && raw.trim() === secondaryText) {
         exclude.add(def.id);
@@ -156,6 +197,7 @@ export function buildDatabaseRowPresentation(
 
 /**
  * Host media resolver with fail-closed behavior for Gallery cards.
+ * Caller must pass a defensive row clone — never a RuntimeStore live reference.
  */
 export function safeResolveRowMedia(
   runtime: Pick<DatabaseViewRuntime, "resolveRowMedia">,
