@@ -41,6 +41,24 @@ BlockNote-layer UX on top of these contracts (no core changes):
 
 See [workspace-interaction.md](./workspace-interaction.md) and [personal-ai-parity.md](./personal-ai-parity.md).
 
+## Database interaction (Phase 4F-3A / 4F-3B)
+
+`DatabaseProvider` supplies rows for `databaseView` blocks (never embed row arrays in the document).
+
+Phase 4F-3B adds **optional** typed metadata on `EditorDatabase`:
+
+- `propertyDefinitions` — portable property types / options / readOnly
+- `queryCapabilities.propertyFilters` / `propertySort` — fail-closed advanced query UX
+
+and **optional** fields on `DatabaseListOptions`:
+
+- `filters` — AND `DatabaseFilter[]` (host executes)
+- `propertySort` — mutually exclusive with legacy `sortBy`/`direction` when set by OpenEditor
+
+Legacy hosts that only implement `listRows` continue to compile and run unchanged.
+
+See [database-table-interaction.md](./database-table-interaction.md) and [personal-ai-parity.md](./personal-ai-parity.md).
+
 ## Forbidden host methods
 
 These identifiers must not appear in `providers.ts`:

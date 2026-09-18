@@ -70,33 +70,31 @@ void isEmpty;
 
 // --- Invalid combinations fail ---
 
+declare function assertFilter(filter: DatabaseFilter): void;
+
 // @ts-expect-error number property cannot use text operator "contains"
-const badNumberContains: DatabaseFilter = {
+assertFilter({
   propertyId: "score",
   propertyType: "number",
   operator: "contains",
   value: "x"
-};
+});
 
-// @ts-expect-error boolean "is" requires boolean value, not string
-const badBooleanValue: DatabaseFilter = {
+assertFilter({
   propertyId: "done",
   propertyType: "boolean",
   operator: "is",
+  // @ts-expect-error boolean "is" requires boolean value, not string
   value: "true"
-};
+});
 
 // @ts-expect-error status cannot use numeric operator "gt"
-const badStatusGt: DatabaseFilter = {
+assertFilter({
   propertyId: "status",
   propertyType: "status",
   operator: "gt",
   value: "done"
-};
-
-void badNumberContains;
-void badBooleanValue;
-void badStatusGt;
+});
 
 // --- Property sort / capabilities / definitions ---
 

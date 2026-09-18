@@ -229,7 +229,7 @@ function snapshotQueryState(
 ): DatabaseViewQueryState {
   return {
     ...state,
-    filters: cloneFilters(state.filters),
+    filters: Object.freeze(cloneFilters(state.filters)),
     propertySort: clonePropertySort(state.propertySort)
   };
 }
