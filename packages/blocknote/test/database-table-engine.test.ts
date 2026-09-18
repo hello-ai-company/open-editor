@@ -878,7 +878,9 @@ describe("4F-3A R2 — idle isolation + query key safety", () => {
       sortBy: "position" as const,
       direction: "asc" as const,
       trashMode: "active" as const,
-      pageSize: 10
+      pageSize: 10,
+      filters: [] as const,
+      propertySort: null
     };
     const keyA = buildDatabaseQueryKey("a|q=b", { ...base, query: "c" });
     const keyB = buildDatabaseQueryKey("a", { ...base, query: "b|q=c" });
