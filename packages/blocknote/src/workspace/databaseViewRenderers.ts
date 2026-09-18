@@ -45,8 +45,6 @@ export type DatabaseViewRendererMap = Partial<
 >;
 
 const DEFERRED_VIEWS = new Set<DatabaseViewType>([
-  "timeline",
-  "gantt",
   "chart",
   "feed",
   "map",

@@ -105,6 +105,7 @@ const TASKS_SCHEMA = {
   status: "status",
   score: "number",
   done: "boolean",
+  start: "date",
   due: "date",
   link: "url",
   formulaPreview: "formula"
@@ -124,6 +125,7 @@ const TASKS_DEFINITIONS: readonly DatabasePropertyDefinition[] = [
   },
   { id: "score", name: "Score", type: "number" },
   { id: "done", name: "Done", type: "boolean" },
+  { id: "start", name: "Start date", type: "date" },
   { id: "due", name: "Due date", type: "date" },
   { id: "link", name: "Link", type: "url" },
   {
@@ -221,6 +223,7 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         status: "done",
         score: 9,
         done: true,
+        start: "2026-08-28",
         due: "2026-09-01",
         link: "https://example.com/ux",
         formulaPreview: "score * 2"
@@ -235,6 +238,7 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         status: "doing",
         score: 7,
         done: false,
+        start: "2026-09-05",
         due: "2026-09-10",
         link: "",
         formulaPreview: "score * 2"
@@ -249,6 +253,7 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         status: "todo",
         score: 4,
         done: false,
+        start: "2026-09-15",
         due: "2026-09-20",
         link: "https://example.com/host",
         formulaPreview: "score * 2"
@@ -263,6 +268,7 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         status: "doing",
         score: 8,
         done: false,
+        start: "2026-09-08",
         due: "2026-09-12",
         link: "",
         formulaPreview: "score * 2"
@@ -277,6 +283,7 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         status: "todo",
         score: 2,
         done: false,
+        start: "2026-09-20",
         due: "2026-09-25",
         link: "",
         formulaPreview: "score * 2"
@@ -291,6 +298,7 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         status: "todo",
         score: 3,
         done: false,
+        start: "2026-09-25",
         due: "2026-09-30",
         link: "",
         formulaPreview: "score * 2"
@@ -305,6 +313,7 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         status: "",
         score: 1,
         done: false,
+        start: "2026-09-16",
         due: "2026-09-18",
         link: "",
         formulaPreview: "score * 2"
@@ -319,6 +328,7 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         status: "legacy-state",
         score: 1,
         done: false,
+        start: "2026-09-01",
         due: "2026-09-05",
         link: "",
         formulaPreview: "score * 2"
@@ -333,6 +343,7 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         status: "todo",
         score: 0,
         done: false,
+        start: "2026-09-18",
         due: "09/18/2026",
         link: "",
         formulaPreview: "score * 2"
@@ -347,6 +358,7 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
         status: "doing",
         score: 0,
         done: false,
+        start: "",
         due: "",
         link: "",
         formulaPreview: "score * 2"
@@ -380,7 +392,9 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
           { id: "main-board", title: "Board", viewType: "board" },
           { id: "main-calendar", title: "Calendar", viewType: "calendar" },
           { id: "main-list", title: "List", viewType: "list" },
-          { id: "main-gallery", title: "Gallery", viewType: "gallery" }
+          { id: "main-gallery", title: "Gallery", viewType: "gallery" },
+          { id: "main-timeline", title: "Timeline", viewType: "timeline" },
+          { id: "main-gantt", title: "Gantt", viewType: "gantt" }
         ]
       };
     },

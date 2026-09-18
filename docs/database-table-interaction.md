@@ -1,4 +1,4 @@
-# Database View Interaction (Phase 4F-3A / 4F-3B / 4F-4A / 4F-4B)
+# Database View Interaction (Phase 4F-3A / 4F-3B / 4F-4A / 4F-4B / 4F-4C)
 
 EditorDocument stores **database references / view identity**. The host owns **row entities and persistence**.
 
@@ -6,6 +6,7 @@ EditorDocument stores **database references / view identity**. The host owns **r
 > Phase 4F-3B filters and property sort are **ephemeral interaction state** — not saved view configuration.
 > Phase 4F-4A Board grouping and Calendar scale/cursor/date-property selection are also **ephemeral** — not EditorDocument.
 > Phase 4F-4B List/Gallery presentation (including host `resolveRowMedia`) is **ephemeral / host-owned** — media URLs never enter EditorDocument.
+> Phase 4F-4C Timeline/Gantt date-property selection and axis viewport are **ephemeral presentation** — never persisted.
 
 ```
 DatabaseRuntimeStore snapshot (snap.items)
@@ -15,13 +16,13 @@ Shared Database View Shell
   ├ title / search / filters / sort / refresh / trash / load more
   └ renderer dispatch
           │
-   ┌──────┼──────────┬──────────┬──────────┐
-   ▼      ▼          ▼          ▼          ▼
- Table   Board    Calendar    List     Gallery
-          │                      │          │
-          ▼                      ▼          ▼
+   ┌──────┬──────┬──────────┬──────┬─────────┬──────────┬───────┐
+   ▼      ▼      ▼          ▼      ▼         ▼          ▼
+ Table  Board Calendar     List  Gallery   Timeline    Gantt
+          │                                    │          │
+          ▼                                    ▼          ▼
  presentation-only transforms
- (group columns / date placement / row order display / host media)
+ (group / calendar / list / gallery / date axis / range bars)
 ```
 
 ```
@@ -79,7 +80,24 @@ Optional host seams (runtime, not document):
 | Row open | Same `onOpenRow` seam with `viewType: "list" \| "gallery"` |
 | Renderer override | `runtime.renderers.list` / `.gallery` per editor instance |
 
-Unsupported `viewType` values (timeline, gantt, chart, feed, map, dashboard) stay deferred.
+## Timeline & Gantt (4F-4C)
+
+| Concern | Behavior |
+| --- | --- |
+| Row source | Same `snap.items` (provider order); date axis is presentation-only |
+| Date contract | Canonical `YYYY-MM-DD` only (shared Calendar helpers + date-axis model) |
+| Timeline date property | First typed `date` by default; ephemeral selector by **property.id** (no name heuristics) |
+| Timeline placement | Valid dates on bounded axis; missing/invalid → trays; **never** invent Today |
+| Timeline mutation | Accessible date input (+ optional marker DnD) → complete-row `updateRow` |
+| Gantt start/end | Explicit date selectors; defaults first+second date (or same property = one-day milestone) |
+| Gantt ranges | Inclusive; `start > end` stays **invalid** (no silent swap); missing endpoint → incomplete |
+| Gantt range move | Preserve inclusive duration via civil-date arithmetic; both endpoints must be editable |
+| Axis ticks | Bounded (≈48 max) — huge spans (1900–2100) must not emit tens of thousands of DOM ticks |
+| Reorder | **Never** `reorderRows` from Timeline/Gantt |
+| Config persistence | Timeline/Gantt property selection + axis **never** enter EditorDocument |
+| Partial pages | Loaded-rows-only notice; axis bounds from loaded dates only |
+
+Unsupported `viewType` values (chart, feed, map, dashboard) stay deferred.
 
 ## Identity semantics
 
@@ -230,10 +248,11 @@ first-page reload — only `loadingMore` / `refreshing` are superseded.
 
 ## Non-goals (later)
 
-Timeline / gantt / chart / feed / map / dashboard /
-List drag reorder / List completion heuristics /
+Chart / feed / map / dashboard /
+List/Timeline/Gantt drag reorder / List completion heuristics /
+Gantt dependencies / critical path / progress /
 formulas / rollups / relation editors / schema designer /
-OR filters / multi-sort / saved views (`groupBy`, calendar scale) /
+OR filters / multi-sort / saved views (`groupBy`, calendar scale, timeline/gantt property picks) /
 Board within-column reorder / calendar datetime-timezone /
 Personal AI adapter / AG Grid /
 persisting gallery media into EditorDocument.
