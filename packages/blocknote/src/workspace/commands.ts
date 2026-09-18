@@ -127,11 +127,26 @@ export function createWorkspaceContentCommands(): EditorCommand[] {
         const create = ctx.providers?.pages?.createChildPage;
         if (!create) return;
         const cursor = ctx.editor.getTextCursorPosition();
-        const created = await create({
-          parentPageId: ctx.documentId,
-          title: "Untitled"
-        });
+
+        let title = "Untitled";
+        if (typeof ctx.requestChildPageCreate === "function") {
+          const details = await ctx.requestChildPageCreate();
+          if (!details) return;
+          const trimmed = details.title?.trim();
+          if (trimmed) title = trimmed;
+        }
+
+        let created: { id?: string; title?: string } | void;
+        try {
+          created = await create({
+            parentPageId: ctx.documentId,
+            title
+          });
+        } catch {
+          return;
+        }
         if (!created?.id) return;
+
         ctx.editor.transact(() => {
           ctx.editor.insertBlocks(
             [
@@ -139,7 +154,7 @@ export function createWorkspaceContentCommands(): EditorCommand[] {
                 type: CHILD_PAGE_TYPE,
                 props: {
                   pageId: created.id,
-                  titleHint: created.title ?? "Untitled"
+                  titleHint: created.title ?? title
                 }
               }
             ],

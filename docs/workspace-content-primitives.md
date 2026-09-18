@@ -144,6 +144,12 @@ createOpenEditorPowerPreset({ includeWorkspaceContent: false });
 
 Do not scan remote workspaces from the editor package.
 
+## Next: interaction layer
+
+Phase **4F-2C** turns these primitives into production UX (PageRuntimeStore,
+WorkspacePagePicker, `@` mentions, BacklinksPanel). See
+[workspace-interaction.md](./workspace-interaction.md).
+
 On block **update**, RelationIndex clears edges for the **previous** subtree
 (`prevBlock`) before inserting edges from the new subtree, so nested children
 that disappear cannot leave stale relations.

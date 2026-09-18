@@ -31,6 +31,16 @@ OpenEditor stores **references and view configuration** in `EditorDocument`. The
 await pages.createChildPage({ parentPageId: currentPageId, title: "Untitled" });
 ```
 
+## Workspace interaction (Phase 4F-2C)
+
+BlockNote-layer UX on top of these contracts (no core changes):
+
+- Instance-scoped `PageRuntimeStore` (cache / dedupe / stale protection)
+- `WorkspacePagePicker` + `@` mention suggestions
+- Production `BacklinksPanel` (outgoing RelationIndex + incoming BacklinkProvider)
+
+See [workspace-interaction.md](./workspace-interaction.md) and [personal-ai-parity.md](./personal-ai-parity.md).
+
 ## Forbidden host methods
 
 These identifiers must not appear in `providers.ts`:

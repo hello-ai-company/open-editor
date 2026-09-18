@@ -48,3 +48,20 @@ export {
   extractRelationEdges,
   type RelationIndex
 } from "./relationIndex.js";
+
+export {
+  createPageRuntimeStore,
+  createPageRuntimesFromStore,
+  snapshotToResolveResult,
+  type PageRuntimeStore,
+  type PageRuntimeStoreOptions,
+  type PageSnapshot,
+  type PageSnapshotStatus
+} from "./pageRuntimeStore.js";
+
+export {
+  createPageSearchEngine,
+  type PageSearchEngine,
+  type PageSearchEngineOptions,
+  type PageSearchRequest
+} from "./pageSearch.js";

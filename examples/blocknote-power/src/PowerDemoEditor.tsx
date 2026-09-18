@@ -12,7 +12,8 @@ import {
   bindBlockReferenceRuntimeToIndex,
   createDocumentIndex,
   createOpenEditorPowerPreset,
-  createPageMentionResolverFromLinks,
+  createPageRuntimeStore,
+  createPageRuntimesFromStore,
   createRelationIndex,
   fromBlockNote,
   getPowerSlashItems,
@@ -25,12 +26,13 @@ import {
 import {
   BacklinksPanel,
   BlockActionMenu,
+  createPageMentionSuggestionGetItems,
   DocumentOutline,
   jumpToBlock,
-  PageMentionPicker,
   QuickNav,
   useDocumentOutline,
-  useQuickNavShortcut
+  useQuickNavShortcut,
+  WorkspacePagePicker
 } from "@hello-ai-company/editor-blocknote/react";
 import { serializeEditorDocument } from "@hello-ai-company/editor-core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -40,6 +42,7 @@ import {
   createDemoPageStore
 } from "./demoProviders";
 import { sampleDocument } from "./sampleDocument";
+import type { EditorPageLink } from "@hello-ai-company/editor-core";
 
 export function PowerDemoEditor() {
   const index = useMemo(() => createDocumentIndex(), []);
@@ -91,6 +94,33 @@ export function PowerDemoEditor() {
     ((page: { pageId: string; title?: string } | null) => void) | null
   >(null);
   const [pagePickOpen, setPagePickOpen] = useState(false);
+  const [pagePickMode, setPagePickMode] = useState<"mention" | "card" | "generic">(
+    "generic"
+  );
+  const childCreateResolverRef = useRef<
+    ((details: { title?: string } | null) => void) | null
+  >(null);
+  const [childCreateOpen, setChildCreateOpen] = useState(false);
+  const [childTitle, setChildTitle] = useState("Untitled");
+  const [removedPage, setRemovedPage] = useState<EditorPageLink | null>(null);
+
+  const pageRuntimeStore = useMemo(
+    () =>
+      createPageRuntimeStore({
+        getPage: async (pageId) =>
+          (await pageStore.provider.getPage?.(pageId)) ?? null
+      }),
+    [pageStore]
+  );
+
+  useEffect(() => {
+    return pageStore.subscribe(() => {
+      setPageRevision((n) => n + 1);
+      for (const page of pageStore.pages) {
+        pageRuntimeStore.prime(page);
+      }
+    });
+  }, [pageStore, pageRuntimeStore]);
 
   const resolvePages = useCallback(() => {
     void pageRevision;
@@ -98,40 +128,23 @@ export function PowerDemoEditor() {
   }, [pageStore, pageRevision]);
 
   const preset = useMemo(() => {
+    const runtimes = createPageRuntimesFromStore(pageRuntimeStore, {
+      onOpen: (pageId) => pageStore.provider.openPage?.(pageId)
+    });
     const next = createOpenEditorPowerPreset({
       blockReferenceRuntime: {
         onNavigate: () => undefined
       },
-      pageMentionRuntime: {
-        resolve: createPageMentionResolverFromLinks(resolvePages),
-        onNavigate: (pageId) => pageStore.provider.openPage?.(pageId),
-        subscribe: (listener) => pageStore.subscribe(listener)
-      },
-      pageCardRuntime: {
-        resolve: (pageId) => {
-          const page = pageStore.pages.find((entry) => entry.id === pageId);
-          if (!page) return { title: "", missing: true };
-          return { title: page.title, preview: page.preview };
-        },
-        onOpen: (pageId) => pageStore.provider.openPage?.(pageId),
-        subscribe: (listener) => pageStore.subscribe(listener)
-      },
-      childPageRuntime: {
-        resolve: (pageId) => {
-          const page = pageStore.pages.find((entry) => entry.id === pageId);
-          if (!page) return { title: "", missing: true };
-          return { title: page.title, preview: page.preview };
-        },
-        onOpen: (pageId) => pageStore.provider.openPage?.(pageId),
-        subscribe: (listener) => pageStore.subscribe(listener)
-      },
+      pageMentionRuntime: runtimes.pageMentionRuntime,
+      pageCardRuntime: runtimes.pageCardRuntime,
+      childPageRuntime: runtimes.childPageRuntime,
       databaseViewRuntime: {
         database: databaseProvider
       }
     });
     bindBlockReferenceRuntimeToIndex(next.blockReferenceRuntime, index);
     return next;
-  }, [databaseProvider, index, pageStore, resolvePages]);
+  }, [databaseProvider, index, pageRuntimeStore, pageStore]);
 
   const options = useMemo(() => preset.editorOptions(), [preset]);
   const initialContent = useMemo(
@@ -149,21 +162,23 @@ export function PowerDemoEditor() {
       jumpToBlock(editor as never, blockId);
     };
     bindBlockReferenceRuntimeToIndex(preset.blockReferenceRuntime, index);
-    preset.pageMentionRuntime.resolve =
-      createPageMentionResolverFromLinks(resolvePages);
-    preset.pageMentionRuntime.onNavigate = (pageId) =>
-      pageStore.provider.openPage?.(pageId);
-    preset.pageCardRuntime.resolve = (pageId) => {
-      const page = pageStore.pages.find((entry) => entry.id === pageId);
-      if (!page) return { title: "", missing: true };
-      return { title: page.title, preview: page.preview };
-    };
-    preset.childPageRuntime.resolve = (pageId) => {
-      const page = pageStore.pages.find((entry) => entry.id === pageId);
-      if (!page) return { title: "", missing: true };
-      return { title: page.title, preview: page.preview };
-    };
-  }, [editor, index, pageStore, preset, resolvePages]);
+    // Prime initial catalog into the runtime store
+    for (const page of pageStore.pages) {
+      pageRuntimeStore.prime(page);
+    }
+  }, [editor, index, pageRuntimeStore, pageStore, preset]);
+
+  const getMentionItems = useMemo(
+    () =>
+      createPageMentionSuggestionGetItems({
+        provider: pageStore.provider,
+        getPages: resolvePages,
+        excludePageId: "demo",
+        editor: editor as never,
+        onSelect: (page) => pageRuntimeStore.prime(page)
+      }),
+    [editor, pageRuntimeStore, pageStore.provider, resolvePages]
+  );
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
@@ -189,12 +204,20 @@ export function PowerDemoEditor() {
   const requestPagePick = useCallback(() => {
     return new Promise<{ pageId: string; title?: string } | null>((resolve) => {
       pagePickResolverRef.current = resolve;
+      setPagePickMode("generic");
       setPagePickOpen(true);
     });
   }, []);
 
+  const requestChildPageCreate = useCallback(() => {
+    return new Promise<{ title?: string } | null>((resolve) => {
+      childCreateResolverRef.current = resolve;
+      setChildTitle("Untitled");
+      setChildCreateOpen(true);
+    });
+  }, []);
+
   const requestDatabaseViewPick = useCallback(async () => {
-    // Host-owned selection — never invent a databaseId in the editor command.
     return {
       databaseId: "tasks",
       viewId: "main-table",
@@ -211,6 +234,7 @@ export function PowerDemoEditor() {
       requestBlockPick,
       requestPagePick,
       requestDatabaseViewPick,
+      requestChildPageCreate,
       providers: {
         pages: pageStore.provider,
         database: databaseProvider,
@@ -224,6 +248,7 @@ export function PowerDemoEditor() {
       index,
       pageStore.provider,
       requestBlockPick,
+      requestChildPageCreate,
       requestDatabaseViewPick,
       requestPagePick
     ]
@@ -284,6 +309,12 @@ export function PowerDemoEditor() {
     []
   );
 
+  const closeChildCreate = useCallback((details: { title?: string } | null) => {
+    childCreateResolverRef.current?.(details);
+    childCreateResolverRef.current = null;
+    setChildCreateOpen(false);
+  }, []);
+
   return (
     <div className="demo-shell" data-oe-theme={themeAttr}>
       <header className="demo-top">
@@ -321,6 +352,39 @@ export function PowerDemoEditor() {
             onClick={() => setActionsOpen((v) => !v)}
           >
             Block
+          </button>
+          <button
+            type="button"
+            className="chip"
+            onClick={() => {
+              pageStore.rename("architecture", "System Architecture");
+              pageRuntimeStore.prime({
+                id: "architecture",
+                title: "System Architecture",
+                preview: "System design notes"
+              });
+            }}
+          >
+            Rename Architecture
+          </button>
+          <button
+            type="button"
+            className="chip"
+            onClick={() => {
+              if (removedPage) {
+                pageStore.restore(removedPage);
+                pageRuntimeStore.prime(removedPage);
+                setRemovedPage(null);
+                return;
+              }
+              const removed = pageStore.remove("api-surface");
+              if (removed) {
+                pageRuntimeStore.prime(null, "api-surface");
+                setRemovedPage(removed);
+              }
+            }}
+          >
+            {removedPage ? "Restore page" : "Delete API surface"}
           </button>
           <label className="chip chip--muted">
             Theme{" "}
@@ -374,6 +438,10 @@ export function PowerDemoEditor() {
                 getPowerSlashItems(preset.registry, ctx, query)
               }
             />
+            <SuggestionMenuController
+              triggerCharacter="@"
+              getItems={getMentionItems}
+            />
           </BlockNoteView>
         </main>
 
@@ -383,6 +451,12 @@ export function PowerDemoEditor() {
               targetPageId="architecture"
               provider={backlinks}
               relationIndex={relationIndex}
+              resolveOutgoingTitle={(id) =>
+                pageStore.pages.find((p) => p.id === id)?.title
+              }
+              onOpenBacklink={(item) =>
+                setLastOpenedPage(item.sourceDocumentId)
+              }
             />
           </aside>
         ) : null}
@@ -432,15 +506,62 @@ export function PowerDemoEditor() {
           onMouseDown={() => closePagePick(null)}
         >
           <div onMouseDown={(event) => event.stopPropagation()}>
-            <PageMentionPicker
+            <WorkspacePagePicker
               open
+              mode={pagePickMode}
+              provider={pageStore.provider}
               pages={pageStore.pages}
-              onPick={(page) =>
+              excludeIds={["demo"]}
+              onPick={(page) => {
+                if (page) pageRuntimeStore.prime(page);
                 closePagePick(
                   page ? { pageId: page.id, title: page.title } : null
-                )
-              }
+                );
+              }}
             />
+          </div>
+        </div>
+      ) : null}
+      {childCreateOpen ? (
+        <div
+          className="oe-overlay"
+          role="presentation"
+          onMouseDown={() => closeChildCreate(null)}
+        >
+          <div
+            className="oe-page-picker"
+            role="dialog"
+            aria-label="Create child page"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <p className="oe-page-picker__heading">Create child page</p>
+            <input
+              className="oe-page-picker__input"
+              value={childTitle}
+              aria-label="Child page title"
+              autoFocus
+              onChange={(event) => setChildTitle(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") closeChildCreate(null);
+                if (event.key === "Enter") {
+                  closeChildCreate({ title: childTitle });
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="chip chip--on"
+              onClick={() => closeChildCreate({ title: childTitle })}
+            >
+              Create
+            </button>
+            <button
+              type="button"
+              className="oe-page-picker__cancel"
+              onClick={() => closeChildCreate(null)}
+            >
+              Cancel
+            </button>
           </div>
         </div>
       ) : null}
