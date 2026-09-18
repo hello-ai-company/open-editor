@@ -1,5 +1,5 @@
 /**
- * Board renderer — status/select grouping over DatabaseRuntimeStore rows (4F-4A).
+ * Board renderer — status/select grouping over DatabaseRuntimeStore rows (4F-4A / R1).
  */
 import type { DatabaseRowItem } from "@hello-ai-company/editor-core";
 import {
@@ -11,13 +11,15 @@ import {
   type ReactElement
 } from "react";
 import {
-  BOARD_UNASSIGNED_VALUE,
+  boardGroupKeyOf,
+  boardGroupKeysEqual,
   buildBoardColumns,
   buildBoardGroupUpdateRow,
   canMutateBoardGroup,
   listBoardGroupingProperties,
   resolveBoardGroupingProperty,
-  type BoardGroupColumn
+  type BoardGroupColumn,
+  type BoardGroupKey
 } from "./databaseBoardModel.js";
 import { isEditableResolvedProperty } from "./databaseProperty.js";
 import {
@@ -78,9 +80,7 @@ export function BoardRenderer(
   });
 
   const previewDefs = resolveDatabaseCardPreviewFields(definitions, {
-    excludePropertyIds: new Set(
-      groupProperty ? [groupProperty.id] : []
-    ),
+    excludePropertyIds: new Set(groupProperty ? [groupProperty.id] : []),
     maxFields: 3
   });
 
@@ -89,7 +89,7 @@ export function BoardRenderer(
 
   const mutateGroup = (
     item: DatabaseRowItem,
-    targetValue: string
+    targetKey: BoardGroupKey
   ): void => {
     if (
       !canMutateBoardGroup({
@@ -97,23 +97,19 @@ export function BoardRenderer(
         updateCapability: updateCapable,
         trashMode,
         groupProperty,
-        targetValue
+        targetKey
       }) ||
       !groupProperty
     ) {
       return;
     }
-    const current = item.row[groupProperty.id];
-    const currentStr =
-      current === null || current === undefined || current === ""
-        ? BOARD_UNASSIGNED_VALUE
-        : String(current);
-    if (currentStr === targetValue) return;
+    const currentKey = boardGroupKeyOf(item.row, groupProperty.id);
+    if (boardGroupKeysEqual(currentKey, targetKey)) return;
 
     const completeRow = buildBoardGroupUpdateRow(
       item,
       groupProperty.id,
-      targetValue
+      targetKey
     );
     if (!completeRow) return;
     catchStoreMutation(
@@ -150,7 +146,7 @@ export function BoardRenderer(
         updateCapability: updateCapable,
         trashMode,
         groupProperty,
-        targetValue: column.value
+        targetKey: column.key
       })
     ) {
       return;
@@ -171,7 +167,7 @@ export function BoardRenderer(
     }
     const item = snap.items.find((r) => r.rowKey === payload.rowKey);
     if (!item) return;
-    mutateGroup(item, column.value);
+    mutateGroup(item, column.key);
   };
 
   const configuredOptions = groupProperty?.options ?? [];
@@ -221,13 +217,14 @@ export function BoardRenderer(
             updateCapability: updateCapable,
             trashMode,
             groupProperty,
-            targetValue: column.value
+            targetKey: column.key
           });
           return (
             <section
-              key={column.value}
+              key={column.keyId}
               className="oe-database-board__column"
-              data-column-value={column.value}
+              data-column-key={column.keyId}
+              data-column-kind={column.key.kind}
               data-droppable={droppable ? "true" : "false"}
               aria-label={`${column.label} (${column.items.length} loaded)`}
               onDragOver={
@@ -290,7 +287,9 @@ export function BoardRenderer(
                           className="oe-database-board__card-title"
                           aria-label={`Open row ${cardTitle}`}
                           onClick={() => openRow(ctx, item.rowKey)}
-                          onKeyDown={(event: KeyboardEvent<HTMLButtonElement>) => {
+                          onKeyDown={(
+                            event: KeyboardEvent<HTMLButtonElement>
+                          ) => {
                             if (event.key === "Enter") {
                               event.preventDefault();
                               openRow(ctx, item.rowKey);
@@ -314,7 +313,10 @@ export function BoardRenderer(
                             value={currentValue}
                             disabled={busy}
                             onChange={(event) =>
-                              mutateGroup(item, event.target.value)
+                              mutateGroup(item, {
+                                kind: "value",
+                                value: event.target.value
+                              })
                             }
                           >
                             {currentValue &&
@@ -343,7 +345,10 @@ export function BoardRenderer(
                         </span>
                       ) : null}
                       {previewDefs.length > 0 ? (
-                        <dl className="oe-database-board__preview" id={`${baseId}-${item.rowKey}`}>
+                        <dl
+                          className="oe-database-board__preview"
+                          id={`${baseId}-${item.rowKey}`}
+                        >
                           {previewDefs.map((def) => {
                             const text = formatDatabaseCardFieldValue(
                               def,
@@ -371,9 +376,5 @@ export function BoardRenderer(
   );
 }
 
-/** Adapter matching DatabaseViewRenderer signature. */
-export function renderBoardView(
-  context: DatabaseViewRendererContext
-): ReactElement {
-  return <BoardRenderer {...context} />;
-}
+/** Default board entry for the renderer map (component, not a bare call). */
+export const renderBoardView = BoardRenderer;

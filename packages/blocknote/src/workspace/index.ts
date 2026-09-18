@@ -54,14 +54,17 @@ export {
 } from "./databaseViewRenderers.js";
 
 export {
-  BOARD_UNASSIGNED_VALUE,
+  boardGroupKeyOf,
+  boardGroupKeysEqual,
   buildBoardColumns,
   buildBoardGroupUpdateRow,
   canMutateBoardGroup,
   defaultBoardGroupingProperty,
+  encodeBoardGroupKey,
   listBoardGroupingProperties,
   resolveBoardGroupingProperty,
-  type BoardGroupColumn
+  type BoardGroupColumn,
+  type BoardGroupKey
 } from "./databaseBoardModel.js";
 
 export {

@@ -85,10 +85,6 @@ function DeferredRenderer(ctx: DatabaseViewRendererContext): ReactElement {
   );
 }
 
-function renderDeferredView(ctx: DatabaseViewRendererContext): ReactElement {
-  return <DeferredRenderer {...ctx} />;
-}
-
 const DEFAULT_RENDERERS: DatabaseViewRendererMap = {
   board: renderBoardView,
   calendar: renderCalendarView
@@ -1056,7 +1052,7 @@ function SharedDatabaseViewShell(props: {
     runtime
   };
 
-  const overrideOrDefault = resolveDatabaseViewRenderer({
+  const ResolvedRenderer = resolveDatabaseViewRenderer({
     viewType: normalizedViewType,
     runtime,
     defaults: DEFAULT_RENDERERS
@@ -1066,13 +1062,14 @@ function SharedDatabaseViewShell(props: {
     if (normalizedViewType === "table" && !runtime.renderers?.table) {
       return renderTableBody();
     }
-    if (overrideOrDefault) {
-      return overrideOrDefault(rendererContext);
+    // R1: always mount as a React component so host renderers may use hooks.
+    if (ResolvedRenderer) {
+      return <ResolvedRenderer {...rendererContext} />;
     }
     if (isDeferredDatabaseViewType(normalizedViewType)) {
-      return renderDeferredView(rendererContext);
+      return <DeferredRenderer {...rendererContext} />;
     }
-    return renderDeferredView(rendererContext);
+    return <DeferredRenderer {...rendererContext} />;
   };
 
   const renderTableBody = (): ReactElement => {

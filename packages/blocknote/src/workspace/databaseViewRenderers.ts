@@ -1,10 +1,14 @@
 /**
- * Database view renderer contract + default dispatch (Phase 4F-4A).
+ * Database view renderer contract + default dispatch (Phase 4F-4A / R1).
  *
  * Runtime/preset owns optional renderer overrides — never a module-global registry.
+ * Renderers are React components (hooks-safe), not bare functions invoked by the shell.
  */
-import type { ReactElement } from "react";
-import type { DatabaseRuntimeStore, DatabaseViewSnapshot } from "./databaseRuntimeStore.js";
+import type { ComponentType } from "react";
+import type {
+  DatabaseRuntimeStore,
+  DatabaseViewSnapshot
+} from "./databaseRuntimeStore.js";
 import type { ResolvedPropertyDefinition } from "./databaseProperty.js";
 import type { DatabaseViewType } from "./types.js";
 import type { DatabaseViewRuntime } from "./databaseViewRuntime.js";
@@ -29,9 +33,12 @@ export type DatabaseViewRendererContext = {
   runtime: DatabaseViewRuntime;
 };
 
-export type DatabaseViewRenderer = (
-  context: DatabaseViewRendererContext
-) => ReactElement;
+/**
+ * Host / default view body renderer.
+ * Must be used as a React component (`<Renderer {...ctx} />`), never called as a plain function.
+ */
+export type DatabaseViewRenderer =
+  ComponentType<DatabaseViewRendererContext>;
 
 export type DatabaseViewRendererMap = Partial<
   Record<DatabaseViewType, DatabaseViewRenderer>
@@ -48,14 +55,12 @@ const DEFERRED_VIEWS = new Set<DatabaseViewType>([
   "dashboard"
 ]);
 
-export function isDeferredDatabaseViewType(
-  viewType: string
-): boolean {
+export function isDeferredDatabaseViewType(viewType: string): boolean {
   return DEFERRED_VIEWS.has(viewType as DatabaseViewType);
 }
 
 /**
- * Resolve which renderer to use for a viewType.
+ * Resolve which renderer component to use for a viewType.
  * Host override wins for that runtime instance only.
  */
 export function resolveDatabaseViewRenderer(input: {

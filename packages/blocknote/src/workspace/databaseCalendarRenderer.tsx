@@ -402,8 +402,5 @@ export function CalendarRenderer(
   );
 }
 
-export function renderCalendarView(
-  context: DatabaseViewRendererContext
-): ReactElement {
-  return <CalendarRenderer {...context} />;
-}
+/** Default calendar entry for the renderer map (component, not a bare call). */
+export const renderCalendarView = CalendarRenderer;

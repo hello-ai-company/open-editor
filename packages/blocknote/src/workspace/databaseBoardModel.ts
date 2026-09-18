@@ -1,6 +1,9 @@
 /**
- * Board grouping presentation transforms (Phase 4F-4A).
+ * Board grouping presentation transforms (Phase 4F-4A / R1).
  * Operates on already-queried snap.items — never a second client filter engine.
+ *
+ * R1: Internal bucket identity is a discriminated {@link BoardGroupKey}.
+ * Host option values stay opaque and never collide with Unassigned / All buckets.
  */
 import type {
   DatabasePropertyOption,
@@ -9,19 +12,48 @@ import type {
 } from "@hello-ai-company/editor-core";
 import type { ResolvedPropertyDefinition } from "./databaseProperty.js";
 
-/** Internal UI token — never sent to the provider. */
-export const BOARD_UNASSIGNED_VALUE = "__oe_unassigned__" as const;
+/**
+ * Stable Board column identity — separate from host provider option values.
+ * Never send `kind: "unassigned" | "all"` to the provider.
+ */
+export type BoardGroupKey =
+  | { kind: "value"; value: string }
+  | { kind: "unassigned" }
+  | { kind: "all" };
 
 export type BoardGroupColumn = {
-  /** Column identity = raw option/row value, or {@link BOARD_UNASSIGNED_VALUE}. */
-  value: string;
+  key: BoardGroupKey;
+  /**
+   * Collision-safe React / DOM key derived from {@link encodeBoardGroupKey}.
+   * Never a raw host option value alone.
+   */
+  keyId: string;
   label: string;
-  /** True when this value comes from typed options (drop/select target). */
+  /** True when this column is a typed option (drop/select mutation target). */
   isConfiguredOption: boolean;
   /** True for the Unassigned bucket. */
   isUnassigned: boolean;
   items: DatabaseRowItem[];
 };
+
+/** Encode a BoardGroupKey for React keys / data attributes (not provider I/O). */
+export function encodeBoardGroupKey(key: BoardGroupKey): string {
+  if (key.kind === "value") {
+    return JSON.stringify(["value", key.value]);
+  }
+  return JSON.stringify([key.kind]);
+}
+
+export function boardGroupKeysEqual(
+  a: BoardGroupKey,
+  b: BoardGroupKey
+): boolean {
+  if (a.kind !== b.kind) return false;
+  if (a.kind === "value" && b.kind === "value") {
+    return a.value === b.value;
+  }
+  return true;
+}
 
 export function isBoardGroupingProperty(
   def: ResolvedPropertyDefinition
@@ -68,13 +100,17 @@ function isEmptyGroupValue(value: unknown): boolean {
   return value === null || value === undefined || value === "";
 }
 
-export function boardGroupValueOf(
+/**
+ * Map a row cell to a Board group key.
+ * Empty/null/"" → unassigned; any other string (including host "__oe_unassigned__") → value.
+ */
+export function boardGroupKeyOf(
   row: Record<string, JsonValue>,
   propertyId: string
-): string | typeof BOARD_UNASSIGNED_VALUE {
+): BoardGroupKey {
   const raw = row[propertyId];
-  if (isEmptyGroupValue(raw)) return BOARD_UNASSIGNED_VALUE;
-  return String(raw);
+  if (isEmptyGroupValue(raw)) return { kind: "unassigned" };
+  return { kind: "value", value: String(raw) };
 }
 
 /**
@@ -87,9 +123,11 @@ export function buildBoardColumns(input: {
 }): BoardGroupColumn[] {
   const { items, groupProperty } = input;
   if (!groupProperty) {
+    const key: BoardGroupKey = { kind: "all" };
     return [
       {
-        value: "__all__",
+        key,
+        keyId: encodeBoardGroupKey(key),
         label: "All items",
         isConfiguredOption: false,
         isUnassigned: false,
@@ -117,18 +155,20 @@ export function buildBoardColumns(input: {
 
   let hasUnassigned = false;
   const observedExtras: string[] = [];
+  const unassignedItems: DatabaseRowItem[] = [];
 
   for (const item of items) {
-    const key = boardGroupValueOf(item.row, groupProperty.id);
-    if (key === BOARD_UNASSIGNED_VALUE) {
+    const key = boardGroupKeyOf(item.row, groupProperty.id);
+    if (key.kind !== "value") {
       hasUnassigned = true;
+      unassignedItems.push(item);
       continue;
     }
-    if (!buckets.has(key)) {
-      buckets.set(key, []);
-      observedExtras.push(key);
+    if (!buckets.has(key.value)) {
+      buckets.set(key.value, []);
+      observedExtras.push(key.value);
     }
-    buckets.get(key)!.push(item);
+    buckets.get(key.value)!.push(item);
   }
 
   for (const extra of observedExtras) {
@@ -137,8 +177,10 @@ export function buildBoardColumns(input: {
 
   const columns: BoardGroupColumn[] = order.map((value) => {
     const opt = optionByValue.get(value);
+    const key: BoardGroupKey = { kind: "value", value };
     return {
-      value,
+      key,
+      keyId: encodeBoardGroupKey(key),
       label: opt?.label ?? value,
       isConfiguredOption: Boolean(opt),
       isUnassigned: false,
@@ -147,12 +189,10 @@ export function buildBoardColumns(input: {
   });
 
   if (hasUnassigned) {
-    const unassignedItems = items.filter(
-      (item) =>
-        boardGroupValueOf(item.row, groupProperty.id) === BOARD_UNASSIGNED_VALUE
-    );
+    const key: BoardGroupKey = { kind: "unassigned" };
     columns.push({
-      value: BOARD_UNASSIGNED_VALUE,
+      key,
+      keyId: encodeBoardGroupKey(key),
       label: "Unassigned",
       isConfiguredOption: false,
       isUnassigned: true,
@@ -164,14 +204,15 @@ export function buildBoardColumns(input: {
 }
 
 /**
- * Whether Board may mutate a card into the given column value.
+ * Whether Board may mutate a card into the given column key.
+ * Only configured typed option values (`kind: "value"`) are mutation targets.
  */
 export function canMutateBoardGroup(input: {
   mutationsAllowed: boolean;
   updateCapability: boolean;
   trashMode: "active" | "trash";
   groupProperty: ResolvedPropertyDefinition | null;
-  targetValue: string;
+  targetKey: BoardGroupKey;
 }): boolean {
   if (!input.mutationsAllowed) return false;
   if (!input.updateCapability) return false;
@@ -181,27 +222,24 @@ export function canMutateBoardGroup(input: {
   if (prop.readOnly) return false;
   if (prop.source !== "typed") return false;
   if (!isBoardGroupingProperty(prop)) return false;
-  if (input.targetValue === BOARD_UNASSIGNED_VALUE) return false;
-  if (input.targetValue === "__all__") return false;
-  return prop.options.some((o) => o.value === input.targetValue);
+  const target = input.targetKey;
+  if (target.kind !== "value") return false;
+  return prop.options.some((o) => o.value === target.value);
 }
 
 /**
- * Build complete row for a Board group change. Returns null when target is invalid.
+ * Build complete row for a Board group change. Returns null when target is not a provider value.
  */
 export function buildBoardGroupUpdateRow(
   item: DatabaseRowItem,
   groupPropertyId: string,
-  targetValue: string
+  targetKey: BoardGroupKey
 ): Record<string, JsonValue> | null {
-  if (
-    targetValue === BOARD_UNASSIGNED_VALUE ||
-    targetValue === "__all__"
-  ) {
+  if (targetKey.kind !== "value") {
     return null;
   }
   return {
     ...item.row,
-    [groupPropertyId]: targetValue
+    [groupPropertyId]: targetKey.value
   };
 }
