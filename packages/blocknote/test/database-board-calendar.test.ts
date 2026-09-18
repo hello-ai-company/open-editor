@@ -4,9 +4,14 @@
  * Phase 4F-4A — Board + Calendar models, mutations, renderer dispatch, date keys.
  */
 import { describe, expect, it, vi } from "vitest";
-import { createElement } from "react";
+import {
+  act,
+  createElement,
+  useEffect,
+  useState,
+  type ReactElement
+} from "react";
 import { createRoot } from "react-dom/client";
-import { act } from "react";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
@@ -24,13 +29,17 @@ import {
   serializeEditorDocument
 } from "@hello-ai-company/editor-core";
 import {
-  BOARD_UNASSIGNED_VALUE,
+  boardGroupKeyOf,
+  boardGroupKeysEqual,
   buildBoardColumns,
   buildBoardGroupUpdateRow,
   canMutateBoardGroup,
   defaultBoardGroupingProperty,
+  encodeBoardGroupKey,
   listBoardGroupingProperties,
-  resolveBoardGroupingProperty
+  resolveBoardGroupingProperty,
+  type BoardGroupColumn,
+  type BoardGroupKey
 } from "../src/workspace/databaseBoardModel.js";
 import {
   addCalendarDays,
@@ -71,6 +80,28 @@ import {
 import type { DatabaseViewRuntime } from "../src/workspace/databaseViewRuntime.js";
 
 // —— helpers ——
+
+function valueKey(value: string): BoardGroupKey {
+  return { kind: "value", value };
+}
+
+function columnValues(columns: readonly BoardGroupColumn[]): string[] {
+  return columns
+    .filter(
+      (c): c is BoardGroupColumn & { key: { kind: "value"; value: string } } =>
+        c.key.kind === "value"
+    )
+    .map((c) => c.key.value);
+}
+
+function findValueColumn(
+  columns: readonly BoardGroupColumn[],
+  value: string
+): BoardGroupColumn | undefined {
+  return columns.find(
+    (c) => c.key.kind === "value" && c.key.value === value
+  );
+}
 
 function typed(
   partial: Omit<ResolvedPropertyDefinition, "source" | "readOnly" | "options"> &
@@ -378,11 +409,9 @@ describe("4F-4A — board model", () => {
       items: [row("a", { status: "todo" }), row("b", { status: "doing" })],
       groupProperty: STATUS
     });
-    expect(columns.map((c) => c.value)).toEqual([
-      "todo",
-      "doing",
-      "done"
-    ]);
+    expect(columnValues(columns)).toEqual(["todo", "doing", "done"]);
+    expect(columns[0]!.key).toEqual(valueKey("todo"));
+    expect(columns[0]!.keyId).toBe(encodeBoardGroupKey(valueKey("todo")));
     expect(columns[0]!.items.map((i) => i.rowKey)).toEqual(["a"]);
     expect(columns[1]!.items.map((i) => i.rowKey)).toEqual(["b"]);
     expect(columns.every((c) => c.isConfiguredOption)).toBe(true);
@@ -396,7 +425,7 @@ describe("4F-4A — board model", () => {
       items: [row("a", { priority: "p1" })],
       groupProperty: PRIORITY
     });
-    expect(columns.map((c) => c.value)).toEqual(["p1", "p2"]);
+    expect(columnValues(columns)).toEqual(["p1", "p2"]);
   });
 
   it("3. default status preferred over select", () => {
@@ -411,8 +440,9 @@ describe("4F-4A — board model", () => {
       items: [row("x", { status: "archived" })],
       groupProperty: STATUS
     });
-    const archived = columns.find((c) => c.value === "archived");
+    const archived = findValueColumn(columns, "archived");
     expect(archived).toMatchObject({
+      key: valueKey("archived"),
       label: "archived",
       isConfiguredOption: false,
       isUnassigned: false
@@ -420,7 +450,7 @@ describe("4F-4A — board model", () => {
     expect(archived!.items.map((i) => i.rowKey)).toEqual(["x"]);
   });
 
-  it("5. empty → Unassigned (BOARD_UNASSIGNED_VALUE)", () => {
+  it("5. empty → Unassigned bucket (kind unassigned)", () => {
     const columns = buildBoardColumns({
       items: [
         row("e1", { status: "" }),
@@ -430,11 +460,17 @@ describe("4F-4A — board model", () => {
       groupProperty: STATUS
     });
     const unassigned = columns.at(-1)!;
-    expect(unassigned.value).toBe(BOARD_UNASSIGNED_VALUE);
+    expect(unassigned.key.kind).toBe("unassigned");
+    expect(unassigned.keyId).toBe(
+      encodeBoardGroupKey({ kind: "unassigned" })
+    );
     expect(unassigned.label).toBe("Unassigned");
     expect(unassigned.isUnassigned).toBe(true);
     expect(unassigned.isConfiguredOption).toBe(false);
     expect(unassigned.items.map((i) => i.rowKey)).toEqual(["e1", "e2", "e3"]);
+    expect(boardGroupKeyOf({ status: "" }, "status")).toEqual({
+      kind: "unassigned"
+    });
   });
 
   it("6. duplicate options deduped by raw value", () => {
@@ -452,8 +488,8 @@ describe("4F-4A — board model", () => {
       items: [row("a", { status: "todo" })],
       groupProperty: dup
     });
-    expect(columns.filter((c) => c.value === "todo")).toHaveLength(1);
-    expect(columns.find((c) => c.value === "todo")!.label).toBe("First");
+    expect(columns.filter((c) => c.key.kind === "value" && c.key.value === "todo")).toHaveLength(1);
+    expect(findValueColumn(columns, "todo")!.label).toBe("First");
   });
 
   it("7. label/value identity separated", () => {
@@ -462,7 +498,7 @@ describe("4F-4A — board model", () => {
       groupProperty: STATUS
     });
     expect(columns[0]).toMatchObject({
-      value: "todo",
+      key: valueKey("todo"),
       label: "Backlog"
     });
   });
@@ -479,7 +515,7 @@ describe("4F-4A — board model", () => {
       items: [row("a", { status: opaque })],
       groupProperty: prop
     });
-    expect(columns[0]!.value).toBe(opaque);
+    expect(columns[0]!.key).toEqual(valueKey(opaque));
     expect(columns[0]!.label).toBe("Weird");
     expect(columns[0]!.items[0]!.row.status).toBe(opaque);
   });
@@ -532,7 +568,7 @@ describe("4F-4A — board model", () => {
       items: [row("a", { status: "todo" })],
       groupProperty: renamed
     });
-    expect(columns[0]!.value).toBe("todo");
+    expect(columns[0]!.key).toEqual(valueKey("todo"));
   });
 
   it("12. metadata removal safely falls back", () => {
@@ -545,7 +581,9 @@ describe("4F-4A — board model", () => {
       groupProperty: null
     });
     expect(columns).toHaveLength(1);
-    expect(columns[0]!.value).toBe("__all__");
+    expect(columns[0]!.key.kind).toBe("all");
+    expect(columns[0]!.keyId).toBe(encodeBoardGroupKey({ kind: "all" }));
+    expect(columns[0]!.label).toBe("All items");
     expect(columns[0]!.items).toHaveLength(1);
   });
 
@@ -556,8 +594,8 @@ describe("4F-4A — board model", () => {
       row("c", { status: "doing" })
     ];
     const columns = buildBoardColumns({ items, groupProperty: STATUS });
-    const todo = columns.find((c) => c.value === "todo")!;
-    const doing = columns.find((c) => c.value === "doing")!;
+    const todo = findValueColumn(columns, "todo")!;
+    const doing = findValueColumn(columns, "doing")!;
     // Counts reflect loaded items only — not provider pagination.total.
     expect(todo.items).toHaveLength(2);
     expect(doing.items).toHaveLength(1);
@@ -580,7 +618,7 @@ describe("4F-4A — board model", () => {
     const reorderSpy = vi.spyOn(provider, "reorderRows");
     const store = await readyStore(provider);
     const item = store.getView("tasks::main").items[0]!;
-    const next = buildBoardGroupUpdateRow(item, "status", "doing");
+    const next = buildBoardGroupUpdateRow(item, "status", valueKey("doing"));
     expect(next).toEqual({ title: "Alpha", status: "doing", due: "2026-09-01" });
     await store.updateRow("tasks::main", item.rowKey, next!, item.sortOrder);
     await vi.waitFor(() => {
@@ -592,6 +630,96 @@ describe("4F-4A — board model", () => {
     expect(reorderSpy).not.toHaveBeenCalled();
     expect(provider.reorderCalls).toBe(0);
     expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it("15. R1 opaque collision: host values never collide with Unassigned/All", () => {
+    const collisionProp = typed({
+      id: "status",
+      name: "Status",
+      type: "status",
+      options: [
+        { value: "__oe_unassigned__", label: "Special" },
+        { value: "__all__", label: "All" },
+        { value: "a:b:c", label: "Colon" }
+      ]
+    });
+    const columns = buildBoardColumns({
+      items: [
+        row("special", { status: "__oe_unassigned__" }),
+        row("empty", { status: "" }),
+        row("colon", { status: "a:b:c" })
+      ],
+      groupProperty: collisionProp
+    });
+
+    const special = findValueColumn(columns, "__oe_unassigned__")!;
+    const allOpt = findValueColumn(columns, "__all__")!;
+    const colon = findValueColumn(columns, "a:b:c")!;
+    const unassigned = columns.find((c) => c.key.kind === "unassigned")!;
+
+    expect(special.key.kind).toBe("value");
+    expect(special.label).toBe("Special");
+    expect(special.isConfiguredOption).toBe(true);
+    expect(special.isUnassigned).toBe(false);
+    expect(special.items.map((i) => i.rowKey)).toEqual(["special"]);
+
+    expect(unassigned.key.kind).toBe("unassigned");
+    expect(unassigned.label).toBe("Unassigned");
+    expect(unassigned.items.map((i) => i.rowKey)).toEqual(["empty"]);
+    expect(unassigned.keyId).not.toBe(special.keyId);
+    expect(unassigned.keyId).toBe(
+      encodeBoardGroupKey({ kind: "unassigned" })
+    );
+    expect(special.keyId).toBe(
+      encodeBoardGroupKey(valueKey("__oe_unassigned__"))
+    );
+
+    expect(allOpt.label).toBe("All");
+    expect(allOpt.keyId).not.toBe(encodeBoardGroupKey({ kind: "all" }));
+    expect(colon.items.map((i) => i.rowKey)).toEqual(["colon"]);
+
+    expect(
+      boardGroupKeysEqual(special.key, { kind: "unassigned" })
+    ).toBe(false);
+    expect(
+      boardGroupKeyOf({ status: "__oe_unassigned__" }, "status")
+    ).toEqual(valueKey("__oe_unassigned__"));
+
+    expect(
+      canMutateBoardGroup({
+        mutationsAllowed: true,
+        updateCapability: true,
+        trashMode: "active",
+        groupProperty: collisionProp,
+        targetKey: valueKey("__oe_unassigned__")
+      })
+    ).toBe(true);
+    expect(
+      canMutateBoardGroup({
+        mutationsAllowed: true,
+        updateCapability: true,
+        trashMode: "active",
+        groupProperty: collisionProp,
+        targetKey: { kind: "unassigned" }
+      })
+    ).toBe(false);
+    expect(
+      canMutateBoardGroup({
+        mutationsAllowed: true,
+        updateCapability: true,
+        trashMode: "active",
+        groupProperty: collisionProp,
+        targetKey: { kind: "all" }
+      })
+    ).toBe(false);
+
+    expect(
+      buildBoardGroupUpdateRow(
+        row("a", { status: "todo" }),
+        "status",
+        valueKey("__all__")
+      )
+    ).toEqual({ status: "__all__" });
   });
 });
 
@@ -605,7 +733,7 @@ describe("4F-4A — board mutation", () => {
         updateCapability: true,
         trashMode: "active",
         groupProperty: STATUS,
-        targetValue: "doing"
+        targetKey: valueKey("doing")
       })
     ).toBe(true);
   });
@@ -617,7 +745,7 @@ describe("4F-4A — board mutation", () => {
         updateCapability: true,
         trashMode: "active",
         groupProperty: { ...STATUS, readOnly: true },
-        targetValue: "doing"
+        targetKey: valueKey("doing")
       })
     ).toBe(false);
   });
@@ -629,7 +757,7 @@ describe("4F-4A — board mutation", () => {
         updateCapability: true,
         trashMode: "active",
         groupProperty: { ...STATUS, source: "legacy" },
-        targetValue: "doing"
+        targetKey: valueKey("doing")
       })
     ).toBe(false);
   });
@@ -641,7 +769,7 @@ describe("4F-4A — board mutation", () => {
         updateCapability: true,
         trashMode: "trash",
         groupProperty: STATUS,
-        targetValue: "doing"
+        targetKey: valueKey("doing")
       })
     ).toBe(false);
   });
@@ -653,22 +781,40 @@ describe("4F-4A — board mutation", () => {
         updateCapability: true,
         trashMode: "active",
         groupProperty: STATUS,
-        targetValue: "archived"
+        targetKey: valueKey("archived")
       })
     ).toBe(false);
   });
 
-  it("Unassigned target → false", () => {
+  it("Unassigned / All targets → false", () => {
     expect(
       canMutateBoardGroup({
         mutationsAllowed: true,
         updateCapability: true,
         trashMode: "active",
         groupProperty: STATUS,
-        targetValue: BOARD_UNASSIGNED_VALUE
+        targetKey: { kind: "unassigned" }
       })
     ).toBe(false);
-    expect(buildBoardGroupUpdateRow(row("a", { status: "todo" }), "status", BOARD_UNASSIGNED_VALUE)).toBeNull();
+    expect(
+      canMutateBoardGroup({
+        mutationsAllowed: true,
+        updateCapability: true,
+        trashMode: "active",
+        groupProperty: STATUS,
+        targetKey: { kind: "all" }
+      })
+    ).toBe(false);
+    expect(
+      buildBoardGroupUpdateRow(row("a", { status: "todo" }), "status", {
+        kind: "unassigned"
+      })
+    ).toBeNull();
+    expect(
+      buildBoardGroupUpdateRow(row("a", { status: "todo" }), "status", {
+        kind: "all"
+      })
+    ).toBeNull();
   });
 
   it("provider reject → after updateRow fails, row status remains original", async () => {
@@ -683,7 +829,7 @@ describe("4F-4A — board mutation", () => {
     const store = await readyStore(provider);
     provider.setFailUpdate(true);
     const item = store.getView("tasks::main").items[0]!;
-    const next = buildBoardGroupUpdateRow(item, "status", "done")!;
+    const next = buildBoardGroupUpdateRow(item, "status", valueKey("done"))!;
     await expect(
       store.updateRow("tasks::main", item.rowKey, next, item.sortOrder)
     ).rejects.toThrow(/provider rejected/);
@@ -1050,7 +1196,9 @@ describe("4F-4A — row open / EditorDocument", () => {
     expect(serialized).not.toContain("filters");
     expect(serialized).not.toContain("groupProperty");
     expect(serialized).not.toContain("cursorDateKey");
-    expect(serialized).not.toContain(BOARD_UNASSIGNED_VALUE);
+    expect(serialized).not.toContain(
+      encodeBoardGroupKey({ kind: "unassigned" })
+    );
   });
 
   it("pure open request shape", () => {
@@ -1079,7 +1227,7 @@ describe("4F-4A — row open / EditorDocument", () => {
 
 describe("4F-4A — React smoke BoardRenderer / CalendarRenderer", () => {
   async function mount(
-    Component: typeof BoardRenderer | typeof CalendarRenderer,
+    Component: DatabaseViewRenderer,
     ctx: DatabaseViewRendererContext
   ) {
     const host = document.createElement("div");
@@ -1090,6 +1238,12 @@ describe("4F-4A — React smoke BoardRenderer / CalendarRenderer", () => {
     });
     return {
       host,
+      root,
+      async rerender(next: DatabaseViewRenderer, nextCtx: DatabaseViewRendererContext) {
+        await act(async () => {
+          root.render(createElement(next, nextCtx));
+        });
+      },
       async cleanup() {
         await act(async () => {
           root.unmount();
@@ -1099,7 +1253,7 @@ describe("4F-4A — React smoke BoardRenderer / CalendarRenderer", () => {
     };
   }
 
-  it("board shows columns / Unassigned", async () => {
+  it("board shows columns / Unassigned via data-column-kind", async () => {
     const provider = createBoardCalendarProvider([
       {
         rowKey: "a",
@@ -1132,10 +1286,18 @@ describe("4F-4A — React smoke BoardRenderer / CalendarRenderer", () => {
       })
     );
     expect(host.querySelector("[data-oe-board]")).toBeTruthy();
-    expect(host.querySelector('[data-column-value="todo"]')).toBeTruthy();
+    const todoKeyId = encodeBoardGroupKey(valueKey("todo"));
+    const todoColumn = Array.from(
+      host.querySelectorAll("[data-column-kind='value']")
+    ).find((el) => el.getAttribute("data-column-key") === todoKeyId);
+    expect(todoColumn).toBeTruthy();
+    expect(host.querySelector('[data-column-kind="unassigned"]')).toBeTruthy();
     expect(
-      host.querySelector(`[data-column-value="${BOARD_UNASSIGNED_VALUE}"]`)
-    ).toBeTruthy();
+      host
+        .querySelector('[data-column-kind="unassigned"]')
+        ?.getAttribute("data-column-key")
+    ).toBe(encodeBoardGroupKey({ kind: "unassigned" }));
+    expect(host.querySelector("[data-column-value]")).toBeNull();
     expect(host.textContent).toContain("Unassigned");
     expect(host.textContent).toContain("Alpha");
     await cleanup();
@@ -1234,5 +1396,245 @@ describe("4F-4A — React smoke BoardRenderer / CalendarRenderer", () => {
         .length
     ).toBe(0);
     await cal.cleanup();
+  });
+
+  it("R1 custom renderer hooks: mount, rerender, switch, isolate runtimes", async () => {
+    function makeHookedBoard(tag: string): DatabaseViewRenderer {
+      return function HookedBoard(
+        ctx: DatabaseViewRendererContext
+      ): ReactElement {
+        const [ticks, setTicks] = useState(0);
+        useEffect(() => {
+          setTicks((n) => n + 1);
+        }, [ctx.title]);
+        return createElement("div", {
+          [`data-custom-${tag}`]: "",
+          "data-ticks": String(ticks),
+          "data-title": ctx.title
+        });
+      };
+    }
+
+    const customA = makeHookedBoard("a");
+    const customB = makeHookedBoard("b");
+    const provider = createBoardCalendarProvider([
+      {
+        rowKey: "a",
+        sortOrder: 0,
+        deletedAt: null,
+        row: { title: "Alpha", status: "todo", due: "2026-09-01" }
+      }
+    ]);
+    const store = await readyStore(provider);
+    const snap = store.getView("tasks::main");
+    const definitions = resolveDatabasePropertyDefinitions({
+      legacySchema: snap.schema,
+      definitions: snap.meta?.propertyDefinitions
+    });
+
+    const baseCtx = buildContext({
+      snapshot: snap,
+      store,
+      definitions,
+      runtime: { store, database: provider, renderers: { board: customA } },
+      viewType: "board",
+      mutationsAllowed: true,
+      title: "Runtime A"
+    });
+
+    const mounted = await mount(customA, baseCtx);
+    expect(mounted.host.querySelector("[data-custom-a]")).toBeTruthy();
+    await vi.waitFor(() => {
+      expect(
+        mounted.host.querySelector("[data-custom-a]")?.getAttribute("data-ticks")
+      ).toBe("1");
+    });
+
+    await mounted.rerender(customA, { ...baseCtx, title: "Runtime A v2" });
+    await vi.waitFor(() => {
+      expect(
+        mounted.host.querySelector("[data-custom-a]")?.getAttribute("data-ticks")
+      ).toBe("2");
+    });
+    expect(mounted.host.querySelector("[data-custom-a]")?.getAttribute("data-title")).toBe(
+      "Runtime A v2"
+    );
+
+    // Switch to calendar without hook-order crash.
+    await mounted.rerender(
+      CalendarRenderer,
+      buildContext({
+        ...baseCtx,
+        viewType: "calendar",
+        title: "Cal",
+        runtime: { store, database: provider }
+      })
+    );
+    expect(mounted.host.querySelector("[data-oe-calendar]")).toBeTruthy();
+    expect(mounted.host.querySelector("[data-custom-a]")).toBeNull();
+
+    // Switch back to default board.
+    await mounted.rerender(
+      BoardRenderer,
+      buildContext({
+        ...baseCtx,
+        viewType: "board",
+        runtime: { store, database: provider }
+      })
+    );
+    expect(mounted.host.querySelector("[data-oe-board]")).toBeTruthy();
+    await mounted.cleanup();
+
+    // Two runtimes: A's custom state does not leak to B.
+    const hostA = document.createElement("div");
+    const hostB = document.createElement("div");
+    document.body.appendChild(hostA);
+    document.body.appendChild(hostB);
+    const rootA = createRoot(hostA);
+    const rootB = createRoot(hostB);
+    await act(async () => {
+      rootA.render(
+        createElement(customA, {
+          ...baseCtx,
+          title: "A",
+          runtime: { store, database: provider, renderers: { board: customA } }
+        })
+      );
+      rootB.render(
+        createElement(customB, {
+          ...baseCtx,
+          title: "B",
+          runtime: { store, database: provider, renderers: { board: customB } }
+        })
+      );
+    });
+    expect(hostA.querySelector("[data-custom-a]")).toBeTruthy();
+    expect(hostB.querySelector("[data-custom-b]")).toBeTruthy();
+    expect(hostA.querySelector("[data-custom-b]")).toBeNull();
+    expect(hostB.querySelector("[data-custom-a]")).toBeNull();
+    await vi.waitFor(() => {
+      expect(hostA.querySelector("[data-custom-a]")?.getAttribute("data-ticks")).toBe(
+        "1"
+      );
+      expect(hostB.querySelector("[data-custom-b]")?.getAttribute("data-ticks")).toBe(
+        "1"
+      );
+    });
+    await act(async () => {
+      rootA.render(
+        createElement(customA, {
+          ...baseCtx,
+          title: "A2",
+          runtime: { store, database: provider, renderers: { board: customA } }
+        })
+      );
+    });
+    await vi.waitFor(() => {
+      expect(hostA.querySelector("[data-custom-a]")?.getAttribute("data-ticks")).toBe(
+        "2"
+      );
+    });
+    // B unchanged — no leaked state from A.
+    expect(hostB.querySelector("[data-custom-b]")?.getAttribute("data-ticks")).toBe(
+      "1"
+    );
+    expect(hostB.querySelector("[data-custom-b]")?.getAttribute("data-title")).toBe(
+      "B"
+    );
+    await act(async () => {
+      rootA.unmount();
+      rootB.unmount();
+    });
+    hostA.remove();
+    hostB.remove();
+  });
+
+  it("board open row button fires onOpenRow with viewType board", async () => {
+    const onOpenRow = vi.fn();
+    const provider = createBoardCalendarProvider([
+      {
+        rowKey: "a",
+        sortOrder: 0,
+        deletedAt: null,
+        row: { title: "Alpha", status: "todo", due: "2026-09-01" }
+      }
+    ]);
+    const store = await readyStore(provider);
+    const snap = store.getView("tasks::main");
+    const definitions = resolveDatabasePropertyDefinitions({
+      legacySchema: snap.schema,
+      definitions: snap.meta?.propertyDefinitions
+    });
+    const { host, cleanup } = await mount(
+      BoardRenderer,
+      buildContext({
+        snapshot: snap,
+        store,
+        definitions,
+        viewId: "board-main",
+        runtime: { store, database: provider, onOpenRow },
+        viewType: "board",
+        mutationsAllowed: true
+      })
+    );
+    const openBtn = host.querySelector(
+      ".oe-database-board__card-title"
+    ) as HTMLButtonElement | null;
+    expect(openBtn).toBeTruthy();
+    await act(async () => {
+      openBtn!.click();
+    });
+    expect(onOpenRow).toHaveBeenCalledTimes(1);
+    expect(onOpenRow).toHaveBeenCalledWith({
+      databaseId: "tasks",
+      rowKey: "a",
+      viewId: "board-main",
+      viewType: "board"
+    });
+    await cleanup();
+  });
+
+  it("calendar Previous click does not call listRows", async () => {
+    const onList = vi.fn();
+    const provider = createBoardCalendarProvider(
+      [
+        {
+          rowKey: "a",
+          sortOrder: 0,
+          deletedAt: null,
+          row: { title: "Dated", status: "todo", due: "2026-09-18" }
+        }
+      ],
+      { onList }
+    );
+    const store = await readyStore(provider);
+    const listCallsAfterReady = provider.listCalls;
+    onList.mockClear();
+    const snap = store.getView("tasks::main");
+    const definitions = resolveDatabasePropertyDefinitions({
+      legacySchema: snap.schema,
+      definitions: snap.meta?.propertyDefinitions
+    });
+    const { host, cleanup } = await mount(
+      CalendarRenderer,
+      buildContext({
+        snapshot: snap,
+        store,
+        definitions,
+        runtime: { store, database: provider },
+        viewType: "calendar",
+        mutationsAllowed: true
+      })
+    );
+    const prev = host.querySelector(
+      'button[aria-label="Previous"]'
+    ) as HTMLButtonElement | null;
+    expect(prev).toBeTruthy();
+    await act(async () => {
+      prev!.click();
+    });
+    expect(onList).not.toHaveBeenCalled();
+    expect(provider.listCalls).toBe(listCallsAfterReady);
+    await cleanup();
   });
 });
