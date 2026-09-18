@@ -46,6 +46,7 @@ export {
   databaseViewKey,
   databaseViewInstanceKey,
   buildDatabaseQueryKey,
+  encodeDatabaseKeyParts,
   type DatabaseCapabilities,
   type DatabaseRuntimeStore,
   type DatabaseRuntimeStoreOptions,

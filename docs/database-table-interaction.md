@@ -37,10 +37,11 @@ via `databaseViewInstanceKey(blockId, databaseId, viewId)`.
 Two blocks with the same `databaseId` + `viewId` (e.g. both defaulting to
 `viewId: "main"`) therefore keep independent search/sort/trash UI state.
 
-Provider **read dedupe** remains query-scoped (not block-scoped):
+Provider **read dedupe** remains query-scoped (not block-scoped), using a
+collision-safe JSON tuple key:
 
 ```
-db=…|q=…|sort=…|dir=…|trash=…|limit=…|cursor=…
+JSON.stringify([databaseId, query, sortBy, direction, trashMode, pageSize, cursor])
 ```
 
 Identical in-flight reads still share one `listRows` call across views.
@@ -90,7 +91,7 @@ Enabled only when:
 - `direction === "asc"`
 - `pagination.hasMore === false`
 - `pagination.nextCursor === null`
-- `items.length === total` when `total > 0`
+- `items.length === pagination.total` (fail-closed, including `total === 0`)
 
 ## Property types
 
@@ -100,7 +101,8 @@ Enabled only when:
 
 Unknown → **readonly** display (no destructive editor).
 
-**New Row** only exposes creatable primitives (`text` / `number` / `boolean`).
+**Editable cells / New Row** (4F-3A): only `text` / `number` / `boolean`.
+`date` / `url` / `select` are display-only until typed property metadata (4F-3B).
 Readonly / unknown fields are omitted from the create payload (never sent as `""`).
 
 ## Pagination

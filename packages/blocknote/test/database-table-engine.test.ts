@@ -11,6 +11,7 @@ import type {
   JsonValue
 } from "@hello-ai-company/editor-core";
 import {
+  buildDatabaseQueryKey,
   createDatabaseRuntimeStore,
   databaseViewInstanceKey,
   databaseViewKey
@@ -19,6 +20,7 @@ import {
   buildCreateRowPayload,
   creatableSchemaKeys,
   isCreatablePropertyKind,
+  isEditablePropertyKind,
   normalizeDatabasePropertyType,
   valuesEqualForEdit
 } from "../src/workspace/databaseProperty.js";
@@ -170,6 +172,10 @@ describe("normalizeDatabasePropertyType", () => {
     expect(normalizeDatabasePropertyType("formula")).toBe("readonly");
     expect(isCreatablePropertyKind("readonly")).toBe(false);
     expect(isCreatablePropertyKind("text")).toBe(true);
+    expect(isEditablePropertyKind("text")).toBe(true);
+    expect(isEditablePropertyKind("select")).toBe(false);
+    expect(isEditablePropertyKind("date")).toBe(false);
+    expect(isEditablePropertyKind("url")).toBe(false);
   });
 
   it("New Row payload omits readonly/unknown fields (R1 P1-1)", () => {
@@ -480,6 +486,8 @@ describe("DatabaseRuntimeStore — pagination", () => {
       store.getView(key).items.some((i) => i.rowKey === "stale")
     ).toBe(false);
     expect(calls).toBeGreaterThanOrEqual(2);
+    // R2 P1-1: superseded loadMore must not leave permanent busy state
+    expect(store.getView(key).mutating).toBeNull();
   });
 
   it("disables load more when hasMore is false", async () => {
@@ -696,6 +704,45 @@ describe("DatabaseRuntimeStore — reorder safety", () => {
     );
   });
 
+  it("disables reorder when total is 0 but items exist (R2 P2 fail-closed)", async () => {
+    const provider: DatabaseProvider = {
+      listRows: async () => ({
+        databaseId: "tasks",
+        rows: [],
+        items: [
+          {
+            rowKey: "a",
+            sortOrder: 0,
+            deletedAt: null,
+            row: { title: "A" }
+          },
+          {
+            rowKey: "b",
+            sortOrder: 1,
+            deletedAt: null,
+            row: { title: "B" }
+          }
+        ],
+        schema: { title: "text" },
+        config: {},
+        pagination: {
+          limit: 10,
+          nextCursor: null,
+          hasMore: false,
+          total: 0
+        }
+      }),
+      reorderRows: async () => null
+    };
+    const store = createDatabaseRuntimeStore({ provider, defaultPageSize: 10 });
+    store.ensureView("tasks::main", "tasks");
+    await store.load("tasks::main");
+    expect(store.getView("tasks::main").canReorder).toBe(false);
+    expect(store.getView("tasks::main").reorderDisabledReason).toMatch(
+      /Incomplete/
+    );
+  });
+
   it("reorder success uses ordered keys; error preserves order", async () => {
     const provider = createMemoryProvider(seedRows.slice(0, 2), {
       pageSize: 10
@@ -788,6 +835,113 @@ describe("4F-3A R1 — block instance isolation + mutation catch", () => {
     } finally {
       process.off("unhandledRejection", onUnhandled);
     }
+  });
+});
+
+describe("4F-3A R2 — idle isolation + query key safety", () => {
+  it("idle snapshots do not leak capabilities across store instances (P1-2)", () => {
+    const storeA = createDatabaseRuntimeStore({
+      provider: {
+        listRows: async () => ({
+          databaseId: "tasks",
+          rows: [],
+          items: [],
+          schema: {},
+          config: {},
+          pagination: { limit: 10, nextCursor: null, hasMore: false, total: 0 }
+        }),
+        createRow: async () => null
+      }
+    });
+    const storeB = createDatabaseRuntimeStore({
+      provider: {
+        listRows: async () => ({
+          databaseId: "tasks",
+          rows: [],
+          items: [],
+          schema: {},
+          config: {},
+          pagination: { limit: 10, nextCursor: null, hasMore: false, total: 0 }
+        })
+      }
+    });
+    const key = "same-view-key";
+    const snapA = storeA.getView(key);
+    const snapB = storeB.getView(key);
+    expect(snapA.capabilities.create).toBe(true);
+    expect(snapB.capabilities.create).toBe(false);
+    expect(snapA).not.toBe(snapB);
+  });
+
+  it("query keys distinguish delimiter-colliding databaseId/query pairs (P1-3)", async () => {
+    const base = {
+      sortBy: "position" as const,
+      direction: "asc" as const,
+      trashMode: "active" as const,
+      pageSize: 10
+    };
+    const keyA = buildDatabaseQueryKey("a|q=b", { ...base, query: "c" });
+    const keyB = buildDatabaseQueryKey("a", { ...base, query: "b|q=c" });
+    expect(keyA).not.toBe(keyB);
+
+    const calls: Array<{ db: string; q?: string }> = [];
+    let resolveA!: (page: DatabaseRowsPage) => void;
+    let resolveB!: (page: DatabaseRowsPage) => void;
+    const provider: DatabaseProvider = {
+      listRows: (databaseId, opts) => {
+        calls.push({ db: databaseId, q: opts?.query });
+        return new Promise((resolve) => {
+          if (databaseId === "a|q=b") resolveA = resolve;
+          else resolveB = resolve;
+        });
+      }
+    };
+    const store = createDatabaseRuntimeStore({ provider, defaultPageSize: 10 });
+    store.ensureView("v1", "a|q=b");
+    store.ensureView("v2", "a");
+    // Reset auto-load noise by waiting a tick then issuing simultaneous loads
+    // with the historically colliding query shapes.
+    store.setQuery("v1", "c");
+    store.setQuery("v2", "b|q=c");
+    await new Promise((r) => setTimeout(r, 0));
+
+    // Both requests must be in flight independently (not one shared promise).
+    expect(typeof resolveA).toBe("function");
+    expect(typeof resolveB).toBe("function");
+    expect(resolveA).not.toBe(resolveB);
+
+    resolveA({
+      databaseId: "a|q=b",
+      rows: [],
+      items: [{ rowKey: "from-a", sortOrder: 0, row: { title: "A" } }],
+      schema: { title: "text" },
+      config: {},
+      pagination: { limit: 10, nextCursor: null, hasMore: false, total: 1 }
+    });
+    resolveB({
+      databaseId: "a",
+      rows: [],
+      items: [{ rowKey: "from-b", sortOrder: 0, row: { title: "B" } }],
+      schema: { title: "text" },
+      config: {},
+      pagination: { limit: 10, nextCursor: null, hasMore: false, total: 1 }
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(store.getView("v1").items.map((i) => i.rowKey)).toEqual(["from-a"]);
+    expect(store.getView("v2").items.map((i) => i.rowKey)).toEqual(["from-b"]);
+    expect(
+      calls.some((c) => c.db === "a|q=b" && c.q === "c")
+    ).toBe(true);
+    expect(
+      calls.some((c) => c.db === "a" && c.q === "b|q=c")
+    ).toBe(true);
+  });
+
+  it("instance keys distinguish delimiter-colliding block/db ids", () => {
+    const a = databaseViewInstanceKey("x::y", "db", "main");
+    const b = databaseViewInstanceKey("x", "y::db", "main");
+    expect(a).not.toBe(b);
+    expect(databaseViewKey("a::b", "c")).not.toBe(databaseViewKey("a", "b::c"));
   });
 });
 

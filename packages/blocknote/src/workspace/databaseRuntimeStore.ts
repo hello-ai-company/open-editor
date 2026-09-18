@@ -188,34 +188,11 @@ function emptyPagination(
   return { limit, nextCursor: null, hasMore: false, total: 0 };
 }
 
-const idleSnapshots = new Map<string, DatabaseViewSnapshot>();
-
-function idleSnapshot(
-  viewKey: string,
-  pageSize: number,
-  caps: DatabaseCapabilities
-): DatabaseViewSnapshot {
-  const cacheKey = `${viewKey}|${pageSize}|${caps.list ? 1 : 0}`;
-  const hit = idleSnapshots.get(cacheKey);
-  if (hit) return hit;
-  const snap: DatabaseViewSnapshot = {
-    viewKey,
-    databaseId: "",
-    status: "idle",
-    metaStatus: "idle",
-    meta: null,
-    items: [],
-    schema: {},
-    queryState: defaultQueryState(pageSize),
-    pagination: emptyPagination(pageSize),
-    mutating: null,
-    capabilities: caps,
-    canReorder: false,
-    reorderDisabledReason: "View not loaded",
-    generation: 0
-  };
-  idleSnapshots.set(cacheKey, snap);
-  return snap;
+/** Collision-safe opaque key from ordered parts (4F-3A R2). */
+export function encodeDatabaseKeyParts(
+  parts: readonly unknown[]
+): string {
+  return JSON.stringify(parts);
 }
 
 export function buildDatabaseQueryKey(
@@ -223,15 +200,15 @@ export function buildDatabaseQueryKey(
   state: DatabaseViewQueryState,
   cursor?: string | null
 ): string {
-  return [
-    `db=${databaseId}`,
-    `q=${state.query.trim()}`,
-    `sort=${state.sortBy}`,
-    `dir=${state.direction}`,
-    `trash=${state.trashMode}`,
-    `limit=${state.pageSize}`,
-    `cursor=${cursor ?? ""}`
-  ].join("|");
+  return encodeDatabaseKeyParts([
+    databaseId,
+    state.query.trim(),
+    state.sortBy,
+    state.direction,
+    state.trashMode,
+    state.pageSize,
+    cursor ?? null
+  ]);
 }
 
 function listOptionsFromState(
@@ -296,12 +273,8 @@ function reorderEligibility(
     };
   }
   // Reject incomplete lists (host total vs loaded items mismatch / dedupe loss).
-  const total = view.pagination.total;
-  if (
-    typeof total === "number" &&
-    total > 0 &&
-    view.items.length !== total
-  ) {
+  // Fail-closed even when total === 0 but items are present (4F-3A R2).
+  if (view.items.length !== view.pagination.total) {
     return {
       canReorder: false,
       reason: "Incomplete row set — cannot reorder partial data"
@@ -372,7 +345,50 @@ export function createDatabaseRuntimeStore(
   /** In-flight listRows by full query key (includes cursor). */
   const inflight = new Map<string, Promise<DatabaseRowsPage>>();
   const fetchCountByKey = new Map<string, number>();
+  /** Idle snapshots are store-instance scoped — never module-global (4F-3A R2). */
+  const idleSnapshots = new Map<string, DatabaseViewSnapshot>();
   let totalFetches = 0;
+
+  function caps(): DatabaseCapabilities {
+    return capabilitiesFrom(provider);
+  }
+
+  function idleSnapshot(
+    viewKey: string
+  ): DatabaseViewSnapshot {
+    const currentCaps = caps();
+    const cacheKey = encodeDatabaseKeyParts([
+      viewKey,
+      pageSize,
+      currentCaps.list,
+      currentCaps.create,
+      currentCaps.update,
+      currentCaps.delete,
+      currentCaps.restore,
+      currentCaps.reorder,
+      currentCaps.getDatabase
+    ]);
+    const hit = idleSnapshots.get(cacheKey);
+    if (hit) return hit;
+    const snap: DatabaseViewSnapshot = {
+      viewKey,
+      databaseId: "",
+      status: "idle",
+      metaStatus: "idle",
+      meta: null,
+      items: [],
+      schema: {},
+      queryState: defaultQueryState(pageSize),
+      pagination: emptyPagination(pageSize),
+      mutating: null,
+      capabilities: currentCaps,
+      canReorder: false,
+      reorderDisabledReason: "View not loaded",
+      generation: 0
+    };
+    idleSnapshots.set(cacheKey, snap);
+    return snap;
+  }
 
   function notify(): void {
     // Invalidate cached snapshots before notifying subscribers
@@ -380,10 +396,6 @@ export function createDatabaseRuntimeStore(
       view.cachedSnapshot = null;
     }
     for (const listener of listeners) listener();
-  }
-
-  function caps(): DatabaseCapabilities {
-    return capabilitiesFrom(provider);
   }
 
   function getOrCreate(viewKey: string, databaseId: string): ViewInternal {
@@ -490,6 +502,8 @@ export function createDatabaseRuntimeStore(
     view.mutationError = undefined;
     view.seenCursors.clear();
     view.loadMoreInFlight = false;
+    // Supersede in-flight loadMore / other mutation busy flags (4F-3A R2).
+    view.mutating = null;
     notify();
 
     void loadMeta(view, gen);
@@ -556,7 +570,7 @@ export function createDatabaseRuntimeStore(
     getView(viewKey) {
       const view = views.get(viewKey);
       if (!view) {
-        return idleSnapshot(viewKey, pageSize, caps());
+        return idleSnapshot(viewKey);
       }
       if (!view.cachedSnapshot) {
         view.cachedSnapshot = toSnapshot(view, caps());
@@ -814,12 +828,13 @@ export function createDatabaseRuntimeStore(
 /**
  * Database + view identity (not a block instance key).
  * Prefer {@link databaseViewInstanceKey} for ephemeral UI state.
+ * Encoded collision-safe for opaque host IDs (4F-3A R2).
  */
 export function databaseViewKey(
   databaseId: string,
   viewId: string
 ): string {
-  return `${databaseId}::${viewId || "main"}`;
+  return encodeDatabaseKeyParts([databaseId, viewId || "main"]);
 }
 
 /**
@@ -833,7 +848,7 @@ export function databaseViewInstanceKey(
   viewId: string
 ): string {
   const safeBlock = blockId.trim() || "anonymous";
-  return `${safeBlock}::${databaseId}::${viewId || "main"}`;
+  return encodeDatabaseKeyParts([safeBlock, databaseId, viewId || "main"]);
 }
 
 export function createDatabaseViewRuntimeFromStore(

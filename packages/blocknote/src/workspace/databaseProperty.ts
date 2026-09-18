@@ -47,17 +47,14 @@ export function normalizeDatabasePropertyType(
   return "readonly";
 }
 
+/**
+ * Cell editors available in 4F-3A (conservative).
+ * date / url / select stay display-only until typed property metadata (4F-3B).
+ */
 export function isEditablePropertyKind(
   kind: NormalizedPropertyKind
 ): boolean {
-  return (
-    kind === "text" ||
-    kind === "number" ||
-    kind === "boolean" ||
-    kind === "date" ||
-    kind === "url" ||
-    kind === "select"
-  );
+  return kind === "text" || kind === "number" || kind === "boolean";
 }
 
 /**
