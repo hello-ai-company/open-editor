@@ -165,11 +165,11 @@ const seedRows: MemRow[] = [
 ];
 
 describe("normalizeDatabasePropertyType", () => {
-  it("maps known aliases and unknown to readonly", () => {
+  it("maps known aliases and unknown host types", () => {
     expect(normalizeDatabasePropertyType("text")).toBe("text");
     expect(normalizeDatabasePropertyType("checkbox")).toBe("boolean");
-    expect(normalizeDatabasePropertyType("status")).toBe("select");
-    expect(normalizeDatabasePropertyType("formula")).toBe("readonly");
+    expect(normalizeDatabasePropertyType("status")).toBe("status");
+    expect(normalizeDatabasePropertyType("formula")).toBe("unknown");
     expect(isCreatablePropertyKind("readonly")).toBe(false);
     expect(isCreatablePropertyKind("text")).toBe(true);
     expect(isEditablePropertyKind("text")).toBe(true);
