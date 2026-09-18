@@ -176,6 +176,7 @@ export {
   formatDatabaseCellDisplay,
   formatSelectDisplay,
   hasExplicitPropertyDefinitions,
+  metadataAllowsRowMutations,
   hostSupportsPropertyFilters,
   hostSupportsPropertySort,
   isCreatableResolvedProperty,

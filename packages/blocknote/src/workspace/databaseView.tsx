@@ -42,6 +42,7 @@ import {
   isEditableResolvedProperty,
   isFilterablePropertyType,
   isIsoDateString,
+  metadataAllowsRowMutations,
   parseEditedCellValue,
   parseNumberDraft,
   propertyDefinitionMap,
@@ -488,6 +489,10 @@ function InteractiveDatabaseTable(props: {
   });
   const defMap = propertyDefinitionMap(resolved);
   const createIds = creatablePropertyIds(resolved);
+  const mutationsAllowed = metadataAllowsRowMutations({
+    getDatabase: snap.capabilities.getDatabase,
+    metaStatus: snap.metaStatus
+  });
   const filterableDefs = resolved.filter((d) =>
     isFilterablePropertyType(d.type)
   );
@@ -518,6 +523,14 @@ function InteractiveDatabaseTable(props: {
     };
   }, []);
 
+  useEffect(() => {
+    if (!mutationsAllowed) {
+      setCreating(false);
+      setEditing(null);
+      setEditValue("");
+    }
+  }, [mutationsAllowed]);
+
   const title =
     snap.meta?.title ||
     getTitle?.(snap.databaseId) ||
@@ -537,6 +550,7 @@ function InteractiveDatabaseTable(props: {
   };
 
   const startEdit = (item: DatabaseRowItem, def: ResolvedPropertyDefinition) => {
+    if (!mutationsAllowed) return;
     if (!snap.capabilities.update) return;
     if (!isEditableResolvedProperty(def)) return;
     if (def.type === "boolean" || def.type === "select" || def.type === "status") {
@@ -552,7 +566,7 @@ function InteractiveDatabaseTable(props: {
   };
 
   const commitEdit = async () => {
-    if (!editing) return;
+    if (!editing || !mutationsAllowed) return;
     const item = snap.items.find((row) => row.rowKey === editing.rowKey);
     const def = defMap.get(editing.field);
     if (!item || !def || !isEditableResolvedProperty(def)) {
@@ -608,6 +622,7 @@ function InteractiveDatabaseTable(props: {
     def: ResolvedPropertyDefinition,
     checked: boolean
   ) => {
+    if (!mutationsAllowed || !isEditableResolvedProperty(def)) return;
     const completeRow: Record<string, JsonValue> = {
       ...item.row,
       [def.id]: checked
@@ -622,6 +637,7 @@ function InteractiveDatabaseTable(props: {
     def: ResolvedPropertyDefinition,
     optionValue: string
   ) => {
+    if (!mutationsAllowed || !isEditableResolvedProperty(def)) return;
     if (!def.options.some((o) => o.value === optionValue)) return;
     if (valuesEqualForEdit(item.row[def.id], optionValue)) return;
     const completeRow: Record<string, JsonValue> = {
@@ -634,6 +650,7 @@ function InteractiveDatabaseTable(props: {
   };
 
   const beginCreate = () => {
+    if (!mutationsAllowed) return;
     const next: Record<string, string> = {};
     for (const id of createIds) next[id] = "";
     setDraft(next);
@@ -642,6 +659,10 @@ function InteractiveDatabaseTable(props: {
   };
 
   const submitCreate = async () => {
+    if (!mutationsAllowed) {
+      setCreateError("Database metadata is not ready");
+      return;
+    }
     setCreateError(null);
     const hasTypedDefinitions = hasExplicitPropertyDefinitions(
       snap.meta?.propertyDefinitions
@@ -904,7 +925,9 @@ function InteractiveDatabaseTable(props: {
     const isEditing =
       editing?.rowKey === item.rowKey && editing.field === def.id;
     const editable =
-      snap.capabilities.update && isEditableResolvedProperty(def);
+      mutationsAllowed &&
+      snap.capabilities.update &&
+      isEditableResolvedProperty(def);
 
     if (def.type === "boolean" && editable) {
       const checked =
@@ -1111,7 +1134,9 @@ function InteractiveDatabaseTable(props: {
         >
           Refresh
         </button>
-        {snap.capabilities.create && snap.queryState.trashMode === "active" ? (
+        {snap.capabilities.create &&
+        snap.queryState.trashMode === "active" &&
+        mutationsAllowed ? (
           <button
             type="button"
             className="oe-database-view__chip oe-database-view__chip--on"

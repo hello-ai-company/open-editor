@@ -122,11 +122,40 @@ function legacyKindToPropertyType(
  * - `definitions === undefined | null` → typed metadata absent → legacy fallback
  * - `definitions === []` → typed metadata present but empty → return [] (no legacy)
  * - `definitions.length > 0` → use host definitions
+ *
+ * Mutation authority (4F-3B R3): callers must also gate edits/creates with
+ * {@link metadataAllowsRowMutations} so legacy fallback is not used while
+ * `getDatabase` metadata is still loading.
  */
 export function hasExplicitPropertyDefinitions(
   definitions: readonly DatabasePropertyDefinition[] | null | undefined
 ): boolean {
   return definitions != null;
+}
+
+/**
+ * Whether row create/update UI may use schema authority (4F-3B R3).
+ *
+ * - No `getDatabase` capability → legacy schema may authorize mutations
+ * - `getDatabase` present + meta not yet `ready` → display-only (fail-closed)
+ * - `getDatabase` present + `ready` → typed definitions or explicit legacy
+ *   (`propertyDefinitions === undefined`) via {@link resolveDatabasePropertyDefinitions}
+ * - `missing` / `error` → fail-closed for mutations (rows may still display)
+ */
+export function metadataAllowsRowMutations(input: {
+  getDatabase: boolean;
+  metaStatus:
+    | "idle"
+    | "loading"
+    | "ready"
+    | "missing"
+    | "error"
+    | "unavailable";
+}): boolean {
+  if (!input.getDatabase) {
+    return true;
+  }
+  return input.metaStatus === "ready";
 }
 
 export function resolveDatabasePropertyDefinitions(input: {

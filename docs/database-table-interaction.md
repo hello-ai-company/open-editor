@@ -135,6 +135,8 @@ Portable types: `text` | `number` | `boolean` | `date` | `url` | `select` | `sta
 
 Do not treat `[]` as “absent”.
 
+**Mutation authority (4F-3B R3):** when the host implements `getDatabase`, row create/update UI stays display-only until `metaStatus === "ready"`. This prevents a race where `listRows` returns first and temporary legacy editors bypass typed `readOnly` / empty definitions. Hosts without `getDatabase` may still mutate from legacy schema.
+
 | Type | Edit (typed) | New Row | Notes |
 | --- | --- | --- | --- |
 | text | text input | yes | |

@@ -23,11 +23,13 @@ import {
 } from "../src/workspace/databaseRuntimeStore.js";
 import {
   buildTypedCreateRowPayload,
+  creatablePropertyIds,
   formatSelectDisplay,
   hasExplicitPropertyDefinitions,
   hostSupportsPropertyFilters,
   hostSupportsPropertySort,
   isEditableResolvedProperty,
+  metadataAllowsRowMutations,
   resolveDatabasePropertyDefinitions,
   sanitizeFiltersAgainstMetadata,
   validateDatabaseFilter,
@@ -404,6 +406,279 @@ describe("4F-3B — resolve metadata", () => {
     expect(hasExplicitPropertyDefinitions([])).toBe(true);
     expect(hasExplicitPropertyDefinitions(undefined)).toBe(false);
     expect(hasExplicitPropertyDefinitions(null)).toBe(false);
+  });
+});
+
+describe("4F-3B R3 — metadata authority gate before mutation", () => {
+  it("blocks mutations while getDatabase is pending even if rows are ready", async () => {
+    let releaseMeta!: () => void;
+    const metaGate = new Promise<void>((resolve) => {
+      releaseMeta = resolve;
+    });
+    const rows: MemRow[] = [
+      {
+        rowKey: "a",
+        sortOrder: 0,
+        deletedAt: null,
+        row: { systemTitle: "Secret" }
+      }
+    ];
+    const provider: DatabaseProvider = {
+      async getDatabase(databaseId) {
+        await metaGate;
+        return {
+          id: databaseId,
+          title: "Tasks",
+          propertyDefinitions: [
+            {
+              id: "systemTitle",
+              name: "System title",
+              type: "text",
+              readOnly: true
+            }
+          ]
+        };
+      },
+      async listRows(databaseId, opts) {
+        return {
+          databaseId,
+          rows: rows.map((r) => r.row),
+          items: rows.map((r) => ({
+            rowKey: r.rowKey,
+            sortOrder: r.sortOrder,
+            deletedAt: r.deletedAt,
+            row: { ...r.row }
+          })),
+          schema: { systemTitle: "text" },
+          config: {},
+          pagination: {
+            limit: opts?.limit ?? 10,
+            nextCursor: null,
+            hasMore: false,
+            total: rows.length
+          }
+        };
+      },
+      async createRow() {
+        return { ok: true };
+      },
+      async updateRow() {
+        return { ok: true };
+      }
+    };
+
+    const store = createDatabaseRuntimeStore({
+      provider,
+      defaultPageSize: 10
+    });
+    store.ensureView("tasks::main", "tasks");
+    await vi.waitFor(() => {
+      expect(store.getView("tasks::main").status).toBe("ready");
+    });
+    const pending = store.getView("tasks::main");
+    expect(pending.metaStatus).toBe("loading");
+    expect(pending.items).toHaveLength(1);
+    expect(
+      metadataAllowsRowMutations({
+        getDatabase: pending.capabilities.getDatabase,
+        metaStatus: pending.metaStatus
+      })
+    ).toBe(false);
+
+    // Without the gate, legacy resolve would treat systemTitle as editable.
+    const premature = resolveDatabasePropertyDefinitions({
+      legacySchema: pending.schema,
+      definitions: pending.meta?.propertyDefinitions
+    });
+    expect(isEditableResolvedProperty(premature[0]!)).toBe(true);
+    expect(creatablePropertyIds(premature)).toContain("systemTitle");
+
+    releaseMeta();
+    await vi.waitFor(() => {
+      expect(store.getView("tasks::main").metaStatus).toBe("ready");
+    });
+    const ready = store.getView("tasks::main");
+    expect(
+      metadataAllowsRowMutations({
+        getDatabase: ready.capabilities.getDatabase,
+        metaStatus: ready.metaStatus
+      })
+    ).toBe(true);
+    const resolved = resolveDatabasePropertyDefinitions({
+      legacySchema: ready.schema,
+      definitions: ready.meta?.propertyDefinitions
+    });
+    expect(resolved).toHaveLength(1);
+    expect(isEditableResolvedProperty(resolved[0]!)).toBe(false);
+    expect(creatablePropertyIds(resolved)).toEqual([]);
+  });
+
+  it("allows legacy editing only after meta ready with propertyDefinitions undefined", async () => {
+    let releaseMeta!: () => void;
+    const metaGate = new Promise<void>((resolve) => {
+      releaseMeta = resolve;
+    });
+    const rows: MemRow[] = [
+      {
+        rowKey: "a",
+        sortOrder: 0,
+        deletedAt: null,
+        row: { title: "Alpha" }
+      }
+    ];
+    const provider: DatabaseProvider = {
+      async getDatabase(databaseId) {
+        await metaGate;
+        return { id: databaseId, title: "Tasks" };
+      },
+      async listRows(databaseId, opts) {
+        return {
+          databaseId,
+          rows: rows.map((r) => r.row),
+          items: rows.map((r) => ({
+            rowKey: r.rowKey,
+            sortOrder: r.sortOrder,
+            deletedAt: r.deletedAt,
+            row: { ...r.row }
+          })),
+          schema: { title: "text" },
+          config: {},
+          pagination: {
+            limit: opts?.limit ?? 10,
+            nextCursor: null,
+            hasMore: false,
+            total: 1
+          }
+        };
+      },
+      async updateRow() {
+        return { ok: true };
+      }
+    };
+    const store = createDatabaseRuntimeStore({
+      provider,
+      defaultPageSize: 10
+    });
+    store.ensureView("tasks::main", "tasks");
+    await vi.waitFor(() => {
+      expect(store.getView("tasks::main").status).toBe("ready");
+    });
+    expect(
+      metadataAllowsRowMutations({
+        getDatabase: true,
+        metaStatus: store.getView("tasks::main").metaStatus
+      })
+    ).toBe(false);
+
+    releaseMeta();
+    await vi.waitFor(() => {
+      expect(store.getView("tasks::main").metaStatus).toBe("ready");
+    });
+    const snap = store.getView("tasks::main");
+    expect(snap.meta?.propertyDefinitions).toBeUndefined();
+    expect(
+      metadataAllowsRowMutations({
+        getDatabase: true,
+        metaStatus: snap.metaStatus
+      })
+    ).toBe(true);
+    const resolved = resolveDatabasePropertyDefinitions({
+      legacySchema: snap.schema,
+      definitions: snap.meta?.propertyDefinitions
+    });
+    expect(resolved[0]?.source).toBe("legacy");
+    expect(isEditableResolvedProperty(resolved[0]!)).toBe(true);
+  });
+
+  it("propertyDefinitions: [] after meta ready still blocks legacy create fields", async () => {
+    let releaseMeta!: () => void;
+    const metaGate = new Promise<void>((resolve) => {
+      releaseMeta = resolve;
+    });
+    const provider: DatabaseProvider = {
+      async getDatabase(databaseId) {
+        await metaGate;
+        return {
+          id: databaseId,
+          title: "Tasks",
+          propertyDefinitions: []
+        };
+      },
+      async listRows(databaseId, opts) {
+        return {
+          databaseId,
+          rows: [],
+          items: [],
+          schema: { title: "text" },
+          config: {},
+          pagination: {
+            limit: opts?.limit ?? 10,
+            nextCursor: null,
+            hasMore: false,
+            total: 0
+          }
+        };
+      },
+      async createRow() {
+        return { ok: true };
+      }
+    };
+    const store = createDatabaseRuntimeStore({
+      provider,
+      defaultPageSize: 10
+    });
+    store.ensureView("tasks::main", "tasks");
+    await vi.waitFor(() => {
+      expect(store.getView("tasks::main").status).toBe("empty");
+    });
+    expect(
+      metadataAllowsRowMutations({
+        getDatabase: true,
+        metaStatus: "loading"
+      })
+    ).toBe(false);
+
+    releaseMeta();
+    await vi.waitFor(() => {
+      expect(store.getView("tasks::main").metaStatus).toBe("ready");
+    });
+    const snap = store.getView("tasks::main");
+    const resolved = resolveDatabasePropertyDefinitions({
+      legacySchema: snap.schema,
+      definitions: snap.meta?.propertyDefinitions
+    });
+    expect(resolved).toEqual([]);
+    expect(creatablePropertyIds(resolved)).toEqual([]);
+    const row = resolveCreateRowPayload({
+      hasTypedDefinitions: hasExplicitPropertyDefinitions(
+        snap.meta?.propertyDefinitions
+      ),
+      typedResult: buildTypedCreateRowPayload(resolved, { title: "x" }),
+      legacySchema: snap.schema,
+      draft: { title: "x" }
+    });
+    expect(row).toEqual({});
+  });
+
+  it("metaStatus missing/error fail-closes mutations when getDatabase exists", () => {
+    expect(
+      metadataAllowsRowMutations({
+        getDatabase: true,
+        metaStatus: "missing"
+      })
+    ).toBe(false);
+    expect(
+      metadataAllowsRowMutations({
+        getDatabase: true,
+        metaStatus: "error"
+      })
+    ).toBe(false);
+    expect(
+      metadataAllowsRowMutations({
+        getDatabase: false,
+        metaStatus: "unavailable"
+      })
+    ).toBe(true);
   });
 });
 
