@@ -947,7 +947,7 @@ describe("4F-3A R2 — idle isolation + query key safety", () => {
 
 describe("4F-3A R3 — write mutating + first-page/loadMore races", () => {
   it("query change during create keeps write mutating busy (P1-1)", async () => {
-    let resolveCreate!: (value: unknown) => void;
+    let resolveCreate!: (value: JsonValue) => void;
     let resolveQuery!: (page: DatabaseRowsPage) => void;
     const provider: DatabaseProvider = {
       listRows: async (_db, opts) => {
