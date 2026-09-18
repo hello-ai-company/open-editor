@@ -385,17 +385,11 @@ describe("4F-4B — resolveDatabaseViewRenderer", () => {
     ).toBe(renderGalleryView);
   });
 
-  it("timeline remains deferred; list/gallery are not deferred", () => {
-    expect(isDeferredDatabaseViewType("timeline")).toBe(true);
+  it("timeline and gantt are not deferred", () => {
+    expect(isDeferredDatabaseViewType("timeline")).toBe(false);
+    expect(isDeferredDatabaseViewType("gantt")).toBe(false);
     expect(isDeferredDatabaseViewType("list")).toBe(false);
     expect(isDeferredDatabaseViewType("gallery")).toBe(false);
-    expect(
-      resolveDatabaseViewRenderer({
-        viewType: "timeline",
-        runtime: {},
-        defaults: DEFAULT_RENDERERS
-      })
-    ).toBeNull();
   });
 
   it("uses custom list/gallery overrides from runtime", () => {
