@@ -25,13 +25,25 @@ Host persistence
 
 ## View keys
 
-Each block instance uses:
+Ephemeral **UI state** (query / sort / trash / pagination cursors) is keyed per
+**block instance**:
 
 ```
-viewKey = `${databaseId}::${viewId}`
+viewKey = `${blockId}::${databaseId}::${viewId}`
 ```
 
-Query/sort/trash/pagination state is **view-instance scoped**.
+via `databaseViewInstanceKey(blockId, databaseId, viewId)`.
+
+Two blocks with the same `databaseId` + `viewId` (e.g. both defaulting to
+`viewId: "main"`) therefore keep independent search/sort/trash UI state.
+
+Provider **read dedupe** remains query-scoped (not block-scoped):
+
+```
+db=…|q=…|sort=…|dir=…|trash=…|limit=…|cursor=…
+```
+
+Identical in-flight reads still share one `listRows` call across views.
 
 ## Read query identity
 
@@ -75,7 +87,10 @@ Enabled only when:
 - query is empty
 - trash mode is Active
 - `sortBy === "position"`
+- `direction === "asc"`
 - `pagination.hasMore === false`
+- `pagination.nextCursor === null`
+- `items.length === total` when `total > 0`
 
 ## Property types
 
@@ -84,6 +99,9 @@ Enabled only when:
 `text` | `number` | `boolean` | `date` | `url` | `select`
 
 Unknown → **readonly** display (no destructive editor).
+
+**New Row** only exposes creatable primitives (`text` / `number` / `boolean`).
+Readonly / unknown fields are omitted from the create payload (never sent as `""`).
 
 ## Pagination
 

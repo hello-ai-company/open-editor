@@ -1,5 +1,5 @@
 /**
- * Database view block — interactive table engine (Phase 4F-3A).
+ * Database view block — interactive table engine (Phase 4F-3A / R1).
  * Document stores identity/view config only; rows come from DatabaseRuntimeStore.
  */
 import { createReactBlockSpec } from "@blocknote/react";
@@ -17,14 +17,17 @@ import {
   type ReactElement
 } from "react";
 import {
-  databaseViewKey,
+  databaseViewInstanceKey,
   type DatabaseRuntimeStore,
   type DatabaseSortBy,
   type DatabaseSortDirection,
   type DatabaseViewSnapshot
 } from "./databaseRuntimeStore.js";
 import {
+  buildCreateRowPayload,
+  creatableSchemaKeys,
   formatDatabaseCellDisplay,
+  isCreatablePropertyKind,
   isEditablePropertyKind,
   normalizeDatabasePropertyType,
   parseEditedCellValue,
@@ -43,6 +46,14 @@ export type DatabaseViewRuntime = {
   getTitle?: (databaseId: string) => string | undefined;
 };
 
+/**
+ * Swallow provider rejection after the store has recorded mutationError.
+ * Prevents unhandled Promise rejections from fire-and-forget UI handlers (4F-3A R1).
+ */
+export function catchStoreMutation(promise: Promise<unknown>): void {
+  void promise.catch(() => undefined);
+}
+
 function emptyMessage(snap: DatabaseViewSnapshot): string {
   switch (snap.emptyReason) {
     case "provider-unavailable":
@@ -57,34 +68,50 @@ function emptyMessage(snap: DatabaseViewSnapshot): string {
   }
 }
 
+type DatabaseViewBlock = {
+  id?: string;
+  props: {
+    databaseId: string;
+    viewId: string;
+    viewType: string;
+    titleHint: string;
+  };
+};
+
+/**
+ * Router — no hooks here so store presence can change without Rules-of-Hooks issues.
+ */
 function DatabaseTableView(props: {
   runtime: DatabaseViewRuntime;
-  block: {
-    props: {
-      databaseId: string;
-      viewId: string;
-      viewType: string;
-      titleHint: string;
-    };
-  };
+  block: DatabaseViewBlock;
+}): ReactElement {
+  const { runtime, block } = props;
+  if (runtime.store) {
+    return <StoreBackedDatabaseView runtime={runtime} block={block} />;
+  }
+  return (
+    <LegacyDatabaseView
+      runtime={runtime}
+      databaseId={block.props.databaseId}
+      viewId={block.props.viewId}
+      viewType={block.props.viewType}
+      titleHint={block.props.titleHint}
+    />
+  );
+}
+
+function StoreBackedDatabaseView(props: {
+  runtime: DatabaseViewRuntime;
+  block: DatabaseViewBlock;
 }): ReactElement {
   const { runtime, block } = props;
   const { databaseId, viewId, viewType, titleHint } = block.props;
-  const store = runtime.store;
-  const viewKey = databaseViewKey(databaseId, viewId);
-
-  // Legacy fallback path when no store is wired
-  if (!store) {
-    return (
-      <LegacyDatabaseView
-        runtime={runtime}
-        databaseId={databaseId}
-        viewId={viewId}
-        viewType={viewType}
-        titleHint={titleHint}
-      />
-    );
-  }
+  const store = runtime.store!;
+  const viewKey = databaseViewInstanceKey(
+    block.id ?? "",
+    databaseId,
+    viewId
+  );
 
   useEffect(() => {
     if (databaseId) store.ensureView(viewKey, databaseId);
@@ -145,6 +172,7 @@ function InteractiveDatabaseTable(props: {
     "Database";
 
   const schemaKeys = Object.keys(snap.schema);
+  const createKeys = creatableSchemaKeys(snap.schema);
   const busy = Boolean(snap.mutating);
 
   const onSearchChange = (value: string) => {
@@ -207,17 +235,13 @@ function InteractiveDatabaseTable(props: {
 
   const beginCreate = () => {
     const next: Record<string, string> = {};
-    for (const key of schemaKeys) next[key] = "";
+    for (const key of createKeys) next[key] = "";
     setDraft(next);
     setCreating(true);
   };
 
   const submitCreate = async () => {
-    const row: Record<string, JsonValue> = {};
-    for (const key of schemaKeys) {
-      const kind = normalizeDatabasePropertyType(snap.schema[key]);
-      row[key] = parseEditedCellValue(draft[key] ?? "", kind);
-    }
+    const row = buildCreateRowPayload(snap.schema, draft);
     try {
       await store.createRow(viewKey, row);
       setCreating(false);
@@ -341,7 +365,7 @@ function InteractiveDatabaseTable(props: {
         <button
           type="button"
           className="oe-database-view__chip"
-          onClick={() => void store.refresh(viewKey)}
+          onClick={() => catchStoreMutation(store.refresh(viewKey))}
           disabled={busy}
         >
           Refresh
@@ -351,7 +375,7 @@ function InteractiveDatabaseTable(props: {
             type="button"
             className="oe-database-view__chip oe-database-view__chip--on"
             onClick={beginCreate}
-            disabled={busy || creating}
+            disabled={busy || creating || createKeys.length === 0}
           >
             New row
           </button>
@@ -381,7 +405,7 @@ function InteractiveDatabaseTable(props: {
         <p className="oe-database-view__error" role="alert">
           {snap.errorMessage ?? "Failed to load rows"}
         </p>
-      ) : snap.status === "empty" ? (
+      ) : snap.status === "empty" && !creating ? (
         <p className="oe-database-view__empty" role="status">
           {emptyMessage(snap)}
         </p>
@@ -405,20 +429,32 @@ function InteractiveDatabaseTable(props: {
                   <td>
                     <em>new</em>
                   </td>
-                  {schemaKeys.map((key) => (
-                    <td key={key}>
-                      <input
-                        aria-label={`New row ${key}`}
-                        value={draft[key] ?? ""}
-                        onChange={(event) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            [key]: event.target.value
-                          }))
-                        }
-                      />
-                    </td>
-                  ))}
+                  {schemaKeys.map((key) => {
+                    const kind = normalizeDatabasePropertyType(snap.schema[key]);
+                    if (!isCreatablePropertyKind(kind)) {
+                      return (
+                        <td key={key}>
+                          <span className="oe-database-view__readonly-hint">
+                            —
+                          </span>
+                        </td>
+                      );
+                    }
+                    return (
+                      <td key={key}>
+                        <input
+                          aria-label={`New row ${key}`}
+                          value={draft[key] ?? ""}
+                          onChange={(event) =>
+                            setDraft((prev) => ({
+                              ...prev,
+                              [key]: event.target.value
+                            }))
+                          }
+                        />
+                      </td>
+                    );
+                  })}
                   <td>
                     <button
                       type="button"
@@ -486,11 +522,13 @@ function InteractiveDatabaseTable(props: {
                                 ...item.row,
                                 [key]: event.target.checked
                               };
-                              void store.updateRow(
-                                viewKey,
-                                item.rowKey,
-                                completeRow,
-                                item.sortOrder
+                              catchStoreMutation(
+                                store.updateRow(
+                                  viewKey,
+                                  item.rowKey,
+                                  completeRow,
+                                  item.sortOrder
+                                )
                               );
                             }}
                           />
@@ -526,7 +564,9 @@ function InteractiveDatabaseTable(props: {
                           aria-label={`Move ${item.rowKey} up`}
                           disabled={busy || index === 0}
                           onClick={() =>
-                            void store.moveRow(viewKey, item.rowKey, "up")
+                            catchStoreMutation(
+                              store.moveRow(viewKey, item.rowKey, "up")
+                            )
                           }
                         >
                           ↑
@@ -536,7 +576,9 @@ function InteractiveDatabaseTable(props: {
                           aria-label={`Move ${item.rowKey} down`}
                           disabled={busy || index === snap.items.length - 1}
                           onClick={() =>
-                            void store.moveRow(viewKey, item.rowKey, "down")
+                            catchStoreMutation(
+                              store.moveRow(viewKey, item.rowKey, "down")
+                            )
                           }
                         >
                           ↓
@@ -550,7 +592,9 @@ function InteractiveDatabaseTable(props: {
                         aria-label={`Delete ${item.rowKey}`}
                         disabled={busy}
                         onClick={() =>
-                          void store.deleteRow(viewKey, item.rowKey)
+                          catchStoreMutation(
+                            store.deleteRow(viewKey, item.rowKey)
+                          )
                         }
                       >
                         Delete
@@ -563,7 +607,9 @@ function InteractiveDatabaseTable(props: {
                         aria-label={`Restore ${item.rowKey}`}
                         disabled={busy}
                         onClick={() =>
-                          void store.restoreRow(viewKey, item.rowKey)
+                          catchStoreMutation(
+                            store.restoreRow(viewKey, item.rowKey)
+                          )
                         }
                       >
                         Restore
@@ -583,7 +629,7 @@ function InteractiveDatabaseTable(props: {
             type="button"
             className="oe-database-view__chip"
             disabled={busy || snap.mutating?.kind === "loadingMore"}
-            onClick={() => void store.loadMore(viewKey)}
+            onClick={() => catchStoreMutation(store.loadMore(viewKey))}
           >
             Load more
           </button>

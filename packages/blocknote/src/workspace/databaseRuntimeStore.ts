@@ -279,8 +279,33 @@ function reorderEligibility(
   if (view.queryState.sortBy !== "position") {
     return { canReorder: false, reason: "Sort by position to reorder" };
   }
+  // 4F-3A R1: Move ↑↓ is only intuitive under position asc.
+  if (view.queryState.direction !== "asc") {
+    return {
+      canReorder: false,
+      reason: "Sort position ascending to reorder"
+    };
+  }
   if (view.pagination.hasMore) {
     return { canReorder: false, reason: "Load all rows before reordering" };
+  }
+  if (view.pagination.nextCursor != null) {
+    return {
+      canReorder: false,
+      reason: "Load all rows before reordering"
+    };
+  }
+  // Reject incomplete lists (host total vs loaded items mismatch / dedupe loss).
+  const total = view.pagination.total;
+  if (
+    typeof total === "number" &&
+    total > 0 &&
+    view.items.length !== total
+  ) {
+    return {
+      canReorder: false,
+      reason: "Incomplete row set — cannot reorder partial data"
+    };
   }
   return { canReorder: true };
 }
@@ -786,12 +811,29 @@ export function createDatabaseRuntimeStore(
   };
 }
 
-/** Stable view-instance key for a databaseView block. */
+/**
+ * Database + view identity (not a block instance key).
+ * Prefer {@link databaseViewInstanceKey} for ephemeral UI state.
+ */
 export function databaseViewKey(
   databaseId: string,
   viewId: string
 ): string {
   return `${databaseId}::${viewId || "main"}`;
+}
+
+/**
+ * Ephemeral interaction identity for one databaseView block instance.
+ * Same databaseId+viewId in two blocks must not share query/sort/trash/pagination UI state.
+ * Network read dedupe remains query-scoped via {@link buildDatabaseQueryKey}.
+ */
+export function databaseViewInstanceKey(
+  blockId: string,
+  databaseId: string,
+  viewId: string
+): string {
+  const safeBlock = blockId.trim() || "anonymous";
+  return `${safeBlock}::${databaseId}::${viewId || "main"}`;
 }
 
 export function createDatabaseViewRuntimeFromStore(

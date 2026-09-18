@@ -12,12 +12,17 @@ import type {
 } from "@hello-ai-company/editor-core";
 import {
   createDatabaseRuntimeStore,
+  databaseViewInstanceKey,
   databaseViewKey
 } from "../src/workspace/databaseRuntimeStore.js";
 import {
+  buildCreateRowPayload,
+  creatableSchemaKeys,
+  isCreatablePropertyKind,
   normalizeDatabasePropertyType,
   valuesEqualForEdit
 } from "../src/workspace/databaseProperty.js";
+import { catchStoreMutation } from "../src/workspace/databaseView.js";
 import { createEditorDocument, serializeEditorDocument } from "@hello-ai-company/editor-core";
 
 type MemRow = {
@@ -163,6 +168,36 @@ describe("normalizeDatabasePropertyType", () => {
     expect(normalizeDatabasePropertyType("checkbox")).toBe("boolean");
     expect(normalizeDatabasePropertyType("status")).toBe("select");
     expect(normalizeDatabasePropertyType("formula")).toBe("readonly");
+    expect(isCreatablePropertyKind("readonly")).toBe(false);
+    expect(isCreatablePropertyKind("text")).toBe(true);
+  });
+
+  it("New Row payload omits readonly/unknown fields (R1 P1-1)", () => {
+    const schema = {
+      title: "text",
+      done: "checkbox",
+      score: "number",
+      formula: "formula",
+      rollup: "rollup",
+      status: "select"
+    };
+    expect(creatableSchemaKeys(schema)).toEqual(["title", "done", "score"]);
+    const payload = buildCreateRowPayload(schema, {
+      title: "Hello",
+      done: "true",
+      score: "3",
+      formula: "should-not-appear",
+      rollup: "",
+      status: "todo"
+    });
+    expect(payload).toEqual({
+      title: "Hello",
+      done: true,
+      score: 3
+    });
+    expect(payload).not.toHaveProperty("formula");
+    expect(payload).not.toHaveProperty("rollup");
+    expect(payload).not.toHaveProperty("status");
   });
 });
 
@@ -583,7 +618,7 @@ describe("DatabaseRuntimeStore — mutations", () => {
 });
 
 describe("DatabaseRuntimeStore — reorder safety", () => {
-  it("enables only for full position list; disables otherwise", async () => {
+  it("enables only for full position asc list; disables otherwise", async () => {
     const provider = createMemoryProvider(seedRows, { pageSize: 10 });
     const store = createDatabaseRuntimeStore({
       provider,
@@ -602,6 +637,13 @@ describe("DatabaseRuntimeStore — reorder safety", () => {
     await new Promise((r) => setTimeout(r, 10));
     expect(store.getView("tasks::main").canReorder).toBe(false);
 
+    store.setSort("tasks::main", "position", "desc");
+    await new Promise((r) => setTimeout(r, 10));
+    expect(store.getView("tasks::main").canReorder).toBe(false);
+    expect(store.getView("tasks::main").reorderDisabledReason).toMatch(
+      /ascending/i
+    );
+
     const paged = createMemoryProvider(seedRows, { pageSize: 2 });
     const pagedStore = createDatabaseRuntimeStore({
       provider: paged,
@@ -612,6 +654,45 @@ describe("DatabaseRuntimeStore — reorder safety", () => {
     expect(pagedStore.getView("tasks::main").canReorder).toBe(false);
     expect(pagedStore.getView("tasks::main").reorderDisabledReason).toMatch(
       /Load all/
+    );
+  });
+
+  it("disables reorder when items.length !== total (R1 P2)", async () => {
+    const provider: DatabaseProvider = {
+      listRows: async () => ({
+        databaseId: "tasks",
+        rows: [],
+        items: [
+          {
+            rowKey: "a",
+            sortOrder: 0,
+            deletedAt: null,
+            row: { title: "A" }
+          },
+          {
+            rowKey: "b",
+            sortOrder: 1,
+            deletedAt: null,
+            row: { title: "B" }
+          }
+        ],
+        schema: { title: "text" },
+        config: {},
+        pagination: {
+          limit: 10,
+          nextCursor: null,
+          hasMore: false,
+          total: 10
+        }
+      }),
+      reorderRows: async () => null
+    };
+    const store = createDatabaseRuntimeStore({ provider, defaultPageSize: 10 });
+    store.ensureView("tasks::main", "tasks");
+    await store.load("tasks::main");
+    expect(store.getView("tasks::main").canReorder).toBe(false);
+    expect(store.getView("tasks::main").reorderDisabledReason).toMatch(
+      /Incomplete/
     );
   });
 
@@ -643,6 +724,70 @@ describe("DatabaseRuntimeStore — reorder safety", () => {
       "b",
       "a"
     ]);
+  });
+});
+
+describe("4F-3A R1 — block instance isolation + mutation catch", () => {
+  it("two blocks with same databaseId+viewId keep independent UI state (P1-2)", async () => {
+    const provider = createMemoryProvider(seedRows, { pageSize: 10 });
+    const store = createDatabaseRuntimeStore({
+      provider,
+      defaultPageSize: 10
+    });
+    const a = databaseViewInstanceKey("block-a", "tasks", "main");
+    const b = databaseViewInstanceKey("block-b", "tasks", "main");
+    expect(a).not.toBe(b);
+    expect(a).not.toBe(databaseViewKey("tasks", "main"));
+
+    store.ensureView(a, "tasks");
+    store.ensureView(b, "tasks");
+    await Promise.all([store.load(a), store.load(b)]);
+
+    store.setQuery(a, "roadmap");
+    store.setTrashMode(a, "trash");
+    store.setSort(a, "title", "desc");
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(store.getView(a).queryState.query).toBe("roadmap");
+    expect(store.getView(a).queryState.trashMode).toBe("trash");
+    expect(store.getView(a).queryState.sortBy).toBe("title");
+
+    expect(store.getView(b).queryState.query).toBe("");
+    expect(store.getView(b).queryState.trashMode).toBe("active");
+    expect(store.getView(b).queryState.sortBy).toBe("position");
+    expect(store.getView(b).queryState.direction).toBe("asc");
+  });
+
+  it("catchStoreMutation prevents unhandled rejection while preserving rows (P1-3)", async () => {
+    const provider = createMemoryProvider(
+      [{ rowKey: "a", sortOrder: 0, deletedAt: null, row: { title: "Alpha" } }],
+      { pageSize: 10 }
+    );
+    provider.deleteRow = async () => {
+      throw new Error("delete fail");
+    };
+    const store = createDatabaseRuntimeStore({
+      provider,
+      defaultPageSize: 10
+    });
+    const key = databaseViewInstanceKey("blk", "tasks", "main");
+    store.ensureView(key, "tasks");
+    await store.load(key);
+
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      catchStoreMutation(store.deleteRow(key, "a"));
+      await new Promise((r) => setTimeout(r, 30));
+      expect(unhandled).toEqual([]);
+      expect(store.getView(key).mutationError).toMatch(/delete fail/);
+      expect(store.getView(key).items[0]?.rowKey).toBe("a");
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
   });
 });
 

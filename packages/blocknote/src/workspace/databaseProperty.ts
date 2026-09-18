@@ -60,6 +60,41 @@ export function isEditablePropertyKind(
   );
 }
 
+/**
+ * Properties safe to include in the New Row editor (4F-3A R1).
+ * Unknown / readonly must never be editable or auto-submitted as empty strings.
+ */
+export function isCreatablePropertyKind(
+  kind: NormalizedPropertyKind
+): boolean {
+  return kind === "text" || kind === "number" || kind === "boolean";
+}
+
+/** Schema keys that may appear as New Row inputs. */
+export function creatableSchemaKeys(
+  schema: Record<string, string>
+): string[] {
+  return Object.keys(schema).filter((key) =>
+    isCreatablePropertyKind(normalizeDatabasePropertyType(schema[key]))
+  );
+}
+
+/**
+ * Build a createRow payload from draft inputs.
+ * Omits readonly / unknown / non-creatable fields entirely (no empty-string spam).
+ */
+export function buildCreateRowPayload(
+  schema: Record<string, string>,
+  draft: Record<string, string>
+): Record<string, string | number | boolean> {
+  const row: Record<string, string | number | boolean> = {};
+  for (const key of creatableSchemaKeys(schema)) {
+    const kind = normalizeDatabasePropertyType(schema[key]);
+    row[key] = parseEditedCellValue(draft[key] ?? "", kind);
+  }
+  return row;
+}
+
 /** Format a cell value for display (never throws). */
 export function formatDatabaseCellDisplay(
   value: unknown,

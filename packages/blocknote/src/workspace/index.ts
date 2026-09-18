@@ -35,6 +35,7 @@ export {
 } from "./childPage.js";
 
 export {
+  catchStoreMutation,
   createDatabaseViewBlockSpec,
   type DatabaseViewRuntime
 } from "./databaseView.js";
@@ -43,6 +44,7 @@ export {
   createDatabaseRuntimeStore,
   createDatabaseViewRuntimeFromStore,
   databaseViewKey,
+  databaseViewInstanceKey,
   buildDatabaseQueryKey,
   type DatabaseCapabilities,
   type DatabaseRuntimeStore,
@@ -56,7 +58,10 @@ export {
 } from "./databaseRuntimeStore.js";
 
 export {
+  buildCreateRowPayload,
+  creatableSchemaKeys,
   formatDatabaseCellDisplay,
+  isCreatablePropertyKind,
   isEditablePropertyKind,
   normalizeDatabasePropertyType,
   parseEditedCellValue,
