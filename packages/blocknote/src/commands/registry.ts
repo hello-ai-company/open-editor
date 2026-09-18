@@ -61,6 +61,38 @@ export type EditorCommandContext = {
   requestBlockPick?: (options?: {
     excludeIds?: readonly string[];
   }) => string | null | Promise<string | null>;
+  /**
+   * Host opens a page picker for mentions / page cards.
+   * Returns a page id (or id+title). Must not invent pages.
+   */
+  requestPagePick?: (options?: {
+    excludeIds?: readonly string[];
+    query?: string;
+  }) =>
+    | string
+    | { pageId: string; title?: string }
+    | null
+    | Promise<string | { pageId: string; title?: string } | null>;
+  /**
+   * Host picker for database view insertion.
+   * Required for `database.insert-view` — OpenEditor never invents databaseId.
+   * `viewId` may default to OpenEditor-owned `"main"` after a real DB is chosen.
+   * Invalid `viewType` falls back to `"table"`.
+   */
+  requestDatabaseViewPick?: () =>
+    | {
+        databaseId: string;
+        viewId?: string;
+        viewType?: string;
+        titleHint?: string;
+      }
+    | null
+    | Promise<{
+        databaseId: string;
+        viewId?: string;
+        viewType?: string;
+        titleHint?: string;
+      } | null>;
 };
 
 export type EditorCommand = {

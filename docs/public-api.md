@@ -25,6 +25,12 @@ Kind: runtime. Stability: **stable** for this freeze. Compatibility: additive op
 | `cloneEditorBlock` | runtime | Deep-clone one block | stable | Mutation isolation helper |
 | `cloneEditorBlocks` | runtime | Deep-clone a block array | stable | Mutation isolation helper |
 | `EditorDocumentSerializationError` | runtime | Named error class for invalid payloads | stable | `instanceof` / `.name` contract |
+| `PAGE_HREF_PREFIX` | runtime | `#page:` prefix constant | experimental | Additive |
+| `encodePageHref` | runtime | Encode page id → href token | experimental | Additive |
+| `decodePageHref` | runtime | Decode href token → page id / null | experimental | Additive |
+| `isPageHref` | runtime | Guard for page href tokens | experimental | Additive |
+| `relationEdgeId` | runtime | Stable relation edge id helper | experimental | Additive |
+| `withRelationEdgeId` | runtime | Ensure `edgeId` on a `RelationEdge` | experimental | Additive |
 
 ## Type exports
 
@@ -35,11 +41,12 @@ Kind: runtime. Stability: **stable** for this freeze. Compatibility: additive op
 | `EditorBlockProps` | type | `Record<string, JsonValue>` | stable | Extra keys allowed |
 | `JsonValue` | type | Recursive JSON value union | stable | Host metadata must not appear here |
 | `SerializedEditorDocument` | type | Wire envelope | stable | Matches serialize output |
-| `EditorProviders` | type | Optional host seam bag | experimental | New optional keys are additive |
+| `EditorProviders` | type | Optional host seam bag | experimental | New optional keys are additive (`backlinks` added in 4F-2B) |
 | `AIProvider` | type | Optional `edit` | experimental | Optional methods only |
 | `AIEditAction` | type | Edit action union | experimental | New literals are additive |
 | `AIEditRequest` | type | Edit request payload | experimental | New optional fields are additive |
-| `DatabaseProvider` | type | Optional row CRUD / reorder | experimental | Optional methods only |
+| `DatabaseProvider` | type | Optional row CRUD / reorder / `getDatabase` | experimental | Optional methods only |
+| `EditorDatabase` | type | Host-neutral database descriptor | experimental | Additive |
 | `DatabaseListOptions` | type | List filter / pagination | experimental | New optional fields are additive |
 | `DatabaseRowItem` | type | Row wrapper | experimental | New optional fields are additive |
 | `DatabaseRowsPage` | type | Paginated database page | experimental | New optional fields are additive |
@@ -54,9 +61,20 @@ Kind: runtime. Stability: **stable** for this freeze. Compatibility: additive op
 | `AssetUploadScope` | type | Upload scope | experimental | Optional fields |
 | `ImageSearchProvider` | type | Optional image search | experimental | Optional methods only |
 | `ImageSearchResult` | type | Search hit | experimental | New optional fields are additive |
-| `PageProvider` | type | Optional page links | experimental | Optional methods only |
+| `PageProvider` | type | Optional page links / search / create | experimental | Optional methods only; `createChildPage()` no-arg remains valid |
+| `PageId` | type | Host-stable page identity string | experimental | Additive |
+| `PageSearchOptions` | type | Page search options | experimental | Additive |
+| `CreatePageOptions` | type | Page create options | experimental | Additive |
+| `CreateChildPageOptions` | type | Child page create options | experimental | Additive |
 | `EditorPageLink` | type | Page link preview | experimental | New optional fields are additive |
 | `CreatedChildPage` | type | Child page result | experimental | New optional fields are additive |
+| `BacklinkProvider` | type | Workspace-wide incoming relations | experimental | Additive |
+| `BacklinkQuery` | type | Discriminated backlink query (`database-row` requires `targetDatabaseId`) | experimental | Additive |
+| `BacklinkItem` | type | Incoming backlink record | experimental | Additive |
+| `RelationEdge` | type | Discriminated outgoing semantic edge | experimental | Additive |
+| `RelationKind` | type | Relation kind union | experimental | Additive |
+| `RelationTargetQuery` | type | Typed RelationIndex target selector | experimental | Additive |
+| `RelationTargetType` | type | Relation target union | experimental | Additive |
 | `NativeBridge` | type | Generic host protocol | experimental | Method set is allowlisted |
 | `NativeBridgeStats` | type | Optional document stats | experimental | New optional fields are additive |
 | `NativeHostRequest` | type | `{ id, method, payload? }` | experimental | Payload stays `JsonValue` |

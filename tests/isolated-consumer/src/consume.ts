@@ -5,10 +5,19 @@ import {
   isEditorDocument,
   isJsonValue,
   isSupportedSchemaVersion,
+  relationEdgeId,
   serializeEditorDocument,
+  withRelationEdgeId,
+  type BacklinkProvider,
+  type BacklinkQuery,
+  type DatabaseProvider,
   type EditorProviders,
   type JsonValue,
-  type NativeBridge
+  type NativeBridge,
+  type PageProvider,
+  type RelationEdge,
+  type RelationKind,
+  type RelationTargetQuery
 } from "@hello-ai-company/editor-core";
 
 const blocks = [
@@ -38,8 +47,46 @@ const bridge: NativeBridge = {
   }
 };
 
+const pages: PageProvider = {};
+const database: DatabaseProvider = {};
+const backlinks: BacklinkProvider = {
+  async listBacklinks(query: BacklinkQuery) {
+    if (query.targetType === "database-row") {
+      return [
+        {
+          sourceDocumentId: "other",
+          kind: "database-row-relation",
+          sourceTitle: `${query.targetDatabaseId}/${query.targetId}`
+        }
+      ];
+    }
+    return [];
+  }
+};
 const providers: EditorProviders = {
-  nativeBridge: bridge
+  nativeBridge: bridge,
+  pages,
+  database,
+  backlinks
+};
+
+const kind: RelationKind = "database-row-relation";
+const edge: RelationEdge = {
+  sourceDocumentId: "doc",
+  targetType: "database-row",
+  targetDatabaseId: "db-a",
+  targetId: "row-1",
+  kind
+};
+const edged = withRelationEdgeId(edge);
+const otherId = relationEdgeId({
+  ...edge,
+  targetDatabaseId: "db-b"
+});
+const rowTarget: RelationTargetQuery = {
+  targetType: "database-row",
+  targetDatabaseId: "db-a",
+  targetId: "row-1"
 };
 
 export const isolatedConsumerReady =
@@ -47,4 +94,10 @@ export const isolatedConsumerReady =
   && isSupportedSchemaVersion(restored.schemaVersion)
   && isEditorDocument(restored)
   && providers.nativeBridge !== undefined
-  && isJsonValue(payload);
+  && providers.pages !== undefined
+  && providers.database !== undefined
+  && providers.backlinks !== undefined
+  && isJsonValue(payload)
+  && edged.edgeId !== undefined
+  && edged.edgeId !== otherId
+  && rowTarget.targetDatabaseId === "db-a";
