@@ -24,6 +24,7 @@ import {
 import {
   buildTypedCreateRowPayload,
   formatSelectDisplay,
+  hasExplicitPropertyDefinitions,
   hostSupportsPropertyFilters,
   hostSupportsPropertySort,
   isEditableResolvedProperty,
@@ -391,6 +392,42 @@ describe("4F-3B — resolve metadata", () => {
         { value: "doing", label: "In progress" }
       ])
     ).toBe("archived");
+  });
+
+  it("propertyDefinitions: [] is explicit typed metadata (not legacy fallback) (R2)", () => {
+    const resolved = resolveDatabasePropertyDefinitions({
+      legacySchema: { title: "text", systemTitle: "text" },
+      definitions: []
+    });
+    expect(resolved).toEqual([]);
+    expect(resolved.find((d) => d.id === "title")).toBeUndefined();
+    expect(hasExplicitPropertyDefinitions([])).toBe(true);
+    expect(hasExplicitPropertyDefinitions(undefined)).toBe(false);
+    expect(hasExplicitPropertyDefinitions(null)).toBe(false);
+  });
+});
+
+describe("4F-3B R2 — empty typed metadata create boundary", () => {
+  it("explicit [] blocks legacy create fields from schema", () => {
+    const resolved = resolveDatabasePropertyDefinitions({
+      legacySchema: { title: "text", systemTitle: "text" },
+      definitions: []
+    });
+    expect(resolved).toEqual([]);
+    const typed = buildTypedCreateRowPayload(resolved, {
+      title: "Hello",
+      systemTitle: "nope"
+    });
+    expect(typed).toEqual({});
+    const row = resolveCreateRowPayload({
+      hasTypedDefinitions: hasExplicitPropertyDefinitions([]),
+      typedResult: typed,
+      legacySchema: { title: "text", systemTitle: "text" },
+      draft: { title: "Hello", systemTitle: "nope" }
+    });
+    expect(row).toEqual({});
+    expect(row).not.toHaveProperty("title");
+    expect(row).not.toHaveProperty("systemTitle");
   });
 });
 

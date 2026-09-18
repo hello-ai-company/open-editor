@@ -117,13 +117,24 @@ function legacyKindToPropertyType(
 
 /**
  * Prefer explicit typed metadata; otherwise infer conservatively from legacy schema.
+ *
+ * Presence semantics (4F-3B R2):
+ * - `definitions === undefined | null` → typed metadata absent → legacy fallback
+ * - `definitions === []` → typed metadata present but empty → return [] (no legacy)
+ * - `definitions.length > 0` → use host definitions
  */
+export function hasExplicitPropertyDefinitions(
+  definitions: readonly DatabasePropertyDefinition[] | null | undefined
+): boolean {
+  return definitions != null;
+}
+
 export function resolveDatabasePropertyDefinitions(input: {
   legacySchema?: Record<string, string> | null;
   definitions?: readonly DatabasePropertyDefinition[] | null;
 }): ResolvedPropertyDefinition[] {
   const defs = input.definitions;
-  if (defs && defs.length > 0) {
+  if (defs != null) {
     return defs.map((def) => ({
       id: def.id,
       name: def.name,

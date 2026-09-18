@@ -175,6 +175,7 @@ export {
   encodePropertySortSelectValue,
   formatDatabaseCellDisplay,
   formatSelectDisplay,
+  hasExplicitPropertyDefinitions,
   hostSupportsPropertyFilters,
   hostSupportsPropertySort,
   isCreatableResolvedProperty,

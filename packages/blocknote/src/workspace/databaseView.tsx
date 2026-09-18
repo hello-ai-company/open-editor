@@ -35,6 +35,7 @@ import {
   filtersEqual,
   formatDatabaseCellDisplay,
   formatSelectDisplay,
+  hasExplicitPropertyDefinitions,
   hostSupportsPropertyFilters,
   hostSupportsPropertySort,
   isCreatableResolvedProperty,
@@ -181,9 +182,9 @@ export function parseSortSelectValue(
 }
 
 /**
- * Choose createRow payload (4F-3B R1).
- * When explicit typed metadata exists, never fall back to the legacy schema builder —
- * even if the typed payload is empty (e.g. optional status left unselected).
+ * Choose createRow payload (4F-3B R1 / R2).
+ * When explicit typed metadata is present (`propertyDefinitions != null`, including `[]`),
+ * never fall back to the legacy schema builder — even if the typed payload is empty.
  */
 export function resolveCreateRowPayload(input: {
   hasTypedDefinitions: boolean;
@@ -642,8 +643,8 @@ function InteractiveDatabaseTable(props: {
 
   const submitCreate = async () => {
     setCreateError(null);
-    const hasTypedDefinitions = Boolean(
-      snap.meta?.propertyDefinitions?.length
+    const hasTypedDefinitions = hasExplicitPropertyDefinitions(
+      snap.meta?.propertyDefinitions
     );
     const typed = buildTypedCreateRowPayload(resolved, draft);
     const row = resolveCreateRowPayload({

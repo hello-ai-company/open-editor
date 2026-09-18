@@ -70,6 +70,7 @@ export {
   creatableSchemaKeys,
   formatDatabaseCellDisplay,
   formatSelectDisplay,
+  hasExplicitPropertyDefinitions,
   hostSupportsPropertyFilters,
   hostSupportsPropertySort,
   isCreatablePropertyKind,

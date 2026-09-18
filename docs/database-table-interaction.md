@@ -125,6 +125,16 @@ Enabled only when:
 
 Portable types: `text` | `number` | `boolean` | `date` | `url` | `select` | `status` | `unknown`
 
+**Presence semantics:**
+
+| Host field | Meaning |
+| --- | --- |
+| `propertyDefinitions` omitted / `undefined` | Typed metadata absent → legacy `schema` fallback |
+| `propertyDefinitions: []` | Typed metadata present but empty → no columns / no legacy inference |
+| `propertyDefinitions: [...]` | Use host definitions exclusively |
+
+Do not treat `[]` as “absent”.
+
 | Type | Edit (typed) | New Row | Notes |
 | --- | --- | --- | --- |
 | text | text input | yes | |
