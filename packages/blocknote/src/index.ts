@@ -127,8 +127,41 @@ export {
   createOpenEditorPowerPreset,
   type OpenEditorPowerPreset,
   type OpenEditorPowerPresetOptions,
-  type ReferenceSpecs
+  type ReferenceSpecs,
+  type WorkspaceBlockSpecs,
+  type WorkspaceInlineSpecs
 } from "./features/compose.js";
+
+export {
+  CHILD_PAGE_TYPE,
+  DATABASE_VIEW_TYPE,
+  DATABASE_VIEW_TYPES,
+  PAGE_CARD_TYPE,
+  PAGE_MENTION_TYPE,
+  applyPageMentionLabel,
+  bindChildPageRuntime,
+  bindDatabaseViewRuntime,
+  bindPageCardRuntime,
+  createChildPageBlockSpec,
+  createDatabaseViewBlockSpec,
+  createPageCardBlockSpec,
+  createPageMentionDom,
+  createPageMentionInlineContentSpec,
+  createPageMentionResolverFromLinks,
+  createRelationIndex,
+  createWorkspaceContentCommands,
+  extractRelationEdges,
+  formatPageMentionLabel,
+  isDatabaseViewType,
+  type ChildPageRuntime,
+  type DatabaseViewRuntime,
+  type DatabaseViewType,
+  type PageCardRuntime,
+  type PageMentionResolver,
+  type PageMentionRuntime,
+  type PageMentionSpecOptions,
+  type RelationIndex
+} from "./workspace/index.js";
 
 export { toPartialBlockCopy } from "./commands/blockCopy.js";
 

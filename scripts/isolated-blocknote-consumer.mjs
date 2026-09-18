@@ -81,6 +81,11 @@ index.replaceFromBlocks([{ id: "h1", type: "heading", props: { level: 1 }, conte
 if (createDocumentOutline(index).length !== 1) throw new Error("outline failed");
 const preset = createOpenEditorPowerPreset();
 if (!preset.schema) throw new Error("preset missing");
+if (!preset.schema.inlineContentSchema?.pageMention) throw new Error("pageMention missing");
+if (!preset.schema.blockSchema?.databaseView) throw new Error("databaseView missing");
+if (!preset.registry.get("page.insert-mention")) throw new Error("workspace commands missing");
+const withoutWs = createOpenEditorPowerPreset({ includeWorkspaceContent: false });
+if (withoutWs.registry.get("page.insert-mention")) throw new Error("workspace commands should be absent");
 const copy = toPartialBlockCopy({
   id: "x",
   type: "callout",
@@ -96,9 +101,11 @@ console.log("isolated-blocknote-consumer base: ok");
   writeFileSync(
     join(dir, "smoke-react.mjs"),
     `
-import { DocumentOutline, QuickNav } from "@hello-ai-company/editor-blocknote/react";
+import { DocumentOutline, QuickNav, PageMentionPicker, BacklinksPanel } from "@hello-ai-company/editor-blocknote/react";
 if (typeof DocumentOutline !== "function") throw new Error("DocumentOutline missing");
 if (typeof QuickNav !== "function") throw new Error("QuickNav missing");
+if (typeof PageMentionPicker !== "function") throw new Error("PageMentionPicker missing");
+if (typeof BacklinksPanel !== "function") throw new Error("BacklinksPanel missing");
 console.log("isolated-blocknote-consumer react: ok");
 `
   );

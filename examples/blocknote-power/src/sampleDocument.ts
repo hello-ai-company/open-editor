@@ -5,7 +5,7 @@ export const sampleDocument = createEditorDocument([
     id: "h1",
     type: "heading",
     props: { level: 1 },
-    content: [{ type: "text", text: "Document", styles: {} }]
+    content: [{ type: "text", text: "Workspace primitives", styles: {} }]
   },
   {
     id: "h2a",
@@ -19,24 +19,16 @@ export const sampleDocument = createEditorDocument([
     content: [
       {
         type: "text",
-        text: "Start writing. Use / for slash commands, ⌘K for commands, ⌘P to jump. Outline updates from incremental changes — not full-document serialize.",
+        text: "Discuss this with ",
         styles: {}
-      }
-    ]
-  },
-  {
-    id: "h3a",
-    type: "heading",
-    props: { level: 3 },
-    content: [{ type: "text", text: "Goals", styles: {} }]
-  },
-  {
-    id: "p2",
-    type: "paragraph",
-    content: [
+      },
+      {
+        type: "pageMention",
+        props: { pageId: "architecture" }
+      },
       {
         type: "text",
-        text: "Keyboard-first power UX on BlockNote without XL packages.",
+        text: ". Document stores references — hosts own pages and database rows.",
         styles: {}
       }
     ]
@@ -48,26 +40,62 @@ export const sampleDocument = createEditorDocument([
     content: [{ type: "text", text: "Architecture", styles: {} }]
   },
   {
+    id: "card1",
+    type: "pageCard",
+    props: {
+      pageId: "architecture",
+      titleHint: "Architecture"
+    }
+  },
+  {
+    id: "child1",
+    type: "childPage",
+    props: {
+      pageId: "api-surface",
+      titleHint: "API surface"
+    }
+  },
+  {
+    id: "h2c",
+    type: "heading",
+    props: { level: 2 },
+    content: [{ type: "text", text: "Tasks (same database, two views)", styles: {} }]
+  },
+  {
+    id: "db-table",
+    type: "databaseView",
+    props: {
+      databaseId: "tasks",
+      viewId: "main-table",
+      viewType: "table",
+      titleHint: "Tasks"
+    }
+  },
+  {
+    id: "db-board",
+    type: "databaseView",
+    props: {
+      databaseId: "tasks",
+      viewId: "main-board",
+      viewType: "board",
+      titleHint: "Tasks"
+    }
+  },
+  {
     id: "c1",
     type: "callout",
     props: { variant: "info", title: "Portable" },
     content: [
       {
         type: "text",
-        text: "Save as EditorDocument via editor-core when you choose — not per keystroke.",
+        text: "databaseView props hold databaseId/viewId/viewType only — never the row array.",
         styles: {}
       }
     ]
   },
   {
-    id: "h3b",
-    type: "heading",
-    props: { level: 3 },
-    content: [{ type: "text", text: "Commands", styles: {} }]
-  },
-  {
     id: "s1",
     type: "status",
-    props: { state: "doing", label: "Power UX" }
+    props: { state: "doing", label: "4F-2B" }
   }
 ]);

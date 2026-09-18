@@ -22,13 +22,33 @@ export {
   type SerializedEditorDocument
 } from "./serialization.js";
 
+export {
+  PAGE_HREF_PREFIX,
+  decodePageHref,
+  encodePageHref,
+  isPageHref
+} from "./pageLink.js";
+
+export {
+  relationEdgeId,
+  withRelationEdgeId,
+  type RelationEdge,
+  type RelationKind,
+  type RelationTargetType
+} from "./relations.js";
+
 export type {
   AIEditAction,
   AIEditRequest,
   AIProvider,
   AssetProvider,
   AssetUploadScope,
+  BacklinkProvider,
+  BacklinkQuery,
+  BacklinkItem,
   CommentsProvider,
+  CreateChildPageOptions,
+  CreatePageOptions,
   CreatedChildPage,
   DatabaseListOptions,
   DatabaseProvider,
@@ -37,6 +57,7 @@ export type {
   EditorAsset,
   EditorAssetKind,
   EditorComment,
+  EditorDatabase,
   EditorPageLink,
   EditorProviders,
   EditorUploadFile,
@@ -47,6 +68,8 @@ export type {
   NativeBridgeStats,
   NativeHostRequest,
   NativeHostResponse,
+  PageId,
   PageProvider,
+  PageSearchOptions,
   VersionProvider
 } from "./providers.js";

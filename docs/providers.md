@@ -7,13 +7,28 @@ Every provider on `EditorProviders` is optional. Method names are allowlisted so
 | Provider | Methods |
 | --- | --- |
 | `AIProvider` | `edit` |
-| `DatabaseProvider` | `listRows`, `getRow`, `createRow`, `updateRow`, `deleteRow`, `restoreRow`, `reorderRows` |
+| `DatabaseProvider` | `getDatabase`, `listRows`, `getRow`, `createRow`, `updateRow`, `deleteRow`, `restoreRow`, `reorderRows` |
 | `CommentsProvider` | `list`, `add`, `update`, `delete` |
 | `VersionProvider` | `list`, `save`, `restore`, `rename`, `delete` |
 | `AssetProvider` | `upload`, `insertCloud` |
 | `ImageSearchProvider` | `search` |
-| `PageProvider` | `listLinks`, `createChildPage`, `openPage` |
+| `PageProvider` | `listLinks`, `searchPages`, `getPage`, `createPage`, `createChildPage`, `openPage` |
+| `BacklinkProvider` | `listBacklinks` |
 | `NativeBridge` | `ready`, `change`, `commit`, `error`, `hostRequest`, `hostResponse` |
+
+## Workspace content (Phase 4F-2B)
+
+OpenEditor stores **references and view configuration** in `EditorDocument`. The host owns **entities and rows**:
+
+- `PageProvider` resolves page titles / navigation / child creation
+- `DatabaseProvider` supplies rows for `databaseView` blocks (never embed row arrays in the document)
+- `BacklinkProvider` supplies workspace-wide *incoming* relations; a single editor only knows its outgoing `RelationIndex`
+
+`createChildPage()` with no arguments remains supported. Prefer:
+
+```ts
+await pages.createChildPage({ parentPageId: currentPageId, title: "Untitled" });
+```
 
 ## Forbidden host methods
 

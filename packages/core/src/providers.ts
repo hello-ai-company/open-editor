@@ -52,7 +52,24 @@ export type DatabaseRowsPage = {
   };
 };
 
+/**
+ * Host-neutral database descriptor. Rows are never stored in EditorDocument —
+ * they come from DatabaseProvider.listRows / getRow.
+ */
+export type EditorDatabase = {
+  id: string;
+  title: string;
+  properties?: Record<string, JsonValue>;
+  views?: ReadonlyArray<{
+    id: string;
+    title?: string;
+    viewType?: string;
+  }>;
+};
+
 export type DatabaseProvider = {
+  /** Optional metadata lookup — does not embed rows into the document. */
+  getDatabase?(databaseId: string): Promise<EditorDatabase | null>;
   listRows?(databaseId: string, options?: DatabaseListOptions): Promise<DatabaseRowsPage>;
   getRow?(databaseId: string, rowKey: string): Promise<{ databaseId: string; row: Record<string, JsonValue> }>;
   createRow?(databaseId: string, row: Record<string, JsonValue>, options?: { rowKey?: string; sortOrder?: number }): Promise<JsonValue>;
@@ -139,8 +156,11 @@ export type ImageSearchProvider = {
   }>;
 };
 
+/** Host-stable page identity — UUID, slug, local key, or remote id. */
+export type PageId = string;
+
 export type EditorPageLink = {
-  id: string;
+  id: PageId;
   title: string;
   preview?: string;
   imageUrl?: string;
@@ -148,17 +168,61 @@ export type EditorPageLink = {
 };
 
 export type CreatedChildPage = {
-  id: string;
+  id: PageId;
   title: string;
   preview?: string;
   imageUrl?: string;
   imageAlt?: string;
 };
 
+export type CreateChildPageOptions = {
+  parentPageId?: PageId;
+  title?: string;
+};
+
+export type CreatePageOptions = {
+  title?: string;
+};
+
+export type PageSearchOptions = {
+  excludePageId?: PageId;
+  limit?: number;
+};
+
+/**
+ * Host-owned page workspace seam.
+ * OpenEditor stores page *references*; the host owns page entities.
+ *
+ * `createChildPage()` with no args remains supported for older hosts.
+ */
 export type PageProvider = {
-  listLinks?(excludePageId?: string): Promise<EditorPageLink[]>;
-  createChildPage?(): CreatedChildPage | void;
-  openPage?(pageId: string): void;
+  listLinks?(excludePageId?: PageId): Promise<EditorPageLink[]>;
+  searchPages?(query: string, options?: PageSearchOptions): Promise<EditorPageLink[]>;
+  getPage?(pageId: PageId): Promise<EditorPageLink | null>;
+  createPage?(options?: CreatePageOptions): CreatedChildPage | EditorPageLink | void | Promise<CreatedChildPage | EditorPageLink | void>;
+  createChildPage?(options?: CreateChildPageOptions): CreatedChildPage | void | Promise<CreatedChildPage | void>;
+  openPage?(pageId: PageId): void;
+};
+
+export type BacklinkItem = {
+  sourceDocumentId: string;
+  sourceBlockId?: string;
+  sourceTitle?: string;
+  kind: string;
+};
+
+/**
+ * Workspace-wide incoming relations. A single editor only knows outgoing
+ * edges from its document — backlinks must come from the host.
+ */
+export type BacklinkQuery = {
+  targetType: "page" | "block" | "database" | "row";
+  targetId: string;
+  limit?: number;
+};
+
+export type BacklinkProvider = {
+  listBacklinks?(query: BacklinkQuery): Promise<BacklinkItem[]>;
 };
 
 export type NativeBridgeStats = {
@@ -208,5 +272,7 @@ export type EditorProviders = {
   assets?: AssetProvider;
   imageSearch?: ImageSearchProvider;
   pages?: PageProvider;
+  /** Optional host seam for workspace-wide incoming relations. */
+  backlinks?: BacklinkProvider;
   nativeBridge?: NativeBridge;
 };

@@ -61,6 +61,36 @@ export type EditorCommandContext = {
   requestBlockPick?: (options?: {
     excludeIds?: readonly string[];
   }) => string | null | Promise<string | null>;
+  /**
+   * Host opens a page picker for mentions / page cards.
+   * Returns a page id (or id+title). Must not invent pages.
+   */
+  requestPagePick?: (options?: {
+    excludeIds?: readonly string[];
+    query?: string;
+  }) =>
+    | string
+    | { pageId: string; title?: string }
+    | null
+    | Promise<string | { pageId: string; title?: string } | null>;
+  /**
+   * Optional host picker for database view insertion.
+   * When absent, insert uses a demo default id only if database provider exists.
+   */
+  requestDatabaseViewPick?: () =>
+    | {
+        databaseId: string;
+        viewId?: string;
+        viewType?: string;
+        titleHint?: string;
+      }
+    | null
+    | Promise<{
+        databaseId: string;
+        viewId?: string;
+        viewType?: string;
+        titleHint?: string;
+      } | null>;
 };
 
 export type EditorCommand = {

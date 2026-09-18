@@ -2,6 +2,7 @@
   "packageName": "@hello-ai-company/editor-core",
   "allowedMethods": [
     "edit",
+    "getDatabase",
     "listRows",
     "getRow",
     "createRow",
@@ -20,8 +21,12 @@
     "insertCloud",
     "search",
     "listLinks",
+    "searchPages",
+    "getPage",
+    "createPage",
     "createChildPage",
     "openPage",
+    "listBacklinks",
     "ready",
     "change",
     "commit",
@@ -45,6 +50,7 @@
   "providers": {
     "AIProvider": ["edit"],
     "DatabaseProvider": [
+      "getDatabase",
       "listRows",
       "getRow",
       "createRow",
@@ -57,7 +63,15 @@
     "VersionProvider": ["list", "save", "restore", "rename", "delete"],
     "AssetProvider": ["upload", "insertCloud"],
     "ImageSearchProvider": ["search"],
-    "PageProvider": ["listLinks", "createChildPage", "openPage"],
+    "PageProvider": [
+      "listLinks",
+      "searchPages",
+      "getPage",
+      "createPage",
+      "createChildPage",
+      "openPage"
+    ],
+    "BacklinkProvider": ["listBacklinks"],
     "NativeBridge": [
       "ready",
       "change",

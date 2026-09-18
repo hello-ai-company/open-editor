@@ -1,0 +1,57 @@
+import { describe, expect, it } from "vitest";
+import {
+  PAGE_HREF_PREFIX,
+  decodePageHref,
+  encodePageHref,
+  isPageHref
+} from "../src/pageLink.js";
+import {
+  relationEdgeId,
+  withRelationEdgeId,
+  type RelationEdge
+} from "../src/relations.js";
+
+describe("page link codec", () => {
+  it("round-trips arbitrary string ids", () => {
+    const ids = [
+      "plain",
+      "with space",
+      "slash/id",
+      "hash#frag",
+      "ユニコード",
+      "uuid-550e8400-e29b-41d4-a716-446655440000"
+    ];
+    for (const id of ids) {
+      const href = encodePageHref(id);
+      expect(href.startsWith(PAGE_HREF_PREFIX)).toBe(true);
+      expect(decodePageHref(href)).toBe(id);
+      expect(isPageHref(href)).toBe(true);
+    }
+  });
+
+  it("rejects malformed input", () => {
+    expect(decodePageHref("")).toBeNull();
+    expect(decodePageHref("#page:")).toBeNull();
+    expect(decodePageHref("#note:abc")).toBeNull();
+    expect(decodePageHref("page:abc")).toBeNull();
+    expect(decodePageHref("#page:%E0%A4%A")).toBeNull();
+    expect(isPageHref("https://example.com")).toBe(false);
+  });
+});
+
+describe("relation edge helpers", () => {
+  it("builds stable edge ids", () => {
+    const edge: RelationEdge = {
+      sourceDocumentId: "doc-1",
+      sourceBlockId: "b1",
+      targetType: "page",
+      targetId: "page-a",
+      kind: "page-reference"
+    };
+    const id = relationEdgeId(edge);
+    expect(withRelationEdgeId(edge).edgeId).toBe(id);
+    expect(withRelationEdgeId({ ...edge, edgeId: "custom" }).edgeId).toBe(
+      "custom"
+    );
+  });
+});

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import indexSource from "../src/index.ts?raw";
 import modelSource from "../src/model.ts?raw";
+import pageLinkSource from "../src/pageLink.ts?raw";
 import providersSource from "../src/providers.ts?raw";
+import relationsSource from "../src/relations.ts?raw";
 import serializationSource from "../src/serialization.ts?raw";
 import {
   collectProviderMethods,
@@ -15,7 +17,9 @@ const providerContract = loadProviderContract();
 const productionSources: Record<string, string> = {
   "index.ts": indexSource,
   "model.ts": modelSource,
+  "pageLink.ts": pageLinkSource,
   "providers.ts": providersSource,
+  "relations.ts": relationsSource,
   "serialization.ts": serializationSource
 };
 
@@ -54,7 +58,9 @@ describe("editorCore dependency boundary", () => {
     expect(Object.keys(productionSources).sort()).toEqual([
       "index.ts",
       "model.ts",
+      "pageLink.ts",
       "providers.ts",
+      "relations.ts",
       "serialization.ts"
     ]);
   });

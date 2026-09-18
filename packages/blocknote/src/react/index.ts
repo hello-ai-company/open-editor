@@ -49,7 +49,9 @@ export {
   createOpenEditorPowerPreset,
   type OpenEditorPowerPreset,
   type OpenEditorPowerPresetOptions,
-  type ReferenceSpecs
+  type ReferenceSpecs,
+  type WorkspaceBlockSpecs,
+  type WorkspaceInlineSpecs
 } from "../features/compose.js";
 export {
   createDocumentIndex,
@@ -60,3 +62,15 @@ export {
   createDocumentOutline,
   type OutlineNode
 } from "../index/outline.js";
+export {
+  BacklinksPanel,
+  PageMentionPicker,
+  usePageLinks,
+  type BacklinksPanelProps,
+  type PageMentionPickerProps,
+  type UsePageLinksOptions
+} from "./workspaceUi.js";
+export {
+  createRelationIndex,
+  type RelationIndex
+} from "../workspace/relationIndex.js";
