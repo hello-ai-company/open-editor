@@ -423,16 +423,9 @@ describe("4F-4C — resolveDatabaseViewRenderer dispatch", () => {
     ).toBe(renderGanttView);
   });
 
-  it("map/dashboard deferred; timeline/gantt/feed NOT deferred", () => {
-    for (const deferred of ["map", "dashboard"] as const) {
-      expect(isDeferredDatabaseViewType(deferred)).toBe(true);
-      expect(
-        resolveDatabaseViewRenderer({
-          viewType: deferred,
-          runtime: {},
-          defaults: DEFAULT_RENDERERS
-        })
-      ).toBeNull();
+  it("map/dashboard no longer deferred after 4F-4E; timeline/gantt/feed NOT deferred", () => {
+    for (const ready of ["map", "dashboard"] as const) {
+      expect(isDeferredDatabaseViewType(ready)).toBe(false);
     }
     expect(isDeferredDatabaseViewType("feed")).toBe(false);
     expect(isDeferredDatabaseViewType("chart")).toBe(false);

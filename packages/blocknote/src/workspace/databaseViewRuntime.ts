@@ -1,10 +1,11 @@
 /**
- * DatabaseViewRuntime — BlockNote-layer host seam (Phase 4F-4A / 4F-4B / 4F-4D R1).
+ * DatabaseViewRuntime — BlockNote-layer host seam (Phase 4F-4A … 4F-4E).
  * Kept in a thin module so renderers can import without circular deps on databaseView.tsx.
  *
- * Media seams (4F-4D R1):
+ * Presentation seams:
  * - `resolveRowMedia` remains Gallery-only (`viewType: "gallery"`) for source compatibility
  * - `resolveFeedRowMedia` is the additive Feed seam (`viewType: "feed"`)
+ * - `resolveMapLocation` is the additive Map seam (`viewType: "map"`)
  * Do not widen `resolveRowMedia`'s parameter — callback parameter variance breaks legacy hosts.
  */
 import type {
@@ -51,6 +52,24 @@ export type DatabaseRowMedia = {
   alt?: string;
 };
 
+/**
+ * Map location request (Phase 4F-4E additive — separate from Gallery/Feed media).
+ */
+export type DatabaseMapLocationRequest = {
+  databaseId: string;
+  rowKey: string;
+  row: Readonly<Record<string, JsonValue>>;
+  viewId: string;
+  viewType: "map";
+};
+
+export type DatabaseMapLocation = {
+  latitude: number;
+  longitude: number;
+  label?: string;
+  address?: string;
+};
+
 export type DatabaseViewRuntime = {
   database?: DatabaseProvider;
   /** Preferred: instance-scoped interaction store. */
@@ -73,6 +92,14 @@ export type DatabaseViewRuntime = {
   resolveFeedRowMedia?: (
     request: DatabaseFeedRowMediaRequest
   ) => DatabaseRowMedia | null | undefined;
+  /**
+   * Optional Map location resolver (presentation only).
+   * Additive 4F-4E seam — does not widen Gallery/Feed media APIs.
+   * Never serializes into EditorDocument / RuntimeStore.
+   */
+  resolveMapLocation?: (
+    request: DatabaseMapLocationRequest
+  ) => DatabaseMapLocation | null | undefined;
   /**
    * Optional per-runtime renderer overrides.
    * Never a module-global registry — each editor/preset owns its map.

@@ -28,6 +28,8 @@ import { renderGalleryView } from "./databaseGalleryRenderer.js";
 import { renderListView } from "./databaseListRenderer.js";
 import { renderFeedView } from "./databaseFeedRenderer.js";
 import { renderChartView } from "./databaseChartRenderer.js";
+import { renderMapView } from "./databaseMapRenderer.js";
+import { renderDashboardView } from "./databaseDashboardRenderer.js";
 import { renderGanttView } from "./databaseGanttRenderer.js";
 import { renderTimelineView } from "./databaseTimelineRenderer.js";
 import { catchStoreMutation } from "./databaseMutationUtils.js";
@@ -86,9 +88,10 @@ export { catchStoreMutation } from "./databaseMutationUtils.js";
 function DeferredRenderer(ctx: DatabaseViewRendererContext): ReactElement {
   return (
     <p className="oe-database-view__empty" role="status">
-      Interactive {ctx.viewType} renderer is deferred. Table, Board, Calendar,
-      List, Gallery, Feed, Timeline, Gantt, and Chart engines are available
-      for those viewType values.
+      Interactive {ctx.viewType} renderer is deferred. All eleven built-in
+      DatabaseViewType engines (Table, Board, Calendar, List, Gallery,
+      Timeline, Gantt, Chart, Feed, Map, Dashboard) are available for those
+      viewType values.
     </p>
   );
 }
@@ -101,7 +104,9 @@ const DEFAULT_RENDERERS: DatabaseViewRendererMap = {
   feed: renderFeedView,
   timeline: renderTimelineView,
   gantt: renderGanttView,
-  chart: renderChartView
+  chart: renderChartView,
+  map: renderMapView,
+  dashboard: renderDashboardView
 };
 
 function emptyMessage(snap: DatabaseViewSnapshot): string {
@@ -491,7 +496,8 @@ function StoreBackedDatabaseView(props: {
   );
 }
 
-function SharedDatabaseViewShell(props: {
+/** Shared interactive shell — exported for fail-closed viewType regressions. */
+export function SharedDatabaseViewShell(props: {
   snap: DatabaseViewSnapshot;
   store: DatabaseRuntimeStore;
   viewKey: string;
@@ -1049,9 +1055,35 @@ function SharedDatabaseViewShell(props: {
     return <>{cellDisplayText(def, item.row[def.id])}</>;
   };
 
-  const normalizedViewType: DatabaseViewType = isDatabaseViewType(viewType)
-    ? viewType
-    : "table";
+  const knownViewType = isDatabaseViewType(viewType) ? viewType : null;
+
+  // Unknown / future viewType strings must not silently become Table.
+  if (!knownViewType) {
+    return (
+      <section
+        className="oe-database-view"
+        data-oe-database-view={snap.databaseId}
+        data-view-key={viewKey}
+        data-view-type={viewType}
+        data-oe-unsupported-view-type=""
+        aria-label={`${title} (${viewType || "unknown"})`}
+      >
+        <header className="oe-database-view__header">
+          <h3 className="oe-database-view__title">{title}</h3>
+          <span className="oe-database-view__meta">{viewType || "unknown"}</span>
+        </header>
+        <p className="oe-database-view__empty" role="status">
+          Unsupported database view type: {viewType || "(empty)"}
+        </p>
+        <p className="oe-database-view__footnote">
+          Document stores databaseId/viewId/viewType only — rows come from the
+          host provider via DatabaseRuntimeStore.
+        </p>
+      </section>
+    );
+  }
+
+  const normalizedViewType: DatabaseViewType = knownViewType;
 
   const rendererContext: DatabaseViewRendererContext = {
     snapshot: snap,
@@ -1634,18 +1666,44 @@ function LegacyDatabaseView(props: {
   }, [databaseId, runtime, viewId, viewType, titleHint]);
 
   const schemaKeys = Object.keys(schema);
+  const knownViewType = isDatabaseViewType(viewType) ? viewType : null;
+
+  if (!knownViewType) {
+    return (
+      <section
+        className="oe-database-view"
+        data-oe-database-view={databaseId}
+        data-view-id={viewId}
+        data-view-type={viewType}
+        data-oe-unsupported-view-type=""
+        aria-label={`${title} (${viewType || "unknown"})`}
+      >
+        <header className="oe-database-view__header">
+          <h3 className="oe-database-view__title">{title}</h3>
+          <span className="oe-database-view__meta">{viewType || "unknown"}</span>
+        </header>
+        <p className="oe-database-view__empty" role="status">
+          Unsupported database view type: {viewType || "(empty)"}
+        </p>
+        <p className="oe-database-view__footnote">
+          Document stores databaseId/viewId/viewType only — rows come from the
+          host provider.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section
       className="oe-database-view"
       data-oe-database-view={databaseId}
       data-view-id={viewId}
-      data-view-type={viewType}
-      aria-label={`${title} (${viewType})`}
+      data-view-type={knownViewType}
+      aria-label={`${title} (${knownViewType})`}
     >
       <header className="oe-database-view__header">
         <h3 className="oe-database-view__title">{title}</h3>
-        <span className="oe-database-view__meta">{viewType}</span>
+        <span className="oe-database-view__meta">{knownViewType}</span>
       </header>
       {!runtime.database?.listRows ? (
         <p className="oe-database-view__empty">Database provider unavailable</p>

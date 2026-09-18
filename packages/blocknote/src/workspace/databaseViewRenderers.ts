@@ -44,7 +44,12 @@ export type DatabaseViewRendererMap = Partial<
   Record<DatabaseViewType, DatabaseViewRenderer>
 >;
 
-const DEFERRED_VIEWS = new Set<DatabaseViewType>(["map", "dashboard"]);
+/**
+ * No current DatabaseViewType is deferred after Phase 4F-4E
+ * (Table / Board / Calendar / List / Gallery / Timeline / Gantt / Chart / Feed / Map / Dashboard).
+ * Kept for host forward-compat with unknown future view strings.
+ */
+const DEFERRED_VIEWS = new Set<DatabaseViewType>();
 
 export function isDeferredDatabaseViewType(viewType: string): boolean {
   return DEFERRED_VIEWS.has(viewType as DatabaseViewType);

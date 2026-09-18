@@ -454,9 +454,9 @@ describe("4F-4D — resolveDatabaseViewRenderer", () => {
     ).toBe(renderFeedView);
   });
 
-  it("deferred is ONLY map|dashboard — chart/feed/gallery are not deferred", () => {
-    expect(isDeferredDatabaseViewType("map")).toBe(true);
-    expect(isDeferredDatabaseViewType("dashboard")).toBe(true);
+  it("map/dashboard are not deferred after 4F-4E; chart/feed/gallery stay ready", () => {
+    expect(isDeferredDatabaseViewType("map")).toBe(false);
+    expect(isDeferredDatabaseViewType("dashboard")).toBe(false);
     expect(isDeferredDatabaseViewType("chart")).toBe(false);
     expect(isDeferredDatabaseViewType("feed")).toBe(false);
     expect(isDeferredDatabaseViewType("gallery")).toBe(false);

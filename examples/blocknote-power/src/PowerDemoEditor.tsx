@@ -180,6 +180,32 @@ export function PowerDemoEditor() {
             src: `data:image/svg+xml,${encodeURIComponent(svg)}`,
             alt: request.rowKey
           };
+        },
+        // Host-owned demo locations — not a core `location` property type.
+        resolveMapLocation: (request) => {
+          if (request.databaseId !== "tasks") return null;
+          const DEMO_LOCATIONS: Record<
+            string,
+            { latitude: number; longitude: number; label: string }
+          > = {
+            "task-1": {
+              latitude: 35.6812,
+              longitude: 139.7671,
+              label: "Tokyo"
+            },
+            "task-2": {
+              latitude: 37.7749,
+              longitude: -122.4194,
+              label: "San Francisco"
+            },
+            "task-3": {
+              latitude: 51.5074,
+              longitude: -0.1278,
+              label: "London"
+            },
+            "task-4": { latitude: 0, longitude: 0, label: "Null Island" }
+          };
+          return DEMO_LOCATIONS[request.rowKey] ?? null;
         }
       }
     });
