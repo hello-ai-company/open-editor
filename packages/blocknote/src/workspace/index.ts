@@ -101,12 +101,15 @@ export {
 
 export type {
   DatabaseRowMedia,
-  DatabaseRowMediaRequest
+  DatabaseRowMediaRequest,
+  DatabaseRowMediaViewType
 } from "./databaseViewRuntime.js";
 
 export { renderBoardView } from "./databaseBoardRenderer.js";
 export { renderCalendarView } from "./databaseCalendarRenderer.js";
+export { renderChartView } from "./databaseChartRenderer.js";
 export { renderGalleryView } from "./databaseGalleryRenderer.js";
+export { renderFeedView } from "./databaseFeedRenderer.js";
 export { renderListView } from "./databaseListRenderer.js";
 export { renderGanttView } from "./databaseGanttRenderer.js";
 export { renderTimelineView } from "./databaseTimelineRenderer.js";

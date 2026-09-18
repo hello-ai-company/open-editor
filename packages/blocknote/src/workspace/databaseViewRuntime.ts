@@ -12,13 +12,15 @@ import type {
   DatabaseViewRendererMap
 } from "./databaseViewRenderers.js";
 
-/** Host presentation media for Gallery (never persisted). */
+export type DatabaseRowMediaViewType = "gallery" | "feed";
+
+/** Host presentation media for Gallery / Feed (never persisted). */
 export type DatabaseRowMediaRequest = {
   databaseId: string;
   rowKey: string;
   row: Readonly<Record<string, JsonValue>>;
   viewId: string;
-  viewType: "gallery";
+  viewType: DatabaseRowMediaViewType;
 };
 
 export type DatabaseRowMedia = {
@@ -34,8 +36,8 @@ export type DatabaseViewRuntime = {
   /** Optional host-neutral row-open callback. */
   onOpenRow?: (request: DatabaseRowOpenRequest) => void;
   /**
-   * Optional Gallery media resolver (presentation only).
-   * Never serializes into EditorDocument / RuntimeStore.
+   * Optional Gallery / Feed media resolver (presentation only).
+   * `viewType` is `"gallery"` or `"feed"`. Never serializes into EditorDocument / RuntimeStore.
    */
   resolveRowMedia?: (
     request: DatabaseRowMediaRequest

@@ -202,6 +202,7 @@ export {
   type ChildPageRuntime,
   type DatabaseRowMedia,
   type DatabaseRowMediaRequest,
+  type DatabaseRowMediaViewType,
   type DatabaseRowOpenRequest,
   type DatabaseRuntimeStore,
   type DatabaseViewRenderer,

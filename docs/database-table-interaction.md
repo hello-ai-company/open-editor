@@ -1,4 +1,4 @@
-# Database View Interaction (Phase 4F-3A / 4F-3B / 4F-4A / 4F-4B / 4F-4C)
+# Database View Interaction (Phase 4F-3A / 4F-3B / 4F-4A / 4F-4B / 4F-4C / 4F-4D)
 
 EditorDocument stores **database references / view identity**. The host owns **row entities and persistence**.
 
@@ -7,22 +7,19 @@ EditorDocument stores **database references / view identity**. The host owns **r
 > Phase 4F-4A Board grouping and Calendar scale/cursor/date-property selection are also **ephemeral** — not EditorDocument.
 > Phase 4F-4B List/Gallery presentation (including host `resolveRowMedia`) is **ephemeral / host-owned** — media URLs never enter EditorDocument.
 > Phase 4F-4C Timeline/Gantt date-property selection and axis viewport are **ephemeral presentation** — never persisted.
+> Phase 4F-4D Chart metric selection and Feed date selection are **ephemeral presentation** — Chart/Feed are not second query engines.
 
 ```
-DatabaseRuntimeStore snapshot (snap.items)
+DatabaseRuntimeStore
           │
           ▼
 Shared Database View Shell
   ├ title / search / filters / sort / refresh / trash / load more
   └ renderer dispatch
           │
-   ┌──────┬──────┬──────────┬──────┬─────────┬──────────┬───────┐
-   ▼      ▼      ▼          ▼      ▼         ▼          ▼
- Table  Board Calendar     List  Gallery   Timeline    Gantt
-          │                                    │          │
-          ▼                                    ▼          ▼
- presentation-only transforms
- (group / calendar / list / gallery / date axis / range bars)
+ ┌──────┬──────┬──────────┬──────┬─────────┬──────────┬───────┬──────┬──────┐
+ ▼      ▼      ▼          ▼      ▼         ▼          ▼       ▼      ▼
+Table Board Calendar     List  Gallery   Timeline    Gantt   Chart   Feed
 ```
 
 ```
@@ -51,6 +48,7 @@ Host query engine
 Optional host seams (runtime, not document):
  ├ onOpenRow(request)
  └ resolveRowMedia(request) → DatabaseRowMedia | null
+     viewType: "gallery" | "feed"
 ```
 
 ## Board & Calendar (4F-4A)
@@ -97,7 +95,27 @@ Optional host seams (runtime, not document):
 | Config persistence | Timeline/Gantt property selection + axis **never** enter EditorDocument |
 | Partial pages | Loaded-rows-only notice; axis bounds from loaded dates only |
 
-Unsupported `viewType` values (chart, feed, map, dashboard) stay deferred.
+## Chart & Feed (4F-4D)
+
+| Concern | Behavior |
+| --- | --- |
+| Row source | Same `snap.items` only — **no** independent `listRows` / second filter engine |
+| Chart metrics | Eligible: `number` / `select` / `status`; default first eligible by metadata order |
+| Chart metric identity | Ephemeral selection by **property.id**; rename survives; removal falls back |
+| Categorical Chart | Option order → unknown observed → Empty → Invalid; collision-safe category keys |
+| Option labels | `option.value` = identity, `option.label` = display |
+| Numeric Chart | Finite JS numbers only; zero-baseline domain; provider row order; no `Number\|\|0` |
+| Chart mutations | **Read-only** — zero `createRow` / `updateRow` / `deleteRow` / `restoreRow` / `reorderRows` |
+| Chart row-open | Numeric bars only (one row); categorical counts do **not** invent a row target |
+| Feed layout | Media + title + secondary + optional date + ≤4 property chips |
+| Feed date | First typed `date` default; ephemeral by id; display `YYYY-MM-DD` / No date / Invalid date |
+| Feed order | Exact provider/`snap.items` order — date selection **never** sorts |
+| Feed media | Shared `resolveRowMedia` with `viewType: "feed"`; defensive deep clone of row |
+| Feed mutations | **Read-only** — no drag reorder / completion heuristics / owner inference |
+| Partial pages | “Showing loaded rows only” — Chart counts are loaded-row statistics only |
+| Config persistence | Chart metric / Feed date / media / aggregation **never** enter EditorDocument |
+
+Unsupported `viewType` values (**map**, **dashboard**) stay deferred.
 
 ## Identity semantics
 
@@ -248,11 +266,12 @@ first-page reload — only `loadingMore` / `refreshing` are superseded.
 
 ## Non-goals (later)
 
-Chart / feed / map / dashboard /
-List/Timeline/Gantt drag reorder / List completion heuristics /
+Map / dashboard /
+List/Timeline/Gantt/Feed drag reorder / List completion heuristics /
+Chart pie/line/area/scatter/stacked/multi-series / multi-select chart /
 Gantt dependencies / critical path / progress /
 formulas / rollups / relation editors / schema designer /
-OR filters / multi-sort / saved views (`groupBy`, calendar scale, timeline/gantt property picks) /
+OR filters / multi-sort / saved views (`groupBy`, calendar scale, timeline/gantt/chart/feed property picks) /
 Board within-column reorder / calendar datetime-timezone /
 Personal AI adapter / AG Grid /
-persisting gallery media into EditorDocument.
+persisting gallery/feed media into EditorDocument.

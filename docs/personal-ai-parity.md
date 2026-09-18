@@ -1,6 +1,6 @@
 # Personal AI ↔ OpenEditor workspace parity
 
-Factual matrix after Phase **4F-4C**. Personal AI is a behavioral reference only —
+Factual matrix after Phase **4F-4D**. Personal AI is a behavioral reference only —
 OpenEditor remains host-neutral (no Supabase / auth / product stores).
 
 ## Workspace / pages (4F-2C)
@@ -13,9 +13,9 @@ OpenEditor remains host-neutral (no Supabase / auth / product stores).
 | Backlinks | Notes graph | RelationIndex outgoing + BacklinkProvider incoming |
 | Host-neutral provider | Product-coupled | `PageProvider` / `DatabaseProvider` / `BacklinkProvider` |
 
-## Database (4F-3A → 4F-4C)
+## Database (4F-3A → 4F-4D)
 
-| Capability | Personal AI | OpenEditor 4F-4C |
+| Capability | Personal AI | OpenEditor 4F-4D |
 | --- | --- | --- |
 | Database table | Product DB table UI | Interactive `databaseView` table via DatabaseRuntimeStore |
 | Provider rows | REST `listDatabaseRows` etc. | Host-neutral `DatabaseProvider.listRows` |
@@ -40,11 +40,21 @@ OpenEditor remains host-neutral (no Supabase / auth / product stores).
 | Gantt start/end | Name heuristics (`start`/`due` regex) | Explicit date-property selectors (by id) |
 | Gantt range move | Drag preserving duration | Accessible endpoints + optional bar drag → `updateRow` |
 | Gantt row reorder | Product vertical DnD | **Intentionally not exposed** |
+| Chart | Product chart | Chart renderer (loaded-snapshot presentation aggregation) |
+| Chart status/select counts | Product category counts | Categorical bars over **loaded** `snap.items` only |
+| Chart numeric comparison | Horizontal bars | Finite-number bars; zero-baseline domain; no `Number\|\|0` |
+| Chart multi-select | Supported / product-specific | **Not in portable core** |
+| Chart loaded-only semantics | Product-dependent | **Explicit** “Showing loaded rows only” notice |
+| Feed | Product feed | Feed renderer (provider-order presentation cards) |
+| Feed row open | Product drawer | Optional `onOpenRow` (`viewType: "feed"`) |
+| Feed media | Product media discovery | Host `resolveRowMedia` (`viewType: "feed"`) |
+| Feed owner | Product field | **Not inferred** (no portable user property type) |
+| Feed date | Product due heuristics | Explicit typed `date` property selector (by id) |
+| Feed drag reorder | Personal AI behavior | **Intentionally not exposed** |
+| Feed chronological sorting | Product-dependent | **Provider order preserved** |
 | Missing dates | Implicit fallback (today / end−2d / silent swap) | Explicit undated / incomplete / invalid trays |
 | Row open host seam | CustomEvent / product drawer | `runtime.onOpenRow` |
 | Typed metadata / filters / sort | Product | 4F-3B contracts |
-| Chart | Product | **Deferred** |
-| Feed | Product | **Deferred** |
 | Map | Product | **Deferred** |
 | Dashboard | Product | **Deferred** |
 | Saved view configuration | Block props (`groupBy`, `calendarScale`, …) | **Deferred** |
@@ -55,16 +65,19 @@ OpenEditor remains host-neutral (no Supabase / auth / product stores).
 - Soft-delete / trash listing
 - Cursor pagination + query/sort options
 - Property identity = id; display name is metadata only
-- Board / Calendar / List / Gallery / Timeline / Gantt as presentation transforms over `snap.items`
-- Host-neutral row-open + optional Gallery media seams (no OpenEditor drawer / upload)
+- Board / Calendar / List / Gallery / Timeline / Gantt / Chart / Feed as presentation transforms over `snap.items`
+- Host-neutral row-open + optional Gallery/Feed media seams (no OpenEditor drawer / upload)
 - Shared civil-date axis for Timeline/Gantt (bounded ticks; no per-day DOM for huge spans)
+- Chart = loaded-snapshot aggregation (not a second query engine)
+- Feed = provider-order cards (not an activity / audit log)
 
 ## Deliberately deferred
 
-- Chart / feed / map / dashboard renderers
-- List/Gallery/Timeline/Gantt drag reorder via `reorderRows`
-- List completion / “done” status guessing
-- Gallery multi-image / video / upload / crop
+- Map / dashboard renderers
+- List/Gallery/Timeline/Gantt/Feed drag reorder via `reorderRows`
+- List/Feed completion / “done” status guessing
+- Gallery/Feed multi-image / video / upload / crop
+- Chart pie/line/area/scatter/stacked/multi-series / multi-select / saved config / export
 - Gantt dependencies / critical path / progress / baselines
 - Formula / rollup / relation engines
 - Schema designer
@@ -72,9 +85,9 @@ OpenEditor remains host-neutral (no Supabase / auth / product stores).
 - Personal AI REST/Supabase adapter
 - Embedding rows into EditorDocument (never)
 
-## Remaining for 4F-4D+
+## Remaining for 4F-4E+
 
-- Chart / Feed / Map / Dashboard renderers
+- Map / Dashboard renderers
 - Saved view configuration contract
 - Optional Personal AI host adapter
 - Realtime / CRDT / AI patch protocol

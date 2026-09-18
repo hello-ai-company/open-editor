@@ -158,6 +158,10 @@ export function PowerDemoEditor() {
         },
         resolveRowMedia: (request) => {
           if (request.databaseId !== "tasks") return null;
+          // Gallery + Feed share one host seam; viewType is "gallery" | "feed".
+          if (request.viewType !== "gallery" && request.viewType !== "feed") {
+            return null;
+          }
           // Deterministic tiny SVG data URL from rowKey (never stored in EditorDocument).
           const hue =
             Math.abs(

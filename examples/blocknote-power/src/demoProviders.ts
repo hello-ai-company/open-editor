@@ -251,7 +251,7 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
       row: {
         title: "Wire Personal AI host",
         status: "todo",
-        score: 4,
+        score: -3,
         done: false,
         start: "2026-09-15",
         due: "2026-09-20",
@@ -394,7 +394,9 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
           { id: "main-list", title: "List", viewType: "list" },
           { id: "main-gallery", title: "Gallery", viewType: "gallery" },
           { id: "main-timeline", title: "Timeline", viewType: "timeline" },
-          { id: "main-gantt", title: "Gantt", viewType: "gantt" }
+          { id: "main-gantt", title: "Gantt", viewType: "gantt" },
+          { id: "main-chart", title: "Chart", viewType: "chart" },
+          { id: "main-feed", title: "Feed", viewType: "feed" }
         ]
       };
     },
