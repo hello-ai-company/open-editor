@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,7 +20,6 @@ function run(command, args, cwd) {
   return result.stdout;
 }
 
-// Build + pack blocknote (and ensure core is built)
 run("npm", ["run", "build", "-w", "@hello-ai-company/editor-core"], root);
 run("npm", ["run", "build", "-w", "@hello-ai-company/editor-blocknote"], root);
 run("npm", ["pack", "-w", "@hello-ai-company/editor-core", "--pack-destination", root], root);
@@ -29,8 +28,7 @@ run("npm", ["pack", "-w", "@hello-ai-company/editor-blocknote", "--pack-destinat
 const coreTgz = join(root, "hello-ai-company-editor-core-0.1.0.tgz");
 const bnTgz = join(root, "hello-ai-company-editor-blocknote-0.1.0.tgz");
 
-const dir = mkdtempSync(join(tmpdir(), "oe-bn-consumer-"));
-try {
+function smokeBase(dir) {
   writeFileSync(
     join(dir, "package.json"),
     JSON.stringify(
@@ -61,7 +59,11 @@ import {
   toBlockNote,
   UNKNOWN_ENVELOPE_TYPE,
   createDefaultPowerCommands,
-  createCommandRegistry
+  createCommandRegistry,
+  createDocumentIndex,
+  createOpenEditorPowerPreset,
+  createDocumentOutline,
+  toPartialBlockCopy
 } from "@hello-ai-company/editor-blocknote";
 
 const doc = createEditorDocument([
@@ -74,18 +76,126 @@ const back = fromBlockNote(bn);
 if (back.blocks[1]?.type !== "mystery") throw new Error("unwrap failed");
 const registry = createCommandRegistry(createDefaultPowerCommands());
 if (!registry.get("block.insert.callout")) throw new Error("commands missing");
-console.log("isolated-blocknote-consumer: ok");
+const index = createDocumentIndex();
+index.replaceFromBlocks([{ id: "h1", type: "heading", props: { level: 1 }, content: "Hi" }]);
+if (createDocumentOutline(index).length !== 1) throw new Error("outline failed");
+const preset = createOpenEditorPowerPreset();
+if (!preset.schema) throw new Error("preset missing");
+const copy = toPartialBlockCopy({
+  id: "x",
+  type: "callout",
+  props: { variant: "info" },
+  content: [{ type: "text", text: "a", styles: {} }]
+});
+if (copy.id) throw new Error("duplicate copy must drop id");
+if (copy.type !== "callout") throw new Error("duplicate copy lost type");
+console.log("isolated-blocknote-consumer base: ok");
 `
   );
 
-  // BlockNote lists optional Yjs v14 peers; npm on Node 20 can ERESOLVE them.
-  // Isolated smoke only needs MPL core/react peers — use legacy-peer-deps.
+  writeFileSync(
+    join(dir, "smoke-react.mjs"),
+    `
+import { DocumentOutline, QuickNav } from "@hello-ai-company/editor-blocknote/react";
+if (typeof DocumentOutline !== "function") throw new Error("DocumentOutline missing");
+if (typeof QuickNav !== "function") throw new Error("QuickNav missing");
+console.log("isolated-blocknote-consumer react: ok");
+`
+  );
+
   run("npm", ["install", "--omit=dev", "--legacy-peer-deps"], dir);
   run("node", ["smoke.mjs"], dir);
+  run("node", ["smoke-react.mjs"], dir);
+}
+
+function smokeOptional(dir, feature, peerPkg) {
+  writeFileSync(
+    join(dir, "package.json"),
+    JSON.stringify(
+      {
+        name: `isolated-blocknote-${feature}`,
+        private: true,
+        type: "module",
+        dependencies: {
+          "@hello-ai-company/editor-core": `file:${coreTgz}`,
+          "@hello-ai-company/editor-blocknote": `file:${bnTgz}`,
+          "@blocknote/core": "0.54.2",
+          "@blocknote/react": "0.54.2",
+          [peerPkg]: "0.54.2",
+          react: "^19.1.0",
+          "react-dom": "^19.1.0"
+        }
+      },
+      null,
+      2
+    )
+  );
+
+  const checks = {
+    math: `
+const types = Object.keys(preset.schema.blockSchema || {});
+if (!types.includes("mathBlock")) throw new Error("mathBlock missing: " + types.join(","));
+`,
+    diagram: `
+const types = Object.keys(preset.schema.blockSchema || {});
+if (!types.includes("diagram")) throw new Error("diagram missing: " + types.join(","));
+`,
+    code: `
+const options = preset.editorOptions();
+if (!options.extensions || options.extensions.length === 0) {
+  throw new Error("code feature extensions missing from editorOptions");
+}
+`
+  };
+
+  const exportName = `create${feature[0].toUpperCase()}${feature.slice(1)}PowerFeature`;
+
+  writeFileSync(
+    join(dir, "smoke.mjs"),
+    `
+import { createOpenEditorPowerPreset } from "@hello-ai-company/editor-blocknote";
+import { ${exportName} } from "@hello-ai-company/editor-blocknote/${feature}";
+
+const feature = ${exportName}();
+if (!feature || feature.id !== "${feature}") {
+  throw new Error("feature factory failed: ${feature}");
+}
+const preset = createOpenEditorPowerPreset({ features: [feature] });
+if (!preset.featureIds.includes("${feature}")) {
+  throw new Error("feature not registered on preset");
+}
+${checks[feature]}
+console.log("isolated-blocknote-consumer ${feature}: ok");
+`
+  );
+
+  run("npm", ["install", "--omit=dev", "--legacy-peer-deps"], dir);
+  // Math/diagram pull katex/mermaid CSS side-effects — ignore .css in Node ESM.
+  run(
+    "node",
+    ["--import", join(root, "scripts/register-ignore-css.mjs"), "smoke.mjs"],
+    dir
+  );
+}
+
+const dir = mkdtempSync(join(tmpdir(), "oe-bn-consumer-"));
+try {
+  smokeBase(dir);
+  for (const [feature, peer] of [
+    ["math", "@blocknote/math-block"],
+    ["diagram", "@blocknote/diagram-block"],
+    ["code", "@blocknote/code-block"]
+  ]) {
+    const featureDir = mkdtempSync(join(tmpdir(), `oe-bn-${feature}-`));
+    try {
+      smokeOptional(featureDir, feature, peer);
+    } finally {
+      rmSync(featureDir, { recursive: true, force: true });
+    }
+  }
   console.log("verify:isolated-blocknote PASS");
 } finally {
   rmSync(dir, { recursive: true, force: true });
-  // Clean pack artifacts from repo root
   for (const name of [
     "hello-ai-company-editor-core-0.1.0.tgz",
     "hello-ai-company-editor-blocknote-0.1.0.tgz"

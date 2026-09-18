@@ -1,7 +1,5 @@
 /**
- * Additive `./react` entry — React hooks, palette, power blocks, and schema factory.
- * Main package entry still re-exports these for 0.1.0 compatibility.
- * 4F-2 may narrow the root entry to adapter/bridge/commands only.
+ * Additive `./react` entry — React hooks, palette, outline, navigation, actions.
  */
 export {
   createCalloutBlockSpec,
@@ -31,3 +29,34 @@ export {
   type PowerCommandPaletteProps,
   type UseOpenEditorBlockChangesOptions
 } from "./powerUi.js";
+export {
+  DocumentOutline,
+  QuickNav,
+  useDocumentOutline,
+  useQuickNavShortcut,
+  jumpToBlock,
+  type DocumentOutlineProps,
+  type QuickNavProps,
+  type UseDocumentOutlineOptions
+} from "./outline.js";
+export {
+  BlockActionMenu,
+  POWER_FORMATTING_ACTIONS,
+  type BlockActionMenuProps,
+  type PowerFormattingAction
+} from "./blockActions.js";
+export {
+  createOpenEditorPowerPreset,
+  type OpenEditorPowerPreset,
+  type OpenEditorPowerPresetOptions,
+  type ReferenceSpecs
+} from "../features/compose.js";
+export {
+  createDocumentIndex,
+  type DocumentIndex,
+  type DocumentIndexEntry
+} from "../index/documentIndex.js";
+export {
+  createDocumentOutline,
+  type OutlineNode
+} from "../index/outline.js";

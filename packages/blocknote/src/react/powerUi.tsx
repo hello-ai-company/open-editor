@@ -11,6 +11,7 @@ import type {
   EditorCommandContext,
   PaletteItem
 } from "../commands/registry.js";
+import { createOpenEditorDictionary } from "../dictionary.js";
 import type { PowerSeams } from "../seams/types.js";
 
 type EditorLike = {
@@ -115,13 +116,17 @@ export type PowerCommandPaletteProps = {
   onOpenChange: (open: boolean) => void;
   registry: CommandRegistry;
   context: EditorCommandContext;
+  dictionary?: Partial<import("../dictionary.js").OpenEditorDictionary>;
 };
 
 export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactElement | null {
   const { open, onOpenChange, registry, context } = props;
+  const dict = createOpenEditorDictionary(props.dictionary);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
 
   const items: PaletteItem[] = useMemo(
     () => registry.toPaletteItems(context, query),
@@ -130,21 +135,32 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
 
   useEffect(() => {
     if (!open) return;
+    previousFocus.current = document.activeElement as HTMLElement | null;
     setQuery("");
     setActiveIndex(0);
+    setError(null);
     const id = requestAnimationFrame(() => inputRef.current?.focus());
-    return () => cancelAnimationFrame(id);
+    return () => {
+      cancelAnimationFrame(id);
+      previousFocus.current?.focus?.();
+    };
   }, [open]);
 
   useEffect(() => {
     setActiveIndex(0);
+    setError(null);
   }, [query]);
 
   const runActive = useCallback(async () => {
     const item = items[activeIndex];
     if (!item || item.disabledReason) return;
-    await registry.run(item.id, context);
-    onOpenChange(false);
+    try {
+      setError(null);
+      await registry.run(item.id, context);
+      onOpenChange(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Command failed");
+    }
   }, [activeIndex, context, items, onOpenChange, registry]);
 
   if (!open) return null;
@@ -153,7 +169,7 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
 
   return (
     <div
-      className="oe-command-palette"
+      className="oe-overlay oe-command-palette"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onOpenChange(false);
@@ -163,7 +179,7 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
         className="oe-command-palette__panel"
         role="dialog"
         aria-modal="true"
-        aria-label="Command palette"
+        aria-label={dict.commandPaletteTitle}
       >
         <input
           ref={inputRef}
@@ -172,7 +188,7 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
           aria-expanded="true"
           aria-controls="oe-command-palette-list"
           aria-autocomplete="list"
-          placeholder="Type a command…"
+          placeholder={dict.commandPalettePlaceholder}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
@@ -191,9 +207,14 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
             }
           }}
         />
+        {error ? (
+          <div className="oe-command-palette__error" role="alert">
+            {error}
+          </div>
+        ) : null}
         <ul id="oe-command-palette-list" className="oe-command-palette__list" role="listbox">
           {items.length === 0 ? (
-            <li className="oe-command-palette__group">No matching commands</li>
+            <li className="oe-command-palette__group">{dict.commandPaletteEmpty}</li>
           ) : (
             items.map((item, index) => {
               const showGroup = item.group !== lastGroup;
@@ -202,7 +223,7 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
                 <li key={item.id} role="presentation">
                   {showGroup ? (
                     <div className="oe-command-palette__group" role="presentation">
-                      {item.group}
+                      {item.recent && index === 0 ? dict.recentCommands : item.group}
                     </div>
                   ) : null}
                   <button
@@ -216,8 +237,13 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
                     onClick={() => {
                       void (async () => {
                         if (item.disabledReason) return;
-                        await registry.run(item.id, context);
-                        onOpenChange(false);
+                        try {
+                          setError(null);
+                          await registry.run(item.id, context);
+                          onOpenChange(false);
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : "Command failed");
+                        }
                       })();
                     }}
                   >
