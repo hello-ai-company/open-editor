@@ -1,12 +1,11 @@
 # @hello-ai-company/editor-blocknote
 
-Unpublished OpenEditor power layer on BlockNote.
+OpenEditor BlockNote power layer on **BlockNote `^0.54.2`** (MPL-2.0).
 
-## Install (workspace)
+## Install
 
 ```bash
-npm install @hello-ai-company/editor-blocknote
-# peers
+npm install @hello-ai-company/editor-blocknote @hello-ai-company/editor-core
 npm install @blocknote/core@^0.54.2 @blocknote/react@^0.54.2 react react-dom
 ```
 
@@ -26,6 +25,15 @@ const power = createOpenEditorPowerPreset({
   features: [createMathPowerFeature()]
 });
 ```
+
+## Peer compatibility
+
+| BlockNote | npm peer resolve | Source typecheck | Consumer smoke (widened peers) |
+| --- | --- | --- | --- |
+| `0.54.2` | PASS | PASS | PASS |
+| `0.52.1` | FAIL (ERESOLVE) | FAIL (`syntaxHighlighter` / missing math-diagram pkgs) | PASS (matrix-only; not supported) |
+
+**Decision:** keep `peerDependencies` at `^0.54.2`. Hosts still on BlockNote `^0.52.1` must upgrade before adopting this package. See [blocknote-compat.md](../../docs/blocknote-compat.md).
 
 ## Exports
 
@@ -47,3 +55,7 @@ const power = createOpenEditorPowerPreset({
 
 Do not call `editor.document` + full `serializeEditorDocument` on every keystroke.
 Use `createBlockChangeBridge` / `useOpenEditorBlockChanges` and `createDocumentIndex().applyChanges(...)`.
+
+## Publication
+
+Metadata targets public npmjs (`publishConfig.access: public`). First publish of `0.1.0` requires owner authorization and Trusted Publishing — this repository does **not** auto-publish on merge.

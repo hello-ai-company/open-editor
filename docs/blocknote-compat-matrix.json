@@ -1,0 +1,107 @@
+{
+  "generatedAt": "2026-09-19T01:15:01.498Z",
+  "baselineCommit": "771bba4f06dc90aba396556f54af01832b071bef",
+  "candidates": [
+    "0.52.1",
+    "0.54.2"
+  ],
+  "peerResolutionAsPublished": [
+    {
+      "label": "peer-as-published",
+      "version": "0.52.1",
+      "install": {
+        "ok": false,
+        "status": 1,
+        "stderr": "npm error code ERESOLVE\nnpm error ERESOLVE unable to resolve dependency tree\nnpm error\nnpm error While resolving: oe-bn-compat-0-52-1@undefined\nnpm error Found: @blocknote/core@0.52.1\nnpm error node_modules/@blocknote/core\nnpm error   @blocknote/core@\"0.52.1\" from the root project\nnpm error\nnpm error Could not resolve dependency:\nnpm error peer @blocknote/core@\"^0.54.2\" from @hello-ai-company/editor-blocknote@0.1.0\nnpm error node_modules/@hello-ai-company/editor-blocknote\nnpm error   @hello-ai-company/editor-blocknote@\"file:/workspace/hello-ai-company-editor-blocknote-0.1.0.tgz\" from the root project\nnpm error\nnpm error Fix the upstream dependency conflict, or retry\nnpm error this command with --force or --legacy-peer-deps\nnpm error to accept an incorrect (and potentially broken) dependency resolution.\nnpm error\nnpm error\nnpm error For a full report see:\nnpm error /home/ubuntu/.npm/_logs/2026-09-19T01_15_01_849Z-eresolve-report.txt\nnpm error A complete log of this run can be found in: /home/ubuntu/.npm/_logs/2026-09-19T01_15_01_849Z-debug-0.log"
+      },
+      "typecheck": null,
+      "runtime": null,
+      "notes": [
+        "optional-peers install failed: npm error code ERESOLVE | npm error ERESOLVE unable to resolve dependency tree | npm error | npm error While resolving: oe-bn-compat-0-52-1@undefined | npm error Found: @blocknote/core@0.52.1 | npm error node_modules/@blocknote/core | npm error   @blocknote/core@\"0.52.1\" from the root project | npm error   peer @blocknote/core@\"^0.52.1\" from @blocknote/code-block@0.52.1 | npm error   node_modules/@blocknote/code-block | npm error     @blocknote/code-block@\"0.52.1\" from the root project | npm error | npm error Could not resolve dependency:"
+      ]
+    },
+    {
+      "label": "peer-as-published",
+      "version": "0.54.2",
+      "install": {
+        "ok": true,
+        "status": 0
+      },
+      "typecheck": {
+        "ok": true,
+        "status": 0
+      },
+      "runtime": {
+        "ok": true,
+        "status": 0
+      },
+      "notes": [
+        "installed with optional peers for this line"
+      ]
+    }
+  ],
+  "apiProbeWidenedPeers": [
+    {
+      "label": "api-probe-widened",
+      "version": "0.52.1",
+      "install": {
+        "ok": true,
+        "status": 0
+      },
+      "typecheck": {
+        "ok": true,
+        "status": 0
+      },
+      "runtime": {
+        "ok": true,
+        "status": 0
+      },
+      "notes": [
+        "installed with optional peers for this line"
+      ]
+    },
+    {
+      "label": "api-probe-widened",
+      "version": "0.54.2",
+      "install": {
+        "ok": true,
+        "status": 0
+      },
+      "typecheck": {
+        "ok": true,
+        "status": 0
+      },
+      "runtime": {
+        "ok": true,
+        "status": 0
+      },
+      "notes": [
+        "installed with optional peers for this line"
+      ]
+    }
+  ],
+  "sourceTypecheck": [
+    {
+      "version": "0.52.1",
+      "ok": false,
+      "status": 2,
+      "stderr": "packages/blocknote/src/code/index.ts(5,10): error TS2305: Module '\"@blocknote/code-block\"' has no exported member 'syntaxHighlighter'.",
+      "notes": [
+        "excluded math/diagram sources — npm packages absent on this BlockNote line"
+      ]
+    },
+    {
+      "version": "0.54.2",
+      "ok": true,
+      "status": 0,
+      "stderr": "",
+      "notes": []
+    }
+  ],
+  "decisionHints": [
+    "As-published peers (^0.54.2) correctly reject BlockNote 0.52.1 via npm ERESOLVE (no --legacy-peer-deps).",
+    "API probe: built package can consumer-compile/run against 0.52.1 when peers are artificially widened (matrix-only).",
+    "Source does NOT typecheck against BlockNote 0.52.1 — keep peer floor at 0.54.2.",
+    "Supported line 0.54.2: peer install + consumer typecheck + runtime smoke PASS."
+  ]
+}
