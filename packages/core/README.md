@@ -12,11 +12,11 @@ npm install @hello-ai-company/editor-core
 
 Requirements: Node.js `>=20`, ESM. No runtime dependencies. No CommonJS export.
 
-Until the first public npmjs publish, pack from this repository:
+Published `@hello-ai-company/editor-core@0.1.0` on npmjs is **immutable**. Workspace candidate is `0.1.1` (published from **main** after merge — not from this draft PR). Pack the candidate:
 
 ```bash
 npm pack -w @hello-ai-company/editor-core
-npm install ./hello-ai-company-editor-core-0.1.0.tgz
+npm install ./hello-ai-company-editor-core-0.1.1.tgz
 ```
 
 ## Quickstart

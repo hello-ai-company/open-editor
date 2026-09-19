@@ -1,9 +1,8 @@
 {
   "name": "@hello-ai-company/editor-blocknote",
   "version": "0.1.0",
-  "private": true,
   "license": "MIT",
-  "description": "OpenEditor BlockNote power layer: adapter, schema, commands, document index, navigation, and optional math/diagram/code. Unpublished.",
+  "description": "OpenEditor BlockNote power layer: adapter, schema, commands, document index, navigation, and optional math/diagram/code. Requires BlockNote ^0.54.2.",
   "keywords": [
     "blocknote",
     "editor",
@@ -58,8 +57,12 @@
     "url": "git+https://github.com/hello-ai-company/open-editor.git",
     "directory": "packages/blocknote"
   },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
   "dependencies": {
-    "@hello-ai-company/editor-core": "^0.1.0"
+    "@hello-ai-company/editor-core": "^0.1.1"
   },
   "peerDependencies": {
     "@blocknote/core": "^0.54.2",

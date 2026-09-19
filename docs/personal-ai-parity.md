@@ -77,6 +77,14 @@ OpenEditor remains host-neutral (no Supabase / auth / product stores).
 - Feed = provider-order cards (not an activity / audit log)
 - Map = host locations + dependency-free projection (not a tile client)
 
+## BlockNote package line (Phase 4F-5B)
+
+| Line | OpenEditor `editor-blocknote` | Personal AI host today |
+| --- | --- | --- |
+| `@blocknote/*` | **`^0.54.2`** (matrix-verified) | `^0.52.1` (incompatible peers) |
+
+Upgrade Personal AI BlockNote before mounting `editor-blocknote`. Details: [blocknote-compat.md](./blocknote-compat.md), [personal-ai-integration-contract.md](./personal-ai-integration-contract.md).
+
 ## Deliberately deferred
 
 - List/Gallery/Timeline/Gantt/Feed drag reorder via `reorderRows`

@@ -30,3 +30,4 @@ npm-debug.log*
 .turbo/
 .cache/
 release-artifact/
+release-artifact-blocknote/

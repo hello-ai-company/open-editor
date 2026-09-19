@@ -8,29 +8,31 @@ The public package is [`@hello-ai-company/editor-core`](./packages/core). It is 
 
 | Item | Value |
 | --- | --- |
-| Package | `@hello-ai-company/editor-core@0.1.0` |
+| Repository | **PUBLIC** — https://github.com/hello-ai-company/open-editor |
+| Package (published) | `@hello-ai-company/editor-core@0.1.0` on npmjs (**immutable**) |
+| Package (workspace) | `@hello-ai-company/editor-core@0.1.1` candidate (**not published** yet) |
+| Adapter | `@hello-ai-company/editor-blocknote@0.1.0` — in-repo, **unpublished** (depends on core `^0.1.1`) |
 | License | MIT — Copyright (c) 2026 Yuki Shibata |
-| Registry (prepared) | https://registry.npmjs.org (`publishConfig.access`: public) |
-| Repository visibility | **PRIVATE** until a later human-gated public transition |
-| npm publish | **Not executed** in this tree. First publish is a later gated step. |
-| Runtime dependencies | none |
+| Registry | https://registry.npmjs.org (`publishConfig.access`: public) |
+| Publish sequence (after merge) | R2 review → merge → main publishes core `0.1.1` → registry prove → publish blocknote → Personal AI integration |
+| Runtime dependencies (core) | none |
 
-This source tree is public-ready. It is **not** a public GitHub repository yet, and the package is **not** on npmjs yet.
+## Install
 
-## Install (after first public publish)
+Published line (registry):
 
 ```bash
 npm install @hello-ai-company/editor-core
 ```
 
-Requirements: Node.js `>=20`, ESM (`"type": "module"`). There is no CommonJS `require` export.
-
-Until the first public publish, install from a packed tarball:
+For the `0.1.1` candidate (until it is published), pack from this tree:
 
 ```bash
 npm pack -w @hello-ai-company/editor-core
-npm install ./hello-ai-company-editor-core-0.1.0.tgz
+npm install ./hello-ai-company-editor-core-0.1.1.tgz
 ```
+
+Requirements: Node.js `>=20`, ESM (`"type": "module"`). There is no CommonJS `require` export.
 
 ## Quickstart
 
@@ -59,10 +61,10 @@ Unknown block `type` strings round-trip. `schemaVersion` is the positive integer
 
 Public shape: **Small Core + Adapters + Docs + Examples**.
 
-| Layer | What it is | v0.1.0 |
+| Layer | What it is | line |
 | --- | --- | --- |
-| **Small Core** | `@hello-ai-company/editor-core` — document model, JSON, optional provider types | shipped |
-| **Adapters** | `@hello-ai-company/editor-blocknote` — BlockNote power layer (lossless adapter, commands, incremental bridge) | **in-repo, unpublished** `0.1.0` |
+| **Small Core** | `@hello-ai-company/editor-core` — document model, JSON, optional provider types | `0.1.1` candidate (`0.1.0` published) |
+| **Adapters** | `@hello-ai-company/editor-blocknote` — BlockNote power layer (lossless adapter, commands, incremental bridge) | **in-repo, unpublished** `0.1.0` (depends on core `^0.1.1`) |
 | **Docs** | Architecture, public API, contributing, security | this repository |
 | **Examples** | `examples/blocknote-power` | demo / Quick Start |
 

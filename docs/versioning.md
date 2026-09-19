@@ -1,18 +1,31 @@
 # Versioning and compatibility
 
-Policy for `@hello-ai-company/editor-core@0.1.0` (MIT, npmjs public access prepared). This document does **not** authorize npm publish, tags, or GitHub Releases.
+Policy for `@hello-ai-company/editor-core` (MIT, npmjs). This document does **not** authorize npm publish, tags, or GitHub Releases.
 
 ## Current identity
 
 | Field | Value |
 | --- | --- |
 | Name | `@hello-ai-company/editor-core` |
-| Version | `0.1.0` |
+| Workspace / candidate version | `0.1.1` (**not published** in R1) |
+| Published on npmjs (immutable) | `0.1.0` — do **not** republish |
 | License | MIT |
-| Registry (prepared) | `https://registry.npmjs.org` |
+| Registry | `https://registry.npmjs.org` |
 | Access | public |
-| Visibility | PRIVATE until a later human-gated public transition |
 | Document `schemaVersion` | `1` |
+
+`0.1.1` is an **additive** candidate over published `0.1.0` (database/relation provider APIs used by `@hello-ai-company/editor-blocknote`).
+
+Correct release sequence (avoids deadlock with `publish-public-core.yml` on **main only**):
+
+1. R2 review of PR #23
+2. **Merge** #23 (do **not** wait for published `0.1.1` before merge)
+3. Main publishes core `0.1.1`
+4. Registry prove (adaptive isolated consumer)
+5. Publish blocknote `0.1.0`
+6. Personal AI integration
+
+This tree does **not** publish.
 
 The historical private GitHub Packages prerelease `0.0.0-phase3.e17b4b5` is **immutable** and must not be reused on npmjs.
 
@@ -31,7 +44,7 @@ A package bump without a schema bump is possible. Introducing `schemaVersion: 2`
 
 ## Additive vs breaking
 
-**Additive** (future minor/patch after a public line exists):
+**Additive** (patch/minor on the public 0.x line):
 
 - New optional provider methods or optional `EditorProviders` keys
 - New type-only exports
@@ -48,6 +61,20 @@ A package bump without a schema bump is possible. Introducing `schemaVersion: 2`
 - Adding runtime dependencies
 - Adding CJS / subpaths that split the public contract
 - Removing the legacy deserialize behavior that defaults a missing `schemaVersion` to `1`
+
+## editor-blocknote floor
+
+`@hello-ai-company/editor-blocknote` depends on `@hello-ai-company/editor-core` **`^0.1.1`**. Published `0.1.0` lacks APIs required by the BlockNote power layer (`withRelationEdgeId`, `DatabaseFilter`, `EditorDatabase`, …).
+
+Isolated consumer gates (`npm run verify:isolated-blocknote`):
+
+| Gate | Behavior |
+| --- | --- |
+| Static | `editor-blocknote` dependency === `^0.1.1` |
+| Positive pre-publish | core `0.1.1` candidate tarball + blocknote candidate → ordinary install **PASS** |
+| Registry adaptive | If `core@0.1.1` **absent** on npmjs → blocknote-only registry resolve unavailable is **expected** (no forever-fail on top-level `0.1.0`). If **present** → blocknote candidate + registry core → **PASS** with installed core `>=0.1.1` |
+
+No `--legacy-peer-deps` / `--force` on the release consumer path.
 
 ## Document JSON
 
