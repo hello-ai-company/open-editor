@@ -14,7 +14,18 @@ Policy for `@hello-ai-company/editor-core` (MIT, npmjs). This document does **no
 | Access | public |
 | Document `schemaVersion` | `1` |
 
-`0.1.1` is an **additive** candidate over published `0.1.0` (database/relation provider APIs used by `@hello-ai-company/editor-blocknote`). Publish order when authorized: **core `0.1.1` → blocknote `0.1.0`**. R1 does **not** publish.
+`0.1.1` is an **additive** candidate over published `0.1.0` (database/relation provider APIs used by `@hello-ai-company/editor-blocknote`).
+
+Correct release sequence (avoids deadlock with `publish-public-core.yml` on **main only**):
+
+1. R2 review of PR #23
+2. **Merge** #23 (do **not** wait for published `0.1.1` before merge)
+3. Main publishes core `0.1.1`
+4. Registry prove (adaptive isolated consumer)
+5. Publish blocknote `0.1.0`
+6. Personal AI integration
+
+This tree does **not** publish.
 
 The historical private GitHub Packages prerelease `0.0.0-phase3.e17b4b5` is **immutable** and must not be reused on npmjs.
 
@@ -53,7 +64,17 @@ A package bump without a schema bump is possible. Introducing `schemaVersion: 2`
 
 ## editor-blocknote floor
 
-`@hello-ai-company/editor-blocknote` depends on `@hello-ai-company/editor-core` **`^0.1.1`**. Published `0.1.0` lacks APIs required by the BlockNote power layer (`withRelationEdgeId`, `DatabaseFilter`, `EditorDatabase`, …). Registry-realistic consumers must not resolve `0.1.0` for blocknote installs.
+`@hello-ai-company/editor-blocknote` depends on `@hello-ai-company/editor-core` **`^0.1.1`**. Published `0.1.0` lacks APIs required by the BlockNote power layer (`withRelationEdgeId`, `DatabaseFilter`, `EditorDatabase`, …).
+
+Isolated consumer gates (`npm run verify:isolated-blocknote`):
+
+| Gate | Behavior |
+| --- | --- |
+| Static | `editor-blocknote` dependency === `^0.1.1` |
+| Positive pre-publish | core `0.1.1` candidate tarball + blocknote candidate → ordinary install **PASS** |
+| Registry adaptive | If `core@0.1.1` **absent** on npmjs → blocknote-only registry resolve unavailable is **expected** (no forever-fail on top-level `0.1.0`). If **present** → blocknote candidate + registry core → **PASS** with installed core `>=0.1.1` |
+
+No `--legacy-peer-deps` / `--force` on the release consumer path.
 
 ## Document JSON
 

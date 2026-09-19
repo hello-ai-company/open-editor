@@ -39,7 +39,7 @@ Shadow / guarded editor mount (Phase 4F-5D/5E) therefore depends on a BlockNote 
 | Line | Status |
 | --- | --- |
 | Published `@hello-ai-company/editor-core@0.1.0` | **Immutable** on npmjs — API-incomplete for current `editor-blocknote` |
-| Candidate `@hello-ai-company/editor-core@0.1.1` | In-repo only (R1); **not published** |
+| Candidate `@hello-ai-company/editor-core@0.1.1` | In-repo candidate; **not published** until after #23 merges to main |
 | `editor-blocknote` dependency floor | `^0.1.1` |
 
-Publish order when authorized later: **core `0.1.1` → blocknote**. Do not publish in this phase.
+Sequence: **R2 review → merge #23 → main publishes core `0.1.1` → registry prove → publish blocknote → PA**. Do not wait for published `0.1.1` before merging (deadlock with main-only publish workflow). Do not publish from this PR.

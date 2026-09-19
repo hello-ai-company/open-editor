@@ -7,10 +7,10 @@ This document does **not** authorize production editor switch, merge, or npm pub
 
 | Package | Version | Role | Registry status |
 | --- | --- | --- | --- |
-| `@hello-ai-company/editor-core` | `0.1.1` candidate (`0.1.0` published, immutable) | Document model, serialization, provider types | **0.1.1 not published** (R1) |
+| `@hello-ai-company/editor-core` | `0.1.1` candidate (`0.1.0` published, immutable) | Document model, serialization, provider types | **0.1.1 not published** until post-merge on main |
 | `@hello-ai-company/editor-blocknote` | `0.1.0` | BlockNote adapter / power layer | **Release-ready, not published**; depends on core `^0.1.1` |
 
-Publish order when authorized: **core → blocknote**. R1 does **not** `npm publish`, tag, or Release.
+Sequence: **R2 review → merge #23 → main publishes core → registry prove → publish blocknote → PA integration**. This PR does **not** `npm publish`, tag, or Release. Do not require published `0.1.1` before merge.
 
 ## Dependency direction
 

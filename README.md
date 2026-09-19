@@ -8,28 +8,31 @@ The public package is [`@hello-ai-company/editor-core`](./packages/core). It is 
 
 | Item | Value |
 | --- | --- |
-| Package | `@hello-ai-company/editor-core@0.1.1` candidate (`0.1.0` published, immutable) |
+| Repository | **PUBLIC** — https://github.com/hello-ai-company/open-editor |
+| Package (published) | `@hello-ai-company/editor-core@0.1.0` on npmjs (**immutable**) |
+| Package (workspace) | `@hello-ai-company/editor-core@0.1.1` candidate (**not published** yet) |
+| Adapter | `@hello-ai-company/editor-blocknote@0.1.0` — in-repo, **unpublished** (depends on core `^0.1.1`) |
 | License | MIT — Copyright (c) 2026 Yuki Shibata |
 | Registry | https://registry.npmjs.org (`publishConfig.access`: public) |
-| npm publish (this tree) | **Not executed** in R1. Publish order later: core `0.1.1` → blocknote. |
-| Runtime dependencies | none |
+| Publish sequence (after merge) | R2 review → merge → main publishes core `0.1.1` → registry prove → publish blocknote → Personal AI integration |
+| Runtime dependencies (core) | none |
 
-This source tree is public-ready. It is **not** a public GitHub repository yet, and the package is **not** on npmjs yet.
+## Install
 
-## Install (after first public publish)
+Published line (registry):
 
 ```bash
 npm install @hello-ai-company/editor-core
 ```
 
-Requirements: Node.js `>=20`, ESM (`"type": "module"`). There is no CommonJS `require` export.
-
-Until the first public publish, install from a packed tarball:
+For the `0.1.1` candidate (until it is published), pack from this tree:
 
 ```bash
 npm pack -w @hello-ai-company/editor-core
 npm install ./hello-ai-company-editor-core-0.1.1.tgz
 ```
+
+Requirements: Node.js `>=20`, ESM (`"type": "module"`). There is no CommonJS `require` export.
 
 ## Quickstart
 

@@ -1,15 +1,19 @@
 /**
- * Registry-realistic editor-blocknote consumer gate.
+ * Registry-realistic editor-blocknote consumer gate (R2 adaptive).
  *
- * Positive: core 0.1.1 candidate tarball + blocknote 0.1.0 candidate tarball
+ * STATIC: editor-blocknote package.json depends on editor-core === ^0.1.1 floor.
+ * POSITIVE PRE-PUBLISH: core 0.1.1 candidate tarball + blocknote candidate
  *   → ordinary `npm install` (no --legacy-peer-deps / --force) + smoke PASS
- * Negative: published core@0.1.0 from npm + blocknote candidate
- *   → ordinary `npm install` MUST FAIL (range ^0.1.1 rejects 0.1.0)
+ * REGISTRY (adaptive):
+ *   - If core@0.1.1 is NOT on npmjs → blocknote-only registry resolution
+ *     unavailable is expected (document; do NOT forever-fail on top-level 0.1.0).
+ *   - If core@0.1.1 IS on npmjs → blocknote candidate + registry core → PASS
+ *     and installed core satisfies >=0.1.1.
  *
- * Do not claim GREEN based only on workspace `file:` / current-core packs that
- * skip the published-registry floor.
+ * Do not claim GREEN based only on workspace `file:` packs that skip the
+ * published-registry floor.
  */
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,9 +22,11 @@ import { spawnSync } from "node:child_process";
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const CORE_VERSION = "0.1.1";
 const BN_VERSION = "0.1.0";
-const PUBLISHED_CORE = "0.1.0";
+const CORE_FLOOR = "^0.1.1";
 const CORE_TGZ_NAME = `hello-ai-company-editor-core-${CORE_VERSION}.tgz`;
 const BN_TGZ_NAME = `hello-ai-company-editor-blocknote-${BN_VERSION}.tgz`;
+const CORE_PKG = "@hello-ai-company/editor-core";
+const BN_PKG = "@hello-ai-company/editor-blocknote";
 
 function run(command, args, cwd, { allowFail = false } = {}) {
   const result = spawnSync(command, args, {
@@ -408,23 +414,100 @@ console.log("isolated-blocknote-consumer ${feature}: ok");
   );
 }
 
+/** STATIC GATE: package.json dependency floor must stay ^0.1.1 (or documented floor). */
+function assertStaticCoreFloor() {
+  const pkgPath = join(root, "packages/blocknote/package.json");
+  const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+  const dep = pkg.dependencies?.[CORE_PKG];
+  if (dep !== CORE_FLOOR) {
+    console.error(
+      `FAIL — STATIC GATE: ${BN_PKG} must depend on ${CORE_PKG} === "${CORE_FLOOR}" (got ${JSON.stringify(dep)})`
+    );
+    process.exit(1);
+  }
+  console.log(`CASE static (${BN_PKG} → ${CORE_PKG} ${CORE_FLOOR}): PASS`);
+}
+
 /**
- * Negative regression: published core@0.1.0 cannot satisfy blocknote's ^0.1.1 floor.
- * Proves registry consumers cannot silently resolve the API-incomplete 0.1.0 line.
+ * Probe whether core@0.1.1 exists on the public registry.
+ * Uses `npm view` (no install); treats missing version / network miss as absent.
  */
-function assertNegativePublishedCoreFails() {
-  const dir = mkdtempSync(join(tmpdir(), "oe-bn-consumer-neg-"));
+function isCoreFloorPublished() {
+  const result = run(
+    "npm",
+    ["view", `${CORE_PKG}@${CORE_VERSION}`, "version", "--json"],
+    root,
+    { allowFail: true }
+  );
+  if (result.status !== 0) {
+    return false;
+  }
+  const raw = (result.stdout ?? "").trim();
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed === CORE_VERSION || parsed?.version === CORE_VERSION;
+  } catch {
+    return raw.replace(/^"|"$/g, "") === CORE_VERSION;
+  }
+}
+
+function readInstalledCoreVersion(dir) {
+  const pkgPath = join(dir, "node_modules", CORE_PKG, "package.json");
+  try {
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+    return typeof pkg.version === "string" ? pkg.version : null;
+  } catch {
+    return null;
+  }
+}
+
+function versionSatisfiesFloor(version, floorMajorMinorPatch) {
+  // Semver-lite: require installed >= floor for 0.x patch line (0.1.1, 0.1.2, …).
+  const parse = (v) => {
+    const m = /^(\d+)\.(\d+)\.(\d+)/.exec(v);
+    if (!m) return null;
+    return [Number(m[1]), Number(m[2]), Number(m[3])];
+  };
+  const a = parse(version);
+  const b = parse(floorMajorMinorPatch);
+  if (!a || !b) return false;
+  for (let i = 0; i < 3; i++) {
+    if (a[i] > b[i]) return true;
+    if (a[i] < b[i]) return false;
+  }
+  return true;
+}
+
+/**
+ * REGISTRY GATE (adaptive).
+ * After core@0.1.1 is published, nested resolution can succeed even if a host
+ * once pinned top-level 0.1.0 — so never assert "top-level 0.1.0 must FAIL forever".
+ */
+function assertAdaptiveRegistryGate() {
+  const published = isCoreFloorPublished();
+  if (!published) {
+    console.log(
+      `CASE registry adaptive: core@${CORE_VERSION} NOT on registry — ` +
+        `blocknote-only registry resolution unavailable is EXPECTED ` +
+        `(positive pre-publish tarball case covers the floor; ` +
+        `no forever-fail assertion against published 0.1.0 top-level)`
+    );
+    return;
+  }
+
+  const dir = mkdtempSync(join(tmpdir(), "oe-bn-consumer-reg-"));
   try {
     writeFileSync(
       join(dir, "package.json"),
       JSON.stringify(
         {
-          name: "isolated-blocknote-consumer-negative",
+          name: "isolated-blocknote-consumer-registry",
           private: true,
           type: "module",
           dependencies: {
-            "@hello-ai-company/editor-core": PUBLISHED_CORE,
-            "@hello-ai-company/editor-blocknote": `file:${bnTgz}`,
+            // Let npm resolve core from the public registry via blocknote's ^0.1.1.
+            [BN_PKG]: `file:${bnTgz}`,
             "@blocknote/core": "0.54.2",
             "@blocknote/react": "0.54.2",
             react: "^19.1.0",
@@ -437,27 +520,27 @@ function assertNegativePublishedCoreFails() {
     );
 
     const install = npmInstallRelease(dir);
-    if (install.status === 0) {
+    if (install.status !== 0) {
       console.error(install.stdout);
+      console.error(install.stderr);
       console.error(
-        "FAIL — negative case expected ordinary npm install to REJECT published core@0.1.0 with blocknote ^0.1.1"
+        `FAIL — REGISTRY GATE: with core@${CORE_VERSION} on npmjs, ` +
+          `blocknote candidate + registry core must install without --legacy-peer-deps/--force`
       );
-      process.exit(1);
+      process.exit(install.status ?? 1);
     }
-    const combined = `${install.stdout ?? ""}\n${install.stderr ?? ""}`;
-    if (
-      !/ERESOLVE|ETARGET|notarget|No matching version|valid range|\^0\.1\.1|Could not resolve dependency/i.test(
-        combined
-      )
-    ) {
-      console.error(combined);
+
+    const installed = readInstalledCoreVersion(dir);
+    if (!installed || !versionSatisfiesFloor(installed, CORE_VERSION)) {
       console.error(
-        "FAIL — negative case failed, but stderr did not look like a dependency resolution rejection"
+        `FAIL — REGISTRY GATE: installed ${CORE_PKG}@${installed ?? "(missing)"} ` +
+          `does not satisfy >=${CORE_VERSION}`
       );
       process.exit(1);
     }
     console.log(
-      `CASE negative (published core@${PUBLISHED_CORE} + blocknote candidate): FAIL as expected (install rejected)`
+      `CASE registry adaptive (core@${CORE_VERSION} on registry + blocknote candidate): ` +
+        `PASS (installed ${CORE_PKG}@${installed})`
     );
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -466,6 +549,7 @@ function assertNegativePublishedCoreFails() {
 
 const dir = mkdtempSync(join(tmpdir(), "oe-bn-consumer-"));
 try {
+  assertStaticCoreFloor();
   smokeBasePositive(dir);
   for (const [feature, peer] of [
     ["math", "@blocknote/math-block"],
@@ -479,8 +563,10 @@ try {
       rmSync(featureDir, { recursive: true, force: true });
     }
   }
-  assertNegativePublishedCoreFails();
-  console.log("verify:isolated-blocknote PASS (registry-realistic positive + negative)");
+  assertAdaptiveRegistryGate();
+  console.log(
+    "verify:isolated-blocknote PASS (static floor + positive pre-publish + adaptive registry)"
+  );
 } finally {
   rmSync(dir, { recursive: true, force: true });
   for (const name of [CORE_TGZ_NAME, BN_TGZ_NAME]) {
