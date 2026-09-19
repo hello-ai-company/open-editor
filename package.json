@@ -11,7 +11,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present && npm run test:type-exports && npm run test:release-guards",
     "test:type-exports": "node --test scripts/lib/type-exports.test.mjs",
-    "test:release-guards": "node --test scripts/release/validate-public-core-release.test.mjs scripts/release/validate-public-blocknote-release.test.mjs",
+    "test:release-guards": "node --test scripts/release/validate-public-core-release.test.mjs scripts/release/validate-public-blocknote-release.test.mjs scripts/lib/core-registry-probe.test.mjs",
     "build": "npm run build --workspaces --if-present",
     "pack:core": "npm pack -w @hello-ai-company/editor-core",
     "pack:blocknote": "npm pack -w @hello-ai-company/editor-blocknote",

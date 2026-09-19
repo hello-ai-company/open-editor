@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  assertCoreDependencyPublished,
   assertRegistryEligible,
   expectedConfirmation,
   validateIdentityAndInputs,
@@ -30,7 +31,9 @@ const baseEnv = {
   inputVersion: "0.1.0",
   confirmation: expectedConfirmation("0.1.0"),
   githubRef: "refs/heads/main",
-  githubRepository: "hello-ai-company/open-editor"
+  githubRepository: "hello-ai-company/open-editor",
+  // Default: core@0.1.1 already published (required publish order).
+  coreVersionsList: ["0.1.0", "0.1.1"]
 };
 
 describe("validate-public-blocknote-release", () => {
@@ -84,12 +87,37 @@ describe("validate-public-blocknote-release", () => {
     );
   });
 
-  it("allows not_published registry state", () => {
+  it("allows not_published registry state when core floor is published", () => {
     const result = validatePublicBlocknoteRelease({
       ...baseEnv,
       registryState: { status: "not_published" }
     });
     assert.equal(result.registryStatus, "not_published");
+    assert.deepEqual(result.coreFloorVersions, ["0.1.1"]);
+  });
+
+  it("stops when core@0.1.1 is not on npmjs (publish order)", () => {
+    assert.throws(
+      () =>
+        validatePublicBlocknoteRelease({
+          ...baseEnv,
+          coreVersionsList: ["0.1.0"],
+          registryState: { status: "not_published" }
+        }),
+      (err) =>
+        err instanceof ReleaseGuardError && /not published/.test(err.message)
+    );
+    assert.throws(
+      () => assertCoreDependencyPublished({ coreVersionsList: ["0.1.0"] }),
+      /not published/
+    );
+  });
+
+  it("accepts core floor via 0.1.2+", () => {
+    const matching = assertCoreDependencyPublished({
+      coreVersionsList: ["0.1.0", "0.1.2"]
+    });
+    assert.deepEqual(matching, ["0.1.2"]);
   });
 
   it("stops when candidate version already exists", () => {

@@ -1,14 +1,16 @@
 /**
- * Registry-realistic editor-blocknote consumer gate (R2 adaptive).
+ * Registry-realistic editor-blocknote consumer gate (R3 fail-closed adaptive).
  *
  * STATIC: editor-blocknote package.json depends on editor-core === ^0.1.1 floor.
  * POSITIVE PRE-PUBLISH: core 0.1.1 candidate tarball + blocknote candidate
  *   → ordinary `npm install` (no --legacy-peer-deps / --force) + smoke PASS
- * REGISTRY (adaptive):
- *   - If core@0.1.1 is NOT on npmjs → blocknote-only registry resolution
- *     unavailable is expected (document; do NOT forever-fail on top-level 0.1.0).
- *   - If core@0.1.1 IS on npmjs → blocknote candidate + registry core → PASS
- *     and installed core satisfies >=0.1.1.
+ * REGISTRY (adaptive, fail-closed versions list):
+ *   Probe `npm view @hello-ai-company/editor-core versions --json` (never
+ *   `npm view pkg@0.1.1 version` exit codes — network/DNS/5xx must FAIL).
+ *   - Fail closed on command/empty/invalid JSON/shape/missing anchor 0.1.0
+ *   - If 0.1.1 absent → PRE-PUBLISH: candidate tarball tests only
+ *   - If 0.1.1 present → POST-PUBLISH: blocknote candidate + registry core
+ *     MUST PASS; installed core satisfies ^0.1.1 (0.1.x patch >= 1)
  *
  * Do not claim GREEN based only on workspace `file:` packs that skip the
  * published-registry floor.
@@ -18,14 +20,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import {
+  CORE_CANDIDATE_VERSION,
+  CORE_DEP_RANGE,
+  CORE_PKG,
+  CoreRegistryProbeError,
+  probeCoreCandidatePublication,
+  satisfiesCaretZeroOneOne
+} from "./lib/core-registry-probe.mjs";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
-const CORE_VERSION = "0.1.1";
+const CORE_VERSION = CORE_CANDIDATE_VERSION;
 const BN_VERSION = "0.1.0";
-const CORE_FLOOR = "^0.1.1";
+const CORE_FLOOR = CORE_DEP_RANGE;
 const CORE_TGZ_NAME = `hello-ai-company-editor-core-${CORE_VERSION}.tgz`;
 const BN_TGZ_NAME = `hello-ai-company-editor-blocknote-${BN_VERSION}.tgz`;
-const CORE_PKG = "@hello-ai-company/editor-core";
 const BN_PKG = "@hello-ai-company/editor-blocknote";
 
 function run(command, args, cwd, { allowFail = false } = {}) {
@@ -428,30 +437,6 @@ function assertStaticCoreFloor() {
   console.log(`CASE static (${BN_PKG} → ${CORE_PKG} ${CORE_FLOOR}): PASS`);
 }
 
-/**
- * Probe whether core@0.1.1 exists on the public registry.
- * Uses `npm view` (no install); treats missing version / network miss as absent.
- */
-function isCoreFloorPublished() {
-  const result = run(
-    "npm",
-    ["view", `${CORE_PKG}@${CORE_VERSION}`, "version", "--json"],
-    root,
-    { allowFail: true }
-  );
-  if (result.status !== 0) {
-    return false;
-  }
-  const raw = (result.stdout ?? "").trim();
-  if (!raw) return false;
-  try {
-    const parsed = JSON.parse(raw);
-    return parsed === CORE_VERSION || parsed?.version === CORE_VERSION;
-  } catch {
-    return raw.replace(/^"|"$/g, "") === CORE_VERSION;
-  }
-}
-
 function readInstalledCoreVersion(dir) {
   const pkgPath = join(dir, "node_modules", CORE_PKG, "package.json");
   try {
@@ -462,36 +447,29 @@ function readInstalledCoreVersion(dir) {
   }
 }
 
-function versionSatisfiesFloor(version, floorMajorMinorPatch) {
-  // Semver-lite: require installed >= floor for 0.x patch line (0.1.1, 0.1.2, …).
-  const parse = (v) => {
-    const m = /^(\d+)\.(\d+)\.(\d+)/.exec(v);
-    if (!m) return null;
-    return [Number(m[1]), Number(m[2]), Number(m[3])];
-  };
-  const a = parse(version);
-  const b = parse(floorMajorMinorPatch);
-  if (!a || !b) return false;
-  for (let i = 0; i < 3; i++) {
-    if (a[i] > b[i]) return true;
-    if (a[i] < b[i]) return false;
-  }
-  return true;
-}
-
 /**
- * REGISTRY GATE (adaptive).
+ * REGISTRY GATE (adaptive, fail-closed).
+ * Uses versions-list probe; never treats network failure as "unpublished".
  * After core@0.1.1 is published, nested resolution can succeed even if a host
  * once pinned top-level 0.1.0 — so never assert "top-level 0.1.0 must FAIL forever".
  */
 function assertAdaptiveRegistryGate() {
-  const published = isCoreFloorPublished();
-  if (!published) {
+  let probe;
+  try {
+    probe = probeCoreCandidatePublication();
+  } catch (err) {
+    if (err instanceof CoreRegistryProbeError) {
+      console.error(`FAIL — REGISTRY PROBE (fail-closed): ${err.message}`);
+      process.exit(1);
+    }
+    throw err;
+  }
+
+  if (probe.state === "unpublished_candidate") {
     console.log(
-      `CASE registry adaptive: core@${CORE_VERSION} NOT on registry — ` +
-        `blocknote-only registry resolution unavailable is EXPECTED ` +
-        `(positive pre-publish tarball case covers the floor; ` +
-        `no forever-fail assertion against published 0.1.0 top-level)`
+      `CASE registry adaptive PRE-PUBLISH: core@${CORE_VERSION} absent from ` +
+        `versions list (anchor 0.1.0 present) — candidate tarball tests only; ` +
+        `blocknote-only registry resolution unavailable is EXPECTED`
     );
     return;
   }
@@ -524,22 +502,22 @@ function assertAdaptiveRegistryGate() {
       console.error(install.stdout);
       console.error(install.stderr);
       console.error(
-        `FAIL — REGISTRY GATE: with core@${CORE_VERSION} on npmjs, ` +
+        `FAIL — REGISTRY GATE POST-PUBLISH: with core@${CORE_VERSION} on npmjs, ` +
           `blocknote candidate + registry core must install without --legacy-peer-deps/--force`
       );
       process.exit(install.status ?? 1);
     }
 
     const installed = readInstalledCoreVersion(dir);
-    if (!installed || !versionSatisfiesFloor(installed, CORE_VERSION)) {
+    if (!installed || !satisfiesCaretZeroOneOne(installed)) {
       console.error(
         `FAIL — REGISTRY GATE: installed ${CORE_PKG}@${installed ?? "(missing)"} ` +
-          `does not satisfy >=${CORE_VERSION}`
+          `does not satisfy ${CORE_FLOOR} (require major===0 && minor===1 && patch>=1)`
       );
       process.exit(1);
     }
     console.log(
-      `CASE registry adaptive (core@${CORE_VERSION} on registry + blocknote candidate): ` +
+      `CASE registry adaptive POST-PUBLISH (core@${CORE_VERSION} on registry + blocknote candidate): ` +
         `PASS (installed ${CORE_PKG}@${installed})`
     );
   } finally {
@@ -565,7 +543,7 @@ try {
   }
   assertAdaptiveRegistryGate();
   console.log(
-    "verify:isolated-blocknote PASS (static floor + positive pre-publish + adaptive registry)"
+    "verify:isolated-blocknote PASS (static floor + positive pre-publish + fail-closed adaptive registry)"
   );
 } finally {
   rmSync(dir, { recursive: true, force: true });

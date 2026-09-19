@@ -6,6 +6,9 @@
  * - Successful versions array that already contains the candidate → STOP
  * - Any other npm view failure → STOP (fail-closed)
  *
+ * Publish order (fail-closed): @hello-ai-company/editor-core meeting ^0.1.1
+ * must already exist on npmjs before blocknote publish is allowed.
+ *
  * Never infer eligibility from generic network errors alone without classifying 404.
  */
 
@@ -14,6 +17,10 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import {
+  assertCoreFloorPublishedForBlocknote,
+  fetchCorePublishedVersions
+} from "../lib/core-registry-probe.mjs";
 
 export const EXPECTED_REPO = "hello-ai-company/open-editor";
 export const EXPECTED_NAME = "@hello-ai-company/editor-blocknote";
@@ -195,8 +202,42 @@ export function assertRegistryEligible(state, candidateVersion) {
   }
 }
 
+/**
+ * Fail-closed publish-order gate: core meeting ^0.1.1 must be on npmjs
+ * before blocknote may publish (core@0.1.1 → then blocknote).
+ * @param {{
+ *   coreVersionsList?: string[],
+ *   execFileSync?: typeof execFileSync
+ * }} [options]
+ * @returns {string[]} matching core versions
+ */
+export function assertCoreDependencyPublished(options = {}) {
+  try {
+    let versions = options.coreVersionsList;
+    if (versions === undefined) {
+      versions = fetchCorePublishedVersions({
+        execFileSync: options.execFileSync
+      });
+    }
+    return assertCoreFloorPublishedForBlocknote(
+      versions,
+      EXPECTED_CORE_DEP_RANGE
+    );
+  } catch (err) {
+    // Surface probe failures as ReleaseGuardError for this module's API.
+    if (err?.name === "CoreRegistryProbeError") {
+      stop(err.message);
+    }
+    throw err;
+  }
+}
+
 export function validatePublicBlocknoteRelease(options) {
   const identity = validateIdentityAndInputs(options);
+  const coreMatching = assertCoreDependencyPublished({
+    coreVersionsList: options.coreVersionsList,
+    execFileSync: options.execFileSync
+  });
   let state = options.registryState;
   if (state === undefined) {
     state = fetchBlocknoteRegistryState({
@@ -207,7 +248,8 @@ export function validatePublicBlocknoteRelease(options) {
   return {
     ...identity,
     registryStatus: state.status,
-    versionsCount: state.status === "published" ? state.versions.length : 0
+    versionsCount: state.status === "published" ? state.versions.length : 0,
+    coreFloorVersions: coreMatching
   };
 }
 
@@ -279,7 +321,8 @@ function main(argv) {
     console.log(
       "BlockNote release guards OK:",
       `${result.name}@${result.version}`,
-      `(registry=${result.registryStatus}, versions=${result.versionsCount})`
+      `(registry=${result.registryStatus}, versions=${result.versionsCount}, ` +
+        `coreFloor=${result.coreFloorVersions.join(",")})`
     );
     return;
   }
