@@ -1,3 +1,14 @@
+/**
+ * Registry-realistic editor-blocknote consumer gate.
+ *
+ * Positive: core 0.1.1 candidate tarball + blocknote 0.1.0 candidate tarball
+ *   → ordinary `npm install` (no --legacy-peer-deps / --force) + smoke PASS
+ * Negative: published core@0.1.0 from npm + blocknote candidate
+ *   → ordinary `npm install` MUST FAIL (range ^0.1.1 rejects 0.1.0)
+ *
+ * Do not claim GREEN based only on workspace `file:` / current-core packs that
+ * skip the published-registry floor.
+ */
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -5,57 +16,51 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
+const CORE_VERSION = "0.1.1";
+const BN_VERSION = "0.1.0";
+const PUBLISHED_CORE = "0.1.0";
+const CORE_TGZ_NAME = `hello-ai-company-editor-core-${CORE_VERSION}.tgz`;
+const BN_TGZ_NAME = `hello-ai-company-editor-blocknote-${BN_VERSION}.tgz`;
 
-function run(command, args, cwd) {
+function run(command, args, cwd, { allowFail = false } = {}) {
   const result = spawnSync(command, args, {
     cwd,
     encoding: "utf8",
     shell: process.platform === "win32"
   });
-  if (result.status !== 0) {
+  if (!allowFail && result.status !== 0) {
     console.error(result.stdout);
     console.error(result.stderr);
     process.exit(result.status ?? 1);
   }
-  return result.stdout;
+  return result;
+}
+
+function npmInstallRelease(dir) {
+  // Release consumer path: ordinary install only.
+  return run("npm", ["install", "--omit=dev"], dir, { allowFail: true });
 }
 
 run("npm", ["run", "build", "-w", "@hello-ai-company/editor-core"], root);
 run("npm", ["run", "build", "-w", "@hello-ai-company/editor-blocknote"], root);
 run("npm", ["pack", "-w", "@hello-ai-company/editor-core", "--pack-destination", root], root);
-run("npm", ["pack", "-w", "@hello-ai-company/editor-blocknote", "--pack-destination", root], root);
+run(
+  "npm",
+  ["pack", "-w", "@hello-ai-company/editor-blocknote", "--pack-destination", root],
+  root
+);
 
-const coreTgz = join(root, "hello-ai-company-editor-core-0.1.0.tgz");
-const bnTgz = join(root, "hello-ai-company-editor-blocknote-0.1.0.tgz");
+const coreTgz = join(root, CORE_TGZ_NAME);
+const bnTgz = join(root, BN_TGZ_NAME);
 
-function smokeBase(dir) {
-  writeFileSync(
-    join(dir, "package.json"),
-    JSON.stringify(
-      {
-        name: "isolated-blocknote-consumer",
-        private: true,
-        type: "module",
-        dependencies: {
-          "@hello-ai-company/editor-core": `file:${coreTgz}`,
-          "@hello-ai-company/editor-blocknote": `file:${bnTgz}`,
-          "@blocknote/core": "0.54.2",
-          "@blocknote/react": "0.54.2",
-          react: "^19.1.0",
-          "react-dom": "^19.1.0"
-        }
-      },
-      null,
-      2
-    )
-  );
-
+function writeSmokeFiles(dir) {
   writeFileSync(
     join(dir, "smoke.mjs"),
     `
 import {
   createEditorDocument,
-  relationEdgeId
+  relationEdgeId,
+  withRelationEdgeId
 } from "@hello-ai-company/editor-core";
 import {
   fromBlockNote,
@@ -122,6 +127,13 @@ const rowB = relationEdgeId({
   kind: "database-row-relation"
 });
 if (rowA === rowB) throw new Error("row identity must be database-scoped");
+const withId = withRelationEdgeId({
+  sourceDocumentId: "doc",
+  targetType: "page",
+  targetId: "a",
+  kind: "page-reference"
+});
+if (!withId.edgeId) throw new Error("withRelationEdgeId missing edgeId");
 const relIndex = createRelationIndex();
 relIndex.replaceFromBlocks("doc", [
   {
@@ -156,8 +168,41 @@ if (typeof BacklinksPanel !== "function") throw new Error("BacklinksPanel missin
 console.log("isolated-blocknote-consumer react: ok");
 `
   );
+}
 
-  run("npm", ["install", "--omit=dev", "--legacy-peer-deps"], dir);
+function smokeBasePositive(dir) {
+  writeFileSync(
+    join(dir, "package.json"),
+    JSON.stringify(
+      {
+        name: "isolated-blocknote-consumer-positive",
+        private: true,
+        type: "module",
+        dependencies: {
+          "@hello-ai-company/editor-core": `file:${coreTgz}`,
+          "@hello-ai-company/editor-blocknote": `file:${bnTgz}`,
+          "@blocknote/core": "0.54.2",
+          "@blocknote/react": "0.54.2",
+          react: "^19.1.0",
+          "react-dom": "^19.1.0"
+        }
+      },
+      null,
+      2
+    )
+  );
+
+  writeSmokeFiles(dir);
+
+  const install = npmInstallRelease(dir);
+  if (install.status !== 0) {
+    console.error(install.stdout);
+    console.error(install.stderr);
+    console.error(
+      "FAIL — positive registry-realistic install must succeed without --legacy-peer-deps/--force"
+    );
+    process.exit(install.status ?? 1);
+  }
   run("node", ["smoke.mjs"], dir);
   run("node", ["smoke-react.mjs"], dir);
 
@@ -266,18 +311,22 @@ void runtimeAll;
 `
   );
 
-  run(
+  const tscInstall = run(
     "npm",
-    [
-      "install",
-      "--no-save",
-      "--legacy-peer-deps",
-      "typescript@5.8.3",
-      "@types/react@19"
-    ],
-    dir
+    ["install", "--no-save", "typescript@5.8.3", "@types/react@19"],
+    dir,
+    { allowFail: true }
   );
+  if (tscInstall.status !== 0) {
+    console.error(tscInstall.stdout);
+    console.error(tscInstall.stderr);
+    console.error(
+      "FAIL — typescript install for media-api-compat must not use --legacy-peer-deps"
+    );
+    process.exit(tscInstall.status ?? 1);
+  }
   run("npx", ["tsc", "-p", "tsconfig.json"], dir);
+  console.log("CASE positive (core 0.1.1 candidate tarball + blocknote candidate): PASS");
   console.log("isolated-blocknote-consumer media-api-compat (tsc --strict): ok");
 }
 
@@ -342,7 +391,15 @@ console.log("isolated-blocknote-consumer ${feature}: ok");
 `
   );
 
-  run("npm", ["install", "--omit=dev", "--legacy-peer-deps"], dir);
+  const install = npmInstallRelease(dir);
+  if (install.status !== 0) {
+    console.error(install.stdout);
+    console.error(install.stderr);
+    console.error(
+      `FAIL — optional ${feature} consumer install must succeed without --legacy-peer-deps/--force`
+    );
+    process.exit(install.status ?? 1);
+  }
   // Math/diagram pull katex/mermaid CSS side-effects — ignore .css in Node ESM.
   run(
     "node",
@@ -351,9 +408,65 @@ console.log("isolated-blocknote-consumer ${feature}: ok");
   );
 }
 
+/**
+ * Negative regression: published core@0.1.0 cannot satisfy blocknote's ^0.1.1 floor.
+ * Proves registry consumers cannot silently resolve the API-incomplete 0.1.0 line.
+ */
+function assertNegativePublishedCoreFails() {
+  const dir = mkdtempSync(join(tmpdir(), "oe-bn-consumer-neg-"));
+  try {
+    writeFileSync(
+      join(dir, "package.json"),
+      JSON.stringify(
+        {
+          name: "isolated-blocknote-consumer-negative",
+          private: true,
+          type: "module",
+          dependencies: {
+            "@hello-ai-company/editor-core": PUBLISHED_CORE,
+            "@hello-ai-company/editor-blocknote": `file:${bnTgz}`,
+            "@blocknote/core": "0.54.2",
+            "@blocknote/react": "0.54.2",
+            react: "^19.1.0",
+            "react-dom": "^19.1.0"
+          }
+        },
+        null,
+        2
+      )
+    );
+
+    const install = npmInstallRelease(dir);
+    if (install.status === 0) {
+      console.error(install.stdout);
+      console.error(
+        "FAIL — negative case expected ordinary npm install to REJECT published core@0.1.0 with blocknote ^0.1.1"
+      );
+      process.exit(1);
+    }
+    const combined = `${install.stdout ?? ""}\n${install.stderr ?? ""}`;
+    if (
+      !/ERESOLVE|ETARGET|notarget|No matching version|valid range|\^0\.1\.1|Could not resolve dependency/i.test(
+        combined
+      )
+    ) {
+      console.error(combined);
+      console.error(
+        "FAIL — negative case failed, but stderr did not look like a dependency resolution rejection"
+      );
+      process.exit(1);
+    }
+    console.log(
+      `CASE negative (published core@${PUBLISHED_CORE} + blocknote candidate): FAIL as expected (install rejected)`
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 const dir = mkdtempSync(join(tmpdir(), "oe-bn-consumer-"));
 try {
-  smokeBase(dir);
+  smokeBasePositive(dir);
   for (const [feature, peer] of [
     ["math", "@blocknote/math-block"],
     ["diagram", "@blocknote/diagram-block"],
@@ -366,13 +479,11 @@ try {
       rmSync(featureDir, { recursive: true, force: true });
     }
   }
-  console.log("verify:isolated-blocknote PASS");
+  assertNegativePublishedCoreFails();
+  console.log("verify:isolated-blocknote PASS (registry-realistic positive + negative)");
 } finally {
   rmSync(dir, { recursive: true, force: true });
-  for (const name of [
-    "hello-ai-company-editor-core-0.1.0.tgz",
-    "hello-ai-company-editor-blocknote-0.1.0.tgz"
-  ]) {
+  for (const name of [CORE_TGZ_NAME, BN_TGZ_NAME]) {
     try {
       rmSync(join(root, name), { force: true });
     } catch {

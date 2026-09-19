@@ -3,7 +3,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 
 export const AUTHORIZED_NAME = "@hello-ai-company/editor-core";
-export const AUTHORIZED_VERSION = "0.1.0";
+export const AUTHORIZED_VERSION = "0.1.1";
 export const AUTHORIZED_REGISTRY = "https://registry.npmjs.org";
 export const AUTHORIZED_LICENSE = "MIT";
 export const AUTHORIZED_ACCESS = "public";

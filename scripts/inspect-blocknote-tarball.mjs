@@ -28,6 +28,7 @@ const AUTHORIZED_LICENSE = "MIT";
 const AUTHORIZED_ACCESS = "public";
 const AUTHORIZED_COPYRIGHT = "Copyright (c) 2026 Yuki Shibata";
 const AUTHORIZED_PEER = "^0.54.2";
+const AUTHORIZED_CORE_DEP = "^0.1.1";
 const TARBALL_PREFIX = "hello-ai-company-editor-blocknote-";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -172,6 +173,12 @@ if (depKeys.length !== 1 || depKeys[0] !== "@hello-ai-company/editor-core") {
   console.error(
     "Tarball must depend only on @hello-ai-company/editor-core:",
     depKeys
+  );
+  process.exit(1);
+}
+if (packedPackage.dependencies["@hello-ai-company/editor-core"] !== AUTHORIZED_CORE_DEP) {
+  console.error(
+    `Tarball editor-core dependency must be ${AUTHORIZED_CORE_DEP}, got ${packedPackage.dependencies["@hello-ai-company/editor-core"] ?? "<missing>"}.`
   );
   process.exit(1);
 }

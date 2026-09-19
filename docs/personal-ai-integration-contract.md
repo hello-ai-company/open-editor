@@ -5,10 +5,12 @@ This document does **not** authorize production editor switch, merge, or npm pub
 
 ## Packages
 
-| Package | Version | Role | Registry status (5B) |
+| Package | Version | Role | Registry status |
 | --- | --- | --- | --- |
-| `@hello-ai-company/editor-core` | `0.1.0` | Document model, serialization, provider types | **Published** on npmjs |
-| `@hello-ai-company/editor-blocknote` | `0.1.0` | BlockNote adapter / power layer | **Release-ready, not published** |
+| `@hello-ai-company/editor-core` | `0.1.1` candidate (`0.1.0` published, immutable) | Document model, serialization, provider types | **0.1.1 not published** (R1) |
+| `@hello-ai-company/editor-blocknote` | `0.1.0` | BlockNote adapter / power layer | **Release-ready, not published**; depends on core `^0.1.1` |
+
+Publish order when authorized: **core → blocknote**. R1 does **not** `npm publish`, tag, or Release.
 
 ## Dependency direction
 

@@ -1,6 +1,6 @@
 {
   "packageName": "@hello-ai-company/editor-core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "entry": ".",
   "runtimeExports": [
     "EDITOR_DOCUMENT_SCHEMA_VERSION",

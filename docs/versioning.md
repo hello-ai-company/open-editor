@@ -1,18 +1,20 @@
 # Versioning and compatibility
 
-Policy for `@hello-ai-company/editor-core@0.1.0` (MIT, npmjs public access prepared). This document does **not** authorize npm publish, tags, or GitHub Releases.
+Policy for `@hello-ai-company/editor-core` (MIT, npmjs). This document does **not** authorize npm publish, tags, or GitHub Releases.
 
 ## Current identity
 
 | Field | Value |
 | --- | --- |
 | Name | `@hello-ai-company/editor-core` |
-| Version | `0.1.0` |
+| Workspace / candidate version | `0.1.1` (**not published** in R1) |
+| Published on npmjs (immutable) | `0.1.0` — do **not** republish |
 | License | MIT |
-| Registry (prepared) | `https://registry.npmjs.org` |
+| Registry | `https://registry.npmjs.org` |
 | Access | public |
-| Visibility | PRIVATE until a later human-gated public transition |
 | Document `schemaVersion` | `1` |
+
+`0.1.1` is an **additive** candidate over published `0.1.0` (database/relation provider APIs used by `@hello-ai-company/editor-blocknote`). Publish order when authorized: **core `0.1.1` → blocknote `0.1.0`**. R1 does **not** publish.
 
 The historical private GitHub Packages prerelease `0.0.0-phase3.e17b4b5` is **immutable** and must not be reused on npmjs.
 
@@ -31,7 +33,7 @@ A package bump without a schema bump is possible. Introducing `schemaVersion: 2`
 
 ## Additive vs breaking
 
-**Additive** (future minor/patch after a public line exists):
+**Additive** (patch/minor on the public 0.x line):
 
 - New optional provider methods or optional `EditorProviders` keys
 - New type-only exports
@@ -48,6 +50,10 @@ A package bump without a schema bump is possible. Introducing `schemaVersion: 2`
 - Adding runtime dependencies
 - Adding CJS / subpaths that split the public contract
 - Removing the legacy deserialize behavior that defaults a missing `schemaVersion` to `1`
+
+## editor-blocknote floor
+
+`@hello-ai-company/editor-blocknote` depends on `@hello-ai-company/editor-core` **`^0.1.1`**. Published `0.1.0` lacks APIs required by the BlockNote power layer (`withRelationEdgeId`, `DatabaseFilter`, `EditorDatabase`, …). Registry-realistic consumers must not resolve `0.1.0` for blocknote installs.
 
 ## Document JSON
 

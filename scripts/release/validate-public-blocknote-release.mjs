@@ -22,6 +22,8 @@ export const EXPECTED_REGISTRY = "https://registry.npmjs.org";
 export const EXPECTED_ACCESS = "public";
 export const EXPECTED_REF = "refs/heads/main";
 export const EXPECTED_CORE_DEP = "@hello-ai-company/editor-core";
+/** Floor for blocknote → core; published 0.1.0 lacks APIs required by this package. */
+export const EXPECTED_CORE_DEP_RANGE = "^0.1.1";
 export const EXPECTED_PEER_BLOCKNOTE = "^0.54.2";
 
 export class ReleaseGuardError extends Error {
@@ -89,6 +91,11 @@ export function validateIdentityAndInputs({
   const depKeys = Object.keys(pkg.dependencies ?? {});
   if (depKeys.length !== 1 || depKeys[0] !== EXPECTED_CORE_DEP) {
     stop("STOP — dependencies must be exactly @hello-ai-company/editor-core");
+  }
+  if (pkg.dependencies?.[EXPECTED_CORE_DEP] !== EXPECTED_CORE_DEP_RANGE) {
+    stop(
+      `STOP — ${EXPECTED_CORE_DEP} must be ${EXPECTED_CORE_DEP_RANGE}`
+    );
   }
 
   const version = String(inputVersion ?? "");

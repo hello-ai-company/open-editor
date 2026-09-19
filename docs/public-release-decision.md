@@ -32,7 +32,7 @@ Master companions: [public-release-runbook.md](./public-release-runbook.md), [fi
 | `packages/core/src/**` | frozen; **CORE SOURCE CHANGE REQUIRED: NO** | — |
 | Root workspace | `"private": true` (never publishable) | MACHINE-VERIFIED |
 
-Machine locks: `packages/core/package.json`, `scripts/lib/tarball.mjs` (`AUTHORIZED_*` = `0.1.0` / MIT / npmjs / public), `packages/core/test/publish-gate.test.ts`, `scripts/release/validate-public-core-release.mjs` (fail-closed versions-list registry guard + artifact digest). Active non-publishing CI: `.github/workflows/ci.yml` and `.github/workflows/public-release-preflight.yml`. Active OIDC publish workflow: `.github/workflows/publish-public-core.yml` (R1: prepare packs tarball+digest → Environment `public-npmjs` → publish publishes tarball only under OIDC). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml).
+Machine locks: `packages/core/package.json` / `scripts/lib/tarball.mjs` (`AUTHORIZED_*` = **`0.1.1` candidate** / MIT / npmjs / public; published `0.1.0` immutable), `packages/core/test/publish-gate.test.ts`, `scripts/release/validate-public-core-release.mjs` (fail-closed versions-list registry guard + artifact digest). Active non-publishing CI: `.github/workflows/ci.yml` and `.github/workflows/public-release-preflight.yml`. Active OIDC publish workflow: `.github/workflows/publish-public-core.yml` (prepare packs tarball+digest → Environment `public-npmjs` → publish under OIDC). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml). **R1 does not publish.**
 
 ## Companion documents
 
@@ -51,7 +51,7 @@ Machine locks: `packages/core/package.json`, `scripts/lib/tarball.mjs` (`AUTHORI
 | [security-release-gate.md](./security-release-gate.md) | D11 historical prep notes — PVR is now **ENABLED** (prefer Current above) |
 | [repository-governance.md](./repository-governance.md) | CI / CODEOWNERS / protection recommendations |
 | [branch-protection-plan.md](./branch-protection-plan.md) | Do not configure in this phase |
-| [versioning.md](./versioning.md) | 0.1.0 compatibility policy |
+| [versioning.md](./versioning.md) | 0.1.1 candidate + published 0.1.0 immutability |
 | [public-api.md](./public-api.md) | Frozen public surface |
 | [public-drafts/](./public-drafts/) | **Historical drafts** — live files are at repo root |
 

@@ -17,7 +17,7 @@ const basePkg = {
     access: "public"
   },
   dependencies: {
-    "@hello-ai-company/editor-core": "^0.1.0"
+    "@hello-ai-company/editor-core": "^0.1.1"
   },
   peerDependencies: {
     "@blocknote/core": "^0.54.2",
@@ -65,6 +65,22 @@ describe("validate-public-blocknote-release", () => {
           }
         }),
       /0\.54\.2/
+    );
+  });
+
+  it("rejects editor-core dependency below ^0.1.1 floor", () => {
+    assert.throws(
+      () =>
+        validateIdentityAndInputs({
+          ...baseEnv,
+          pkg: {
+            ...basePkg,
+            dependencies: {
+              "@hello-ai-company/editor-core": "^0.1.0"
+            }
+          }
+        }),
+      /\^0\.1\.1/
     );
   });
 

@@ -27,7 +27,7 @@ const installedPackage = JSON.parse(readFileSync(packageJsonPath, "utf8"));
 if (installedPackage.name !== "@hello-ai-company/editor-core") {
   throw new Error(`Unexpected installed name ${installedPackage.name}`);
 }
-if (installedPackage.version !== "0.1.0") {
+if (installedPackage.version !== "0.1.1") {
   throw new Error(`Unexpected installed version ${installedPackage.version}`);
 }
 if (installedPackage.license !== "MIT") {

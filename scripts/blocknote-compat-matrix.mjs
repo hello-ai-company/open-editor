@@ -66,7 +66,7 @@ function ensurePacks() {
       process.exit(1);
     }
   }
-  const coreTgz = join(root, "hello-ai-company-editor-core-0.1.0.tgz");
+  const coreTgz = join(root, "hello-ai-company-editor-core-0.1.1.tgz");
   const bnTgz = join(root, "hello-ai-company-editor-blocknote-0.1.0.tgz");
   if (!existsSync(coreTgz) || !existsSync(bnTgz)) {
     console.error("Missing packed tarballs");

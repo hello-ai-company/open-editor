@@ -36,4 +36,10 @@ Shadow / guarded editor mount (Phase 4F-5D/5E) therefore depends on a BlockNote 
 
 ## editor-core
 
-`@hello-ai-company/editor-core@0.1.0` is already published on npmjs and unchanged in this phase (no version bump, no republish). `editor-blocknote` depends on `^0.1.0`.
+| Line | Status |
+| --- | --- |
+| Published `@hello-ai-company/editor-core@0.1.0` | **Immutable** on npmjs — API-incomplete for current `editor-blocknote` |
+| Candidate `@hello-ai-company/editor-core@0.1.1` | In-repo only (R1); **not published** |
+| `editor-blocknote` dependency floor | `^0.1.1` |
+
+Publish order when authorized later: **core `0.1.1` → blocknote**. Do not publish in this phase.

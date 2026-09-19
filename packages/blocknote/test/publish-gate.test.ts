@@ -63,7 +63,7 @@ describe("public npmjs publish gate — editor-blocknote", () => {
 
   it("depends only on published editor-core", () => {
     expect(Object.keys(pkg.dependencies ?? {})).toEqual([AUTHORIZED_CORE_DEP]);
-    expect(pkg.dependencies?.[AUTHORIZED_CORE_DEP]).toBe("^0.1.0");
+    expect(pkg.dependencies?.[AUTHORIZED_CORE_DEP]).toBe("^0.1.1");
   });
 
   it("keeps the workspace root private and never publishable", () => {

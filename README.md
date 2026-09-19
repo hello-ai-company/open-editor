@@ -8,11 +8,10 @@ The public package is [`@hello-ai-company/editor-core`](./packages/core). It is 
 
 | Item | Value |
 | --- | --- |
-| Package | `@hello-ai-company/editor-core@0.1.0` |
+| Package | `@hello-ai-company/editor-core@0.1.1` candidate (`0.1.0` published, immutable) |
 | License | MIT — Copyright (c) 2026 Yuki Shibata |
-| Registry (prepared) | https://registry.npmjs.org (`publishConfig.access`: public) |
-| Repository visibility | **PRIVATE** until a later human-gated public transition |
-| npm publish | **Not executed** in this tree. First publish is a later gated step. |
+| Registry | https://registry.npmjs.org (`publishConfig.access`: public) |
+| npm publish (this tree) | **Not executed** in R1. Publish order later: core `0.1.1` → blocknote. |
 | Runtime dependencies | none |
 
 This source tree is public-ready. It is **not** a public GitHub repository yet, and the package is **not** on npmjs yet.
@@ -29,7 +28,7 @@ Until the first public publish, install from a packed tarball:
 
 ```bash
 npm pack -w @hello-ai-company/editor-core
-npm install ./hello-ai-company-editor-core-0.1.0.tgz
+npm install ./hello-ai-company-editor-core-0.1.1.tgz
 ```
 
 ## Quickstart
@@ -59,10 +58,10 @@ Unknown block `type` strings round-trip. `schemaVersion` is the positive integer
 
 Public shape: **Small Core + Adapters + Docs + Examples**.
 
-| Layer | What it is | v0.1.0 |
+| Layer | What it is | line |
 | --- | --- | --- |
-| **Small Core** | `@hello-ai-company/editor-core` — document model, JSON, optional provider types | shipped |
-| **Adapters** | `@hello-ai-company/editor-blocknote` — BlockNote power layer (lossless adapter, commands, incremental bridge) | **in-repo, unpublished** `0.1.0` |
+| **Small Core** | `@hello-ai-company/editor-core` — document model, JSON, optional provider types | `0.1.1` candidate (`0.1.0` published) |
+| **Adapters** | `@hello-ai-company/editor-blocknote` — BlockNote power layer (lossless adapter, commands, incremental bridge) | **in-repo, unpublished** `0.1.0` (depends on core `^0.1.1`) |
 | **Docs** | Architecture, public API, contributing, security | this repository |
 | **Examples** | `examples/blocknote-power` | demo / Quick Start |
 

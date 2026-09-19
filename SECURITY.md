@@ -10,7 +10,8 @@ When the repository is made public, enable Private Vulnerability Reporting immed
 
 | Version | Supported |
 | --- | --- |
-| `0.1.0` | Yes (prepared public line; not yet published to npmjs) |
+| `0.1.1` | Yes (workspace candidate; not published in R1) |
+| `0.1.0` | Yes (published on npmjs; immutable — do not republish) |
 | `0.0.0-phase3.e17b4b5` | Historical private GitHub Packages prerelease only |
 
 ## What this package handles
