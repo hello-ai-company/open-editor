@@ -29,7 +29,15 @@ const basePkg = {
   },
   peerDependencies: {
     "@blocknote/core": "^0.54.2",
-    "@blocknote/react": "^0.54.2"
+    "@blocknote/react": "^0.54.2",
+    "@blocknote/math-block": "^0.54.2",
+    "@blocknote/diagram-block": "^0.54.2",
+    "@blocknote/code-block": "^0.54.2"
+  },
+  peerDependenciesMeta: {
+    "@blocknote/math-block": { optional: true },
+    "@blocknote/diagram-block": { optional: true },
+    "@blocknote/code-block": { optional: true }
   }
 };
 
@@ -51,6 +59,15 @@ function assertFails(fn, snippet) {
   });
 }
 
+function failingExec(stderr, status = 1) {
+  return () => {
+    const err = new Error(stderr);
+    err.status = status;
+    err.stderr = stderr;
+    throw err;
+  };
+}
+
 describe("validate-public-blocknote-release", () => {
   it("accepts identity for first publish", () => {
     const id = validateIdentityAndInputs(baseEnv);
@@ -69,7 +86,7 @@ describe("validate-public-blocknote-release", () => {
     );
   });
 
-  it("rejects wrong BlockNote peer floor", () => {
+  it("rejects wrong BlockNote peer floor on core/react", () => {
     assert.throws(
       () =>
         validateIdentityAndInputs({
@@ -77,12 +94,68 @@ describe("validate-public-blocknote-release", () => {
           pkg: {
             ...basePkg,
             peerDependencies: {
+              ...basePkg.peerDependencies,
               "@blocknote/core": "^0.52.1",
               "@blocknote/react": "^0.52.1"
             }
           }
         }),
       /0\.54\.2/
+    );
+  });
+
+  it("rejects wrong optional BlockNote peer floor (math/diagram/code)", () => {
+    for (const peer of [
+      "@blocknote/math-block",
+      "@blocknote/diagram-block",
+      "@blocknote/code-block"
+    ]) {
+      assertFails(
+        () =>
+          validateIdentityAndInputs({
+            ...baseEnv,
+            pkg: {
+              ...basePkg,
+              peerDependencies: {
+                ...basePkg.peerDependencies,
+                [peer]: "^0.52.1"
+              }
+            }
+          }),
+        new RegExp(peer.replace("/", "\\/"))
+      );
+    }
+  });
+
+  it("rejects missing optional peerDependenciesMeta.optional true", () => {
+    assertFails(
+      () =>
+        validateIdentityAndInputs({
+          ...baseEnv,
+          pkg: {
+            ...basePkg,
+            peerDependenciesMeta: {
+              "@blocknote/math-block": { optional: true },
+              "@blocknote/diagram-block": { optional: true }
+              // code-block missing
+            }
+          }
+        }),
+      /peerDependenciesMeta\.@blocknote\/code-block\.optional must be true/
+    );
+    assertFails(
+      () =>
+        validateIdentityAndInputs({
+          ...baseEnv,
+          pkg: {
+            ...basePkg,
+            peerDependenciesMeta: {
+              ...basePkg.peerDependenciesMeta,
+              "@blocknote/math-block": { optional: false }
+            }
+          }
+        }),
+      /peerDependenciesMeta\.@blocknote\/math-block\.optional must be true/
     );
   });
 
@@ -176,31 +249,102 @@ describe("validate-public-blocknote-release", () => {
     );
   });
 
-  it("fail-closed: network/command errors are NOT treated as unpublished", () => {
+  it("E404 classifies as not_published (first-publish eligible)", () => {
+    const state = fetchBlocknoteRegistryState({
+      execFileSync: failingExec(
+        "npm error code E404\nnpm error 404 Not Found - GET https://registry.npmjs.org/@hello-ai-company%2feditor-blocknote"
+      )
+    });
+    assert.equal(state.status, "not_published");
+  });
+
+  it("E404 shorthand without 'npm error code' still classifies as not_published", () => {
+    const state = fetchBlocknoteRegistryState({
+      execFileSync: failingExec("code E404\npackage not found")
+    });
+    assert.equal(state.status, "not_published");
+  });
+
+  it("fail-closed: lone '404 Not Found' without E404 is NOT not_published", () => {
     assertFails(
       () =>
         fetchBlocknoteRegistryState({
-          execFileSync: () => {
-            const err = new Error("boom");
-            err.status = 1;
-            err.stderr = "ECONNRESET network down";
-            throw err;
-          }
+          execFileSync: failingExec(
+            "npm error 404 Not Found - GET https://registry.npmjs.org/@hello-ai-company%2feditor-blocknote"
+          )
+        }),
+      /fail-closed/
+    );
+  });
+
+  it("fail-closed: lone 'No match found' without E404 is NOT not_published", () => {
+    assertFails(
+      () =>
+        fetchBlocknoteRegistryState({
+          execFileSync: failingExec("No match found for package")
+        }),
+      /fail-closed/
+    );
+  });
+
+  it("fail-closed: lone 'not in this registry' without E404 is NOT not_published", () => {
+    assertFails(
+      () =>
+        fetchBlocknoteRegistryState({
+          execFileSync: failingExec(
+            "'@hello-ai-company/editor-blocknote@*' is not in this registry."
+          )
+        }),
+      /fail-closed/
+    );
+  });
+
+  it("fail-closed: ECONNRESET is NOT treated as unpublished", () => {
+    assertFails(
+      () =>
+        fetchBlocknoteRegistryState({
+          execFileSync: failingExec("ECONNRESET network down")
         }),
       /npm view versions failed \(fail-closed\)/
     );
   });
 
-  it("fail-closed: DNS/timeout errors are NOT treated as unpublished", () => {
+  it("fail-closed: ENOTFOUND is NOT treated as unpublished", () => {
     assertFails(
       () =>
         fetchBlocknoteRegistryState({
-          execFileSync: () => {
-            const err = new Error("getaddrinfo ENOTFOUND");
-            err.status = 1;
-            err.stderr = "npm error code ENOTFOUND";
-            throw err;
-          }
+          execFileSync: failingExec("npm error code ENOTFOUND")
+        }),
+      /fail-closed/
+    );
+  });
+
+  it("fail-closed: ETIMEDOUT is NOT treated as unpublished", () => {
+    assertFails(
+      () =>
+        fetchBlocknoteRegistryState({
+          execFileSync: failingExec("npm error code ETIMEDOUT")
+        }),
+      /fail-closed/
+    );
+  });
+
+  it("fail-closed: 5xx registry errors are NOT treated as unpublished", () => {
+    assertFails(
+      () =>
+        fetchBlocknoteRegistryState({
+          execFileSync: failingExec(
+            "npm error 502 Bad Gateway - GET https://registry.npmjs.org/@hello-ai-company%2feditor-blocknote"
+          )
+        }),
+      /fail-closed/
+    );
+    assertFails(
+      () =>
+        fetchBlocknoteRegistryState({
+          execFileSync: failingExec(
+            "npm error 503 Service Unavailable"
+          )
         }),
       /fail-closed/
     );
@@ -224,19 +368,6 @@ describe("validate-public-blocknote-release", () => {
         }),
       /invalid JSON/
     );
-  });
-
-  it("E404 classifies as not_published (first-publish eligible)", () => {
-    const state = fetchBlocknoteRegistryState({
-      execFileSync: () => {
-        const err = new Error("404");
-        err.status = 1;
-        err.stderr =
-          "npm error code E404\nnpm error 404 Not Found - GET https://registry.npmjs.org/@hello-ai-company%2feditor-blocknote";
-        throw err;
-      }
-    });
-    assert.equal(state.status, "not_published");
   });
 
   it("verifyReleaseArtifact accepts matching digest + tarball", () => {

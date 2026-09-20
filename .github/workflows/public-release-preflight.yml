@@ -106,9 +106,24 @@ jobs:
               console.error("STOP — packages/blocknote must not set private:true");
               process.exit(1);
             }
-            if (bn.peerDependencies?.["@blocknote/core"] !== "^0.54.2") {
-              console.error("STOP — blocknote peer @blocknote/core must be ^0.54.2");
-              process.exit(1);
+            const bnPeers = [
+              "@blocknote/core",
+              "@blocknote/react",
+              "@blocknote/math-block",
+              "@blocknote/diagram-block",
+              "@blocknote/code-block"
+            ];
+            for (const peer of bnPeers) {
+              if (bn.peerDependencies?.[peer] !== "^0.54.2") {
+                console.error("STOP — blocknote peer " + peer + " must be ^0.54.2");
+                process.exit(1);
+              }
+            }
+            for (const peer of ["@blocknote/math-block", "@blocknote/diagram-block", "@blocknote/code-block"]) {
+              if (bn.peerDependenciesMeta?.[peer]?.optional !== true) {
+                console.error("STOP — blocknote peerDependenciesMeta." + peer + ".optional must be true");
+                process.exit(1);
+              }
             }
             if (root.private !== true) {
               console.error("STOP — workspace root must remain private:true");

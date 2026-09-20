@@ -2,14 +2,15 @@
  * Release guards for @hello-ai-company/editor-blocknote (first public 0.1.0).
  *
  * Unlike editor-core, this package is not yet on npmjs. Registry eligibility:
- * - Successful `npm view` that returns E404 / not found → eligible for first publish
+ * - Successful `npm view` that returns explicit npm E404 → eligible for first publish
  * - Successful versions array that already contains the candidate → STOP
- * - Any other npm view failure → STOP (fail-closed)
+ * - Any other npm view failure (including lone "404 Not Found") → STOP (fail-closed)
  *
  * Publish order (fail-closed): @hello-ai-company/editor-core meeting ^0.1.1
  * must already exist on npmjs before blocknote publish is allowed.
  *
- * Never infer eligibility from generic network errors alone without classifying 404.
+ * Never infer eligibility from lone "404 Not Found" / "No match found" text.
+ * First-publish eligibility requires an explicit npm E404 code only.
  */
 
 import { createHash } from "node:crypto";
@@ -32,6 +33,20 @@ export const EXPECTED_CORE_DEP = "@hello-ai-company/editor-core";
 /** Floor for blocknote → core; published 0.1.0 lacks APIs required by this package. */
 export const EXPECTED_CORE_DEP_RANGE = "^0.1.1";
 export const EXPECTED_PEER_BLOCKNOTE = "^0.54.2";
+/** Required BlockNote peer packages locked to EXPECTED_PEER_BLOCKNOTE. */
+export const EXPECTED_PEER_BLOCKNOTE_PACKAGES = Object.freeze([
+  "@blocknote/core",
+  "@blocknote/react",
+  "@blocknote/math-block",
+  "@blocknote/diagram-block",
+  "@blocknote/code-block"
+]);
+/** Optional peers that must be marked optional:true in peerDependenciesMeta. */
+export const EXPECTED_OPTIONAL_PEER_BLOCKNOTE_PACKAGES = Object.freeze([
+  "@blocknote/math-block",
+  "@blocknote/diagram-block",
+  "@blocknote/code-block"
+]);
 
 export class ReleaseGuardError extends Error {
   constructor(message) {
@@ -85,15 +100,19 @@ export function validateIdentityAndInputs({
   if (pkg.publishConfig?.access !== EXPECTED_ACCESS) {
     stop("STOP — unexpected publishConfig.access");
   }
-  if (pkg.peerDependencies?.["@blocknote/core"] !== EXPECTED_PEER_BLOCKNOTE) {
-    stop(
-      `STOP — peer @blocknote/core must be ${EXPECTED_PEER_BLOCKNOTE}`
-    );
+  for (const peerName of EXPECTED_PEER_BLOCKNOTE_PACKAGES) {
+    if (pkg.peerDependencies?.[peerName] !== EXPECTED_PEER_BLOCKNOTE) {
+      stop(
+        `STOP — peer ${peerName} must be ${EXPECTED_PEER_BLOCKNOTE}`
+      );
+    }
   }
-  if (pkg.peerDependencies?.["@blocknote/react"] !== EXPECTED_PEER_BLOCKNOTE) {
-    stop(
-      `STOP — peer @blocknote/react must be ${EXPECTED_PEER_BLOCKNOTE}`
-    );
+  for (const peerName of EXPECTED_OPTIONAL_PEER_BLOCKNOTE_PACKAGES) {
+    if (pkg.peerDependenciesMeta?.[peerName]?.optional !== true) {
+      stop(
+        `STOP — peerDependenciesMeta.${peerName}.optional must be true`
+      );
+    }
   }
   const depKeys = Object.keys(pkg.dependencies ?? {});
   if (depKeys.length !== 1 || depKeys[0] !== EXPECTED_CORE_DEP) {
@@ -153,12 +172,14 @@ export function fetchBlocknoteRegistryState(deps = {}) {
   }
 
   const combined = `${stdout}\n${stderr}`;
-  const is404 =
-    /E404|404 Not Found|not in this registry|No match found/i.test(combined) ||
-    (exitCode !== 0 && /code E404/i.test(combined));
+  // First-publish eligibility: explicit npm E404 only. Lone "404 Not Found"
+  // / "No match found" / "not in this registry" without E404 → fail-closed.
+  const isExplicitNpmE404 =
+    exitCode !== 0 &&
+    /\b(?:npm (?:error )?code )?E404\b/i.test(combined);
 
   if (exitCode !== 0) {
-    if (is404) {
+    if (isExplicitNpmE404) {
       return { status: "not_published" };
     }
     stop(
