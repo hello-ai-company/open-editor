@@ -19,17 +19,20 @@ Companion: [public-release-decision.md](./public-release-decision.md), [first-pu
 | Public README / SECURITY / CONTRIBUTING / CODEOWNERS | **PRESENT** | MACHINE-VERIFIED |
 | Old private publish workflow (`publish-private-core.yml`) | **RETIRED** | MACHINE-VERIFIED |
 | Repository visibility | **PUBLIC** | MACHINE-VERIFIED |
-| npm publication | **YES** — `@hello-ai-company/editor-core@0.1.0` (immutable; do not republish) | MACHINE-VERIFIED |
+| npm publication | **YES** — `@hello-ai-company/editor-core@0.1.0` + `@0.1.1` (immutable; do not republish) | MACHINE-VERIFIED |
 | GitHub Private Vulnerability Reporting | **ENABLED** | MACHINE-VERIFIED |
 | Protect main Ruleset | **ACTIVE** (PR required; conversation resolution; force-push/deletion blocked; required checks verify/preflight 20+22) | MACHINE-VERIFIED |
 | D1-EXEC | **EXECUTED** through bootstrap publish of `0.1.0` | MACHINE-VERIFIED |
-| Trusted Publisher / OIDC | **OWNER-CONFIRMED CONFIGURED** (`publish-public-core.yml` + Environment `public-npmjs`) | OWNER-CONFIRMED |
+| Trusted Publisher / OIDC (core) | **OWNER-CONFIRMED CONFIGURED** (`publish-public-core.yml` + Environment `public-npmjs`) | OWNER-CONFIRMED |
+| Trusted Publisher / OIDC (blocknote) | **OWNER CONFIGURATION REQUIRED** (`publish-public-blocknote.yml` + Environment `public-npmjs`) | OWNER ACTION |
 | GitHub Environment `public-npmjs` | **CONFIGURED + PROTECTED** (main only; no NPM_TOKEN) | MACHINE-VERIFIED; no token OWNER-CONFIRMED |
 | Tag / GitHub Release | **PUBLISHED** — `v0.1.0` → `ed59ae41ee4bd95ec01492415885f3ee2cdaaf0e`; `OpenEditor v0.1.0` | MACHINE-VERIFIED |
-| Future publish workflow | **production-ready candidate** for `0.1.1+` only | MACHINE-VERIFIED file |
+| Future publish workflow (core) | **production-ready** for `0.1.1+` | MACHINE-VERIFIED file |
+| Future publish workflow (blocknote) | **production-ready candidate** for first `editor-blocknote@0.1.0` | MACHINE-VERIFIED file when landed |
 | READY FOR PUBLIC RELEASE PREPARATION | **DONE** (historical) | — |
-| READY TO REPUBLISH `0.1.0` | **NO** | — |
+| READY TO REPUBLISH `0.1.0` / `0.1.1` | **NO** | — |
 | READY TO RETAG / RERELEASE `v0.1.0` | **NO** | — |
+| `@hello-ai-company/editor-blocknote` published | **NO** | MACHINE-VERIFIED |
 
 Identity lock: `@hello-ai-company/editor-core@0.1.0` MIT, `publishConfig` `https://registry.npmjs.org` + `access: public`. Root workspace `"private": true`. **CORE SOURCE CHANGE REQUIRED: NO.**
 
@@ -50,27 +53,31 @@ Completed path (historical procedure; do not re-run):
 Remaining:
 
 ```
-→ ChatGPT-independent review of production-ready publish workflow PR (#10, R1 hardened)
+→ ChatGPT-independent review of blocknote Trusted Publishing workflow PR
+→ OWNER: configure npm Trusted Publisher for publish-public-blocknote.yml + Environment public-npmjs
 → OWNER: confirm Trusted Publisher Allowed actions includes direct npm publish
-→ separate human gate before any workflow_dispatch for 0.1.1+ only
-→ never republish 0.1.0; never dispatch while package.json is still 0.1.0
+→ separate human gate before any workflow_dispatch for editor-blocknote@0.1.0
+→ never republish core 0.1.0 / 0.1.1; never claim blocknote is published until registry prove
 ```
 
 | Action | Gate | Now |
 | --- | --- | --- |
 | Make the GitHub repository public | DONE | **YES** |
-| Bootstrap `npm publish` of `0.1.0` (exactly once) | DONE | **YES** (immutable) |
+| Bootstrap `npm publish` of core `0.1.0` (exactly once) | DONE | **YES** (immutable) |
+| Publish core `0.1.1` via OIDC | DONE | **YES** (immutable) |
 | Enable GitHub PVR | DONE | **YES** |
 | Protect main Ruleset | DONE | **ACTIVE** |
 | Create + protect Environment `public-npmjs` | DONE | **YES** (MACHINE-VERIFIED) |
-| Land workflow under `.github/workflows/` | DONE (foundation merged; production-ready redesign in review) | **YES** on `main` foundation; production-ready PR separate |
-| Configure npm Trusted Publisher / OIDC | DONE | **OWNER-CONFIRMED YES** |
+| Land core workflow under `.github/workflows/` | DONE | **YES** |
+| Configure npm Trusted Publisher for core | DONE | **OWNER-CONFIRMED YES** |
+| Land blocknote workflow `publish-public-blocknote.yml` | Candidate in review | when PR merges |
+| Configure npm Trusted Publisher for blocknote | OWNER ACTION | **NO** — OWNER CONFIGURATION REQUIRED |
 | Git tag / GitHub Release | DONE | **YES** — do not recreate |
-| Dispatch publish workflow | Separate ChatGPT + human gate; package must be `0.1.1+` | **NO** |
+| Dispatch blocknote publish workflow | Separate ChatGPT + human gate + owner TP | **NO** |
 | Edit `hello-ai-company/personal-ai` | Never from this repo | NO |
-| Modify `packages/core/src/**` for “release polish” | Out of scope | NO |
+| Modify `packages/core/src/**` or BlockNote renderer runtime for “release polish” | Out of scope | NO |
 | Re-enable retired GH Packages publish workflow | Forbidden | NO |
-| Republish `0.0.0-phase3.e17b4b5` or republish `0.1.0` | Forbidden | NO |
+| Republish `0.0.0-phase3.e17b4b5` or republish core `0.1.0`/`0.1.1` | Forbidden | NO |
 
 ## personal-ai consumer options (public artifact exists)
 

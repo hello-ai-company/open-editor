@@ -42,4 +42,4 @@ Shadow / guarded editor mount (Phase 4F-5D/5E) therefore depends on a BlockNote 
 | Candidate `@hello-ai-company/editor-core@0.1.1` | In-repo candidate; **not published** until after #23 merges to main |
 | `editor-blocknote` dependency floor | `^0.1.1` |
 
-Sequence: **R2 review → merge #23 → main publishes core `0.1.1` → registry prove → publish blocknote → PA**. Do not wait for published `0.1.1` before merging (deadlock with main-only publish workflow). Do not publish from this PR.
+Sequence: **core `0.1.1` LIVE → land `publish-public-blocknote.yml` → ChatGPT review → owner Trusted Publisher config → publish blocknote → PA**. Do not claim blocknote is published. Do not publish from infrastructure PRs.

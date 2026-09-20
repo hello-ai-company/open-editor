@@ -8,9 +8,9 @@ This document does **not** authorize production editor switch, merge, or npm pub
 | Package | Version | Role | Registry status |
 | --- | --- | --- | --- |
 | `@hello-ai-company/editor-core` | `0.1.1` candidate (`0.1.0` published, immutable) | Document model, serialization, provider types | **0.1.1 not published** until post-merge on main |
-| `@hello-ai-company/editor-blocknote` | `0.1.0` | BlockNote adapter / power layer | **Release-ready, not published**; depends on core `^0.1.1` |
+| `@hello-ai-company/editor-blocknote` | `0.1.0` | BlockNote adapter / power layer | **Release-ready, not published**; depends on core `^0.1.1` (core `0.1.1` **LIVE** on npmjs) |
 
-Sequence: **R2 review → merge #23 → main publishes core → registry prove → publish blocknote → PA integration**. This PR does **not** `npm publish`, tag, or Release. Do not require published `0.1.1` before merge.
+Sequence: **R2 review → merge #23 → main publishes core `0.1.1` → registry prove → land `publish-public-blocknote.yml` + ChatGPT review + owner Trusted Publisher config → publish blocknote `0.1.0` → PA integration**. Infrastructure PRs do **not** `npm publish`, tag, or Release.
 
 ## Dependency direction
 
@@ -64,22 +64,29 @@ Rules:
 
 ## Publication / release guards (editor-blocknote)
 
-Release-ready checklist (5B):
+Release-ready checklist:
 
 - [x] `private` removed; `publishConfig` → npmjs public
 - [x] MIT `LICENSE` with copyright line
 - [x] Peer floor `^0.54.2` locked by publish-gate + release script
+- [x] Core dependency floor `^0.1.1` + fail-closed publish-order gate (core meeting `^0.1.1` must already be on npmjs)
 - [x] `npm pack` + `scripts/inspect-blocknote-tarball.mjs`
 - [x] `npm publish --dry-run` only (no real publish)
-- [x] Registry guard treats current npm **404** as first-publish eligible
+- [x] Registry guard: npm **404** → first-publish eligible; network/other failures → **fail-closed STOP**
+- [x] Immutable artifact path: `scripts/release/validate-public-blocknote-release.mjs` (`pack` / `verify-artifact`)
+- [x] Manual OIDC workflow candidate: `.github/workflows/publish-public-blocknote.yml` (mirrors core; Environment `public-npmjs`)
 
-**Do not** `npm publish`, tag, or enable Trusted Publisher for this package until owner authorization.
+**TRUSTED PUBLISHER: OWNER CONFIGURATION REQUIRED** — bind npm Trusted Publisher to `publish-public-blocknote.yml` + Environment `public-npmjs` before first `workflow_dispatch`. Do not claim npm-side TP is configured from repo files alone.
+
+**Do not** `npm publish`, tag, or Release until ChatGPT review + owner authorization.
 
 ## Verification commands (OpenEditor)
 
 ```bash
 npm ci
 npm run verify
+npm run test:release-guards
+npm run verify:isolated-blocknote
 npm run compat:blocknote
 npm run pack:blocknote
 npm run inspect:blocknote-tarball

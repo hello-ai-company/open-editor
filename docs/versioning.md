@@ -7,25 +7,25 @@ Policy for `@hello-ai-company/editor-core` (MIT, npmjs). This document does **no
 | Field | Value |
 | --- | --- |
 | Name | `@hello-ai-company/editor-core` |
-| Workspace / candidate version | `0.1.1` (**not published** in R1) |
-| Published on npmjs (immutable) | `0.1.0` — do **not** republish |
+| Workspace / candidate version | `0.1.1` (**published** on npmjs) |
+| Published on npmjs (immutable) | `0.1.0`, `0.1.1` — do **not** republish |
 | License | MIT |
 | Registry | `https://registry.npmjs.org` |
 | Access | public |
 | Document `schemaVersion` | `1` |
 
-`0.1.1` is an **additive** candidate over published `0.1.0` (database/relation provider APIs used by `@hello-ai-company/editor-blocknote`).
+`0.1.1` is an **additive** release over published `0.1.0` (database/relation provider APIs used by `@hello-ai-company/editor-blocknote`).
 
-Correct release sequence (avoids deadlock with `publish-public-core.yml` on **main only**):
+Correct release sequence:
 
-1. R2 review of PR #23
-2. **Merge** #23 (do **not** wait for published `0.1.1` before merge)
-3. Main publishes core `0.1.1`
-4. Registry prove (adaptive isolated consumer)
-5. Publish blocknote `0.1.0`
-6. Personal AI integration
+1. R2 review of PR #23 — **DONE**
+2. **Merge** #23 — **DONE** (`main@45928118…`)
+3. Main publishes core `0.1.1` — **DONE** (npmjs LIVE)
+4. Registry prove (adaptive isolated consumer / fail-closed versions list) — **DONE**
+5. Land BlockNote Trusted Publishing workflow (`publish-public-blocknote.yml`) → ChatGPT review → owner configures npm Trusted Publisher for that filename → separate human gate → publish blocknote `0.1.0` (**not published yet**)
+6. Personal AI integration (after blocknote is on npmjs)
 
-This tree does **not** publish.
+This tree’s Draft PR for step 5 does **not** `npm publish`, tag, or Release.
 
 The historical private GitHub Packages prerelease `0.0.0-phase3.e17b4b5` is **immutable** and must not be reused on npmjs.
 
@@ -73,6 +73,10 @@ Isolated consumer gates (`npm run verify:isolated-blocknote`):
 | Static | `editor-blocknote` dependency === `^0.1.1` |
 | Positive pre-publish | core `0.1.1` candidate tarball + blocknote candidate → ordinary install **PASS** |
 | Registry adaptive | If `core@0.1.1` **absent** on npmjs → blocknote-only registry resolve unavailable is **expected** (no forever-fail on top-level `0.1.0`). If **present** → blocknote candidate + registry core → **PASS** with installed core `>=0.1.1` |
+
+With core `0.1.1` **LIVE** on npmjs, the registry adaptive gate must take the **POST-PUBLISH** path (ordinary install of blocknote candidate resolving registry core).
+
+OIDC publish path (manual only): `.github/workflows/publish-public-blocknote.yml` — prepare packs immutable tarball+digest → Environment `public-npmjs` → publish downloads/rechecks/publishes tarball under `id-token`. **TRUSTED PUBLISHER: OWNER CONFIGURATION REQUIRED** for this workflow filename (do not claim npm-side TP is already bound). Do not `workflow_dispatch` until ChatGPT review + owner TP config.
 
 No `--legacy-peer-deps` / `--force` on the release consumer path.
 

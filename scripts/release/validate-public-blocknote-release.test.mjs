@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
 import {
   assertCoreDependencyPublished,
   assertRegistryEligible,
   expectedConfirmation,
+  fetchBlocknoteRegistryState,
   validateIdentityAndInputs,
   validatePublicBlocknoteRelease,
+  verifyReleaseArtifact,
+  tarballFilenameFor,
   ReleaseGuardError
 } from "./validate-public-blocknote-release.mjs";
 
@@ -35,6 +42,14 @@ const baseEnv = {
   // Default: core@0.1.1 already published (required publish order).
   coreVersionsList: ["0.1.0", "0.1.1"]
 };
+
+function assertFails(fn, snippet) {
+  assert.throws(fn, (err) => {
+    assert.ok(err instanceof ReleaseGuardError);
+    assert.match(err.message, snippet);
+    return true;
+  });
+}
 
 describe("validate-public-blocknote-release", () => {
   it("accepts identity for first publish", () => {
@@ -140,5 +155,144 @@ describe("validate-public-blocknote-release", () => {
         }),
       /confirmation must be exactly/
     );
+  });
+
+  it("rejects wrong repo/ref", () => {
+    assertFails(
+      () =>
+        validateIdentityAndInputs({
+          ...baseEnv,
+          githubRepository: "evil/open-editor"
+        }),
+      /unexpected repository/
+    );
+    assertFails(
+      () =>
+        validateIdentityAndInputs({
+          ...baseEnv,
+          githubRef: "refs/heads/feature"
+        }),
+      /main ref lock failed/
+    );
+  });
+
+  it("fail-closed: network/command errors are NOT treated as unpublished", () => {
+    assertFails(
+      () =>
+        fetchBlocknoteRegistryState({
+          execFileSync: () => {
+            const err = new Error("boom");
+            err.status = 1;
+            err.stderr = "ECONNRESET network down";
+            throw err;
+          }
+        }),
+      /npm view versions failed \(fail-closed\)/
+    );
+  });
+
+  it("fail-closed: DNS/timeout errors are NOT treated as unpublished", () => {
+    assertFails(
+      () =>
+        fetchBlocknoteRegistryState({
+          execFileSync: () => {
+            const err = new Error("getaddrinfo ENOTFOUND");
+            err.status = 1;
+            err.stderr = "npm error code ENOTFOUND";
+            throw err;
+          }
+        }),
+      /fail-closed/
+    );
+  });
+
+  it("fail-closed: empty stdout on success", () => {
+    assertFails(
+      () =>
+        fetchBlocknoteRegistryState({
+          execFileSync: () => "   "
+        }),
+      /empty stdout/
+    );
+  });
+
+  it("fail-closed: invalid JSON on success", () => {
+    assertFails(
+      () =>
+        fetchBlocknoteRegistryState({
+          execFileSync: () => "not-json{"
+        }),
+      /invalid JSON/
+    );
+  });
+
+  it("E404 classifies as not_published (first-publish eligible)", () => {
+    const state = fetchBlocknoteRegistryState({
+      execFileSync: () => {
+        const err = new Error("404");
+        err.status = 1;
+        err.stderr =
+          "npm error code E404\nnpm error 404 Not Found - GET https://registry.npmjs.org/@hello-ai-company%2feditor-blocknote";
+        throw err;
+      }
+    });
+    assert.equal(state.status, "not_published");
+  });
+
+  it("verifyReleaseArtifact accepts matching digest + tarball", () => {
+    const dir = mkdtempSync(join(tmpdir(), "bn-artifact-"));
+    try {
+      const filename = tarballFilenameFor("0.1.0");
+      const payload = Buffer.from("fake-blocknote-tarball");
+      const tarballPath = join(dir, filename);
+      writeFileSync(tarballPath, payload);
+      const sha256 = createHash("sha256").update(payload).digest("hex");
+      writeFileSync(
+        join(dir, "digest.json"),
+        JSON.stringify({
+          name: "@hello-ai-company/editor-blocknote",
+          version: "0.1.0",
+          filename,
+          sha256,
+          size: payload.length
+        })
+      );
+      const { digest, tarballPath: verified } = verifyReleaseArtifact({
+        artifactDir: dir,
+        expectedVersion: "0.1.0"
+      });
+      assert.equal(digest.sha256, sha256);
+      assert.equal(verified, tarballPath);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("verifyReleaseArtifact rejects SHA-256 mismatch", () => {
+    const dir = mkdtempSync(join(tmpdir(), "bn-artifact-bad-"));
+    try {
+      const filename = tarballFilenameFor("0.1.0");
+      writeFileSync(join(dir, filename), "payload-a");
+      writeFileSync(
+        join(dir, "digest.json"),
+        JSON.stringify({
+          name: "@hello-ai-company/editor-blocknote",
+          version: "0.1.0",
+          filename,
+          sha256: "0".repeat(64),
+          size: Buffer.byteLength("payload-a")
+        })
+      );
+      assertFails(
+        () =>
+          verifyReleaseArtifact({
+            artifactDir: dir,
+            expectedVersion: "0.1.0"
+          }),
+        /SHA-256 mismatch/
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

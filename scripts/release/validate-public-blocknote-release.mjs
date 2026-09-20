@@ -298,6 +298,50 @@ export function packReleaseArtifact({
   return digest;
 }
 
+/**
+ * Verify an uploaded immutable artifact (digest.json + tarball SHA-256).
+ * Used by the publish job after Environment approval — no rebuild/repack.
+ */
+export function verifyReleaseArtifact({
+  artifactDir,
+  expectedVersion,
+  expectedName = EXPECTED_NAME
+}) {
+  const digestPath = join(artifactDir, "digest.json");
+  let digest;
+  try {
+    digest = JSON.parse(readFileSync(digestPath, "utf8"));
+  } catch {
+    stop("STOP — digest.json missing or invalid JSON");
+  }
+  if (digest.name !== expectedName) {
+    stop(`STOP — digest name mismatch: ${digest.name}`);
+  }
+  if (digest.version !== expectedVersion) {
+    stop(
+      `STOP — digest version mismatch: ${digest.version} != ${expectedVersion}`
+    );
+  }
+  if (digest.filename !== tarballFilenameFor(expectedVersion)) {
+    stop(`STOP — digest filename unexpected: ${digest.filename}`);
+  }
+  const tarballPath = join(artifactDir, digest.filename);
+  let st;
+  try {
+    st = statSync(tarballPath);
+  } catch {
+    stop(`STOP — artifact tarball missing: ${digest.filename}`);
+  }
+  if (st.size !== digest.size) {
+    stop(`STOP — artifact size mismatch: ${st.size} != ${digest.size}`);
+  }
+  const actual = sha256File(tarballPath);
+  if (actual !== digest.sha256) {
+    stop(`STOP — artifact SHA-256 mismatch: ${actual} != ${digest.sha256}`);
+  }
+  return { digest, tarballPath: resolve(tarballPath) };
+}
+
 export function loadPackageJson(root = process.cwd()) {
   return JSON.parse(
     readFileSync(join(root, "packages/blocknote/package.json"), "utf8")
@@ -331,6 +375,18 @@ function main(argv) {
     validatePublicBlocknoteRelease(env);
     const digest = packReleaseArtifact({ root, version: pkg.version });
     console.log("Packed blocknote release artifact:", digest);
+    return;
+  }
+
+  if (cmd === "verify-artifact") {
+    const artifactDir = argv[3] ?? join(root, "release-artifact-blocknote");
+    validatePublicBlocknoteRelease(env);
+    const { digest, tarballPath } = verifyReleaseArtifact({
+      artifactDir,
+      expectedVersion: pkg.version
+    });
+    console.log("Artifact verified:", digest.filename, digest.sha256);
+    console.log(`TARBALL_PATH=${tarballPath}`);
     return;
   }
 
