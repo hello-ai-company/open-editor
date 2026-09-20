@@ -18,9 +18,10 @@ Public-facing files live at repo root (`README.md`, `CONTRIBUTING.md`, `SECURITY
 | Protect main | Ruleset **ACTIVE** (MACHINE-VERIFIED) |
 | Issue / PR templates | Missing (optional later) |
 | Dependabot | Missing |
-| Publish | Private GH Packages workflow **retired**. Active non-publishing `public-release-preflight.yml` (dry-run only). Active OIDC: `.github/workflows/publish-public-core.yml` (R1: prepare packs immutable tarball+digest → Environment `public-npmjs` → publish job downloads/rechecks/publishes tarball only under `id-token`; production-ready candidate for `0.1.1+`). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml). Environment `public-npmjs` **CONFIGURED + PROTECTED** (MACHINE-VERIFIED) |
-| npm | `@hello-ai-company/editor-core@0.1.0` **PUBLISHED** (do not republish) |
-| Trusted Publisher | **OWNER-CONFIRMED CONFIGURED** |
+| Publish | Private GH Packages workflow **retired**. Active non-publishing `public-release-preflight.yml` (dry-run only). Active OIDC core: `.github/workflows/publish-public-core.yml` (prepare → immutable tarball+digest → Environment `public-npmjs` → OIDC publish; for core `0.1.1+`). Active OIDC blocknote candidate: `.github/workflows/publish-public-blocknote.yml` (same security model; first public `editor-blocknote@0.1.0`; do not dispatch until ChatGPT review). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml). Environment `public-npmjs` **CONFIGURED + PROTECTED** (MACHINE-VERIFIED) |
+| npm | `@hello-ai-company/editor-core@0.1.0` + `@0.1.1` **PUBLISHED** (do not republish). `@hello-ai-company/editor-blocknote` **not published** |
+| Trusted Publisher (core) | **OWNER-CONFIRMED CONFIGURED** for `publish-public-core.yml` |
+| Trusted Publisher (blocknote) | **OWNER CONFIGURATION REQUIRED** for `publish-public-blocknote.yml` (do not claim configured) |
 | Security contact | PVR **ENABLED** |
 | Funding | **No** `.github/FUNDING.yml` — **SPONSOR LINK — OWNER SETUP REQUIRED** |
 
@@ -47,10 +48,12 @@ Public-facing files live at repo root (`README.md`, `CONTRIBUTING.md`, `SECURITY
 | --- | --- | --- |
 | `ci.yml` | `push`/`pull_request` on `main`; `workflow_dispatch` | Canonical verify; Node 20+22; includes API contract |
 | `public-release-preflight.yml` | `push`/`pull_request` on `main`; `workflow_dispatch` | Non-publishing; `contents:read` only; `npm publish --dry-run`; no `packages:write` / `id-token` / `NPM_TOKEN` |
+| `publish-public-core.yml` | `workflow_dispatch` only | OIDC publish for editor-core `0.1.1+`; Environment `public-npmjs` |
+| `publish-public-blocknote.yml` | `workflow_dispatch` only | OIDC publish candidate for editor-blocknote `0.1.0`; Environment `public-npmjs`; **TRUSTED PUBLISHER: OWNER CONFIGURATION REQUIRED** |
 | `phase-4a-release-readiness.yml` | **retired** | Merged into `ci.yml` |
 | `publish-private-core.yml` | **retired** | Do not unpublish existing GitHub Packages `0.0.0-phase3.e17b4b5` |
 
-Rules: never auto-publish on push; dry-run only in required CI. OIDC publish workflow is `workflow_dispatch` only with prepare → Environment → publish; never grant `id-token: write` to non-publish jobs.
+Rules: never auto-publish on push; dry-run only in required CI. OIDC publish workflows are `workflow_dispatch` only with prepare → Environment → publish; never grant `id-token: write` to non-publish jobs.
 
 ## Branch protection (recommend only — do not click settings)
 
@@ -75,7 +78,7 @@ Unknown current protection is fine for a private extraction repo; **do not chang
 | --- | --- |
 | Repository visibility | **PUBLIC** (D1-EXEC done; MACHINE-VERIFIED) |
 | `GITHUB_TOKEN` packages write | Not used for public npmjs path |
-| npmjs trusted publisher / `NPM_TOKEN` | Trusted Publisher **OWNER-CONFIRMED CONFIGURED**; do not create `NPM_TOKEN` / `NODE_AUTH_TOKEN` |
+| npmjs trusted publisher / `NPM_TOKEN` | Core TP **OWNER-CONFIRMED CONFIGURED**; blocknote TP **OWNER CONFIGURATION REQUIRED** (`publish-public-blocknote.yml`); do not create `NPM_TOKEN` / `NODE_AUTH_TOKEN` |
 | GitHub Sponsors / FUNDING.yml | **Do not configure** without owner-approved URL |
 | Environments / required reviewers for publish | Environment `public-npmjs` **CONFIGURED + PROTECTED** (MACHINE-VERIFIED; main only) |
 

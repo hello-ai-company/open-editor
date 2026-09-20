@@ -20,19 +20,22 @@ Master companions: [public-release-runbook.md](./public-release-runbook.md), [fi
 | Public README / SECURITY / CONTRIBUTING / CODEOWNERS | **PRESENT** | MACHINE-VERIFIED |
 | Old private publish workflow | **RETIRED** | MACHINE-VERIFIED |
 | Repository visibility | **PUBLIC** | MACHINE-VERIFIED |
-| npm publication | **YES** — `@hello-ai-company/editor-core@0.1.0` | MACHINE-VERIFIED |
+| npm publication | **YES** — `@hello-ai-company/editor-core@0.1.0` + `@0.1.1` | MACHINE-VERIFIED |
 | GitHub Private Vulnerability Reporting | **ENABLED** | MACHINE-VERIFIED |
 | Protect main Ruleset | **ACTIVE** | MACHINE-VERIFIED |
 | D1-EXEC | **EXECUTED** through bootstrap publish | MACHINE-VERIFIED |
-| Trusted Publisher / OIDC | **OWNER-CONFIRMED CONFIGURED** (GitHub Actions → `hello-ai-company/open-editor` / `publish-public-core.yml` / Environment `public-npmjs`) | OWNER-CONFIRMED |
+| Trusted Publisher / OIDC (core) | **OWNER-CONFIRMED CONFIGURED** (GitHub Actions → `hello-ai-company/open-editor` / `publish-public-core.yml` / Environment `public-npmjs`) | OWNER-CONFIRMED |
+| Trusted Publisher / OIDC (blocknote) | **OWNER CONFIGURATION REQUIRED** for `publish-public-blocknote.yml` (do not claim configured) | OWNER ACTION |
 | Environment `public-npmjs` | **CONFIGURED + PROTECTED** (main only; no NPM_TOKEN) | MACHINE-VERIFIED existence/protection; no NPM_TOKEN OWNER-CONFIRMED |
 | Tag / GitHub Release | **PUBLISHED** — tag `v0.1.0` → `ed59ae41ee4bd95ec01492415885f3ee2cdaaf0e`; Release `OpenEditor v0.1.0` (not prerelease) | MACHINE-VERIFIED |
-| Future publish workflow | **production-ready candidate** — `.github/workflows/publish-public-core.yml` (manual OIDC for `0.1.1+` only; do not dispatch until ChatGPT review) | MACHINE-VERIFIED file |
-| READY TO REPUBLISH `0.1.0` | **NO** | — |
+| Future publish workflow (core) | **production-ready** — `.github/workflows/publish-public-core.yml` (manual OIDC for `0.1.1+`) | MACHINE-VERIFIED file |
+| Future publish workflow (blocknote) | **production-ready candidate** — `.github/workflows/publish-public-blocknote.yml` (manual OIDC for first `editor-blocknote@0.1.0`; do not dispatch until ChatGPT review + owner TP config) | MACHINE-VERIFIED file when landed |
+| READY TO REPUBLISH `0.1.0` / `0.1.1` | **NO** | — |
+| `@hello-ai-company/editor-blocknote` | **not published** | MACHINE-VERIFIED (npm 404) |
 | `packages/core/src/**` | frozen; **CORE SOURCE CHANGE REQUIRED: NO** | — |
 | Root workspace | `"private": true` (never publishable) | MACHINE-VERIFIED |
 
-Machine locks: `packages/core/package.json` / `scripts/lib/tarball.mjs` (`AUTHORIZED_*` = **`0.1.1` candidate** / MIT / npmjs / public; published `0.1.0` immutable), `packages/core/test/publish-gate.test.ts`, `scripts/release/validate-public-core-release.mjs` (fail-closed versions-list registry guard + artifact digest). Active non-publishing CI: `.github/workflows/ci.yml` and `.github/workflows/public-release-preflight.yml`. Active OIDC publish workflow: `.github/workflows/publish-public-core.yml` (prepare packs tarball+digest → Environment `public-npmjs` → publish under OIDC). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml). **R1 does not publish.**
+Machine locks: `packages/core/package.json` / `scripts/lib/tarball.mjs` (`AUTHORIZED_*` = **`0.1.1`** / MIT / npmjs / public; published `0.1.0`+`0.1.1` immutable), `packages/blocknote/package.json` (`0.1.0` unpublished candidate; core `^0.1.1`; BN peers `^0.54.2`), `packages/core/test/publish-gate.test.ts`, `scripts/release/validate-public-core-release.mjs`, `scripts/release/validate-public-blocknote-release.mjs` (fail-closed registry + artifact digest). Active non-publishing CI: `.github/workflows/ci.yml` and `.github/workflows/public-release-preflight.yml`. Active OIDC: `publish-public-core.yml` + candidate `publish-public-blocknote.yml` (prepare packs tarball+digest → Environment `public-npmjs` → publish under OIDC). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml). Infrastructure PRs do **not** publish.
 
 ## Companion documents
 

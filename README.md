@@ -9,12 +9,12 @@ The public package is [`@hello-ai-company/editor-core`](./packages/core). It is 
 | Item | Value |
 | --- | --- |
 | Repository | **PUBLIC** — https://github.com/hello-ai-company/open-editor |
-| Package (published) | `@hello-ai-company/editor-core@0.1.0` on npmjs (**immutable**) |
-| Package (workspace) | `@hello-ai-company/editor-core@0.1.1` candidate (**not published** yet) |
+| Package (published) | `@hello-ai-company/editor-core@0.1.0` + `@0.1.1` on npmjs (**immutable**) |
+| Package (workspace) | `@hello-ai-company/editor-core@0.1.1` (matches published line) |
 | Adapter | `@hello-ai-company/editor-blocknote@0.1.0` — in-repo, **unpublished** (depends on core `^0.1.1`) |
 | License | MIT — Copyright (c) 2026 Yuki Shibata |
 | Registry | https://registry.npmjs.org (`publishConfig.access`: public) |
-| Publish sequence (after merge) | R2 review → merge → main publishes core `0.1.1` → registry prove → publish blocknote → Personal AI integration |
+| Publish sequence | core `0.1.1` LIVE → land `publish-public-blocknote.yml` + ChatGPT review + owner TP config → publish blocknote → Personal AI integration |
 | Runtime dependencies (core) | none |
 
 ## Install
@@ -22,14 +22,7 @@ The public package is [`@hello-ai-company/editor-core`](./packages/core). It is 
 Published line (registry):
 
 ```bash
-npm install @hello-ai-company/editor-core
-```
-
-For the `0.1.1` candidate (until it is published), pack from this tree:
-
-```bash
-npm pack -w @hello-ai-company/editor-core
-npm install ./hello-ai-company-editor-core-0.1.1.tgz
+npm install @hello-ai-company/editor-core@0.1.1
 ```
 
 Requirements: Node.js `>=20`, ESM (`"type": "module"`). There is no CommonJS `require` export.
@@ -63,7 +56,7 @@ Public shape: **Small Core + Adapters + Docs + Examples**.
 
 | Layer | What it is | line |
 | --- | --- | --- |
-| **Small Core** | `@hello-ai-company/editor-core` — document model, JSON, optional provider types | `0.1.1` candidate (`0.1.0` published) |
+| **Small Core** | `@hello-ai-company/editor-core` — document model, JSON, optional provider types | `0.1.1` published (`0.1.0` immutable) |
 | **Adapters** | `@hello-ai-company/editor-blocknote` — BlockNote power layer (lossless adapter, commands, incremental bridge) | **in-repo, unpublished** `0.1.0` (depends on core `^0.1.1`) |
 | **Docs** | Architecture, public API, contributing, security | this repository |
 | **Examples** | `examples/blocknote-power` | demo / Quick Start |

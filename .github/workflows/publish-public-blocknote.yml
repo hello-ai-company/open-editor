@@ -1,0 +1,204 @@
+# Production-safe manual OIDC publish path for @hello-ai-company/editor-blocknote@0.1.0
+# (first public publish of the BlockNote power layer).
+#
+# HARD RULES:
+# - workflow_dispatch ONLY (never push / pull_request / release / schedule)
+# - Never use NPM_TOKEN / NODE_AUTH_TOKEN / long-lived npm credentials
+# - Do not rename this workflow file (Trusted Publisher binds to filename)
+# - Do not auto-cancel an in-progress release
+# - Publish only after editor-core meeting ^0.1.1 is already on npmjs
+# - Do not claim npm Trusted Publisher is configured from this file alone
+#
+# Architecture (mirrors publish-public-core.yml):
+#   prepare (contents:read; no Environment; no id-token)
+#     → npm ci + verify + release guards + isolated-blocknote + pack once
+#     → SHA-256 digest → upload artifact
+#   → human Environment approval (public-npmjs)
+#   → publish (contents:read + id-token:write)
+#     → download artifact + SHA-256 match
+#     → identity/ref/input/registry TOCTOU recheck (NO npm ci / verify / build)
+#     → npm publish <tarball.tgz> (tokenless OIDC; --ignore-scripts)
+#
+# OWNER ACTION before first dispatch:
+#   Configure npm Trusted Publisher for this package →
+#     GitHub Actions / hello-ai-company/open-editor /
+#     publish-public-blocknote.yml / Environment public-npmjs
+#   Confirm Trusted Publisher "Allowed actions" permits direct `npm publish`.
+#   TRUSTED PUBLISHER: OWNER CONFIGURATION REQUIRED (not asserted here).
+
+name: publish-public-blocknote
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Exact package version to publish (must match packages/blocknote/package.json)"
+        required: true
+        type: string
+      confirmation:
+        description: 'Type exactly: PUBLISH @hello-ai-company/editor-blocknote@0.1.0'
+        required: true
+        type: string
+
+concurrency:
+  group: npm-public-blocknote-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: prepare
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Guarantee Trusted Publishing–capable npm
+        run: npm install -g npm@^11
+
+      - name: Show toolchain
+        run: |
+          node -v
+          npm -v
+          node -e '
+            const { execSync } = require("child_process");
+            const v = execSync("npm -v", { encoding: "utf8" }).trim();
+            const [maj, min, patch] = v.split(".").map(Number);
+            const ok =
+              maj > 11 ||
+              (maj === 11 && min > 5) ||
+              (maj === 11 && min === 5 && patch >= 1);
+            if (!ok) {
+              console.error("STOP — npm >= 11.5.1 required for Trusted Publishing; got", v);
+              process.exit(1);
+            }
+            console.log("npm version OK for Trusted Publishing:", v);
+          '
+
+      - name: Install
+        run: npm ci
+
+      - name: Verify
+        run: npm run verify
+
+      - name: Release guards (explicit)
+        run: npm run test:release-guards
+
+      - name: Isolated BlockNote consumer (explicit)
+        run: npm run verify:isolated-blocknote
+
+      - name: Release guards + pack immutable artifact
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CONFIRMATION: ${{ inputs.confirmation }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/release/validate-public-blocknote-release.mjs pack
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: public-blocknote-release-artifact
+          path: |
+            release-artifact-blocknote/*.tgz
+            release-artifact-blocknote/digest.json
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: publish
+    needs: prepare
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: public-npmjs
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # Checkout is for package.json + shared guard script only.
+      # Do NOT npm ci / verify / build under id-token.
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Guarantee Trusted Publishing–capable npm
+        run: npm install -g npm@^11
+
+      - name: Show toolchain
+        run: |
+          node -v
+          npm -v
+          node -e '
+            const { execSync } = require("child_process");
+            const v = execSync("npm -v", { encoding: "utf8" }).trim();
+            const [maj, min, patch] = v.split(".").map(Number);
+            const ok =
+              maj > 11 ||
+              (maj === 11 && min > 5) ||
+              (maj === 11 && min === 5 && patch >= 1);
+            if (!ok) {
+              console.error("STOP — npm >= 11.5.1 required for Trusted Publishing; got", v);
+              process.exit(1);
+            }
+            console.log("npm version OK for Trusted Publishing:", v);
+          '
+
+      - name: Download release artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: public-blocknote-release-artifact
+          path: release-artifact-blocknote
+
+      - name: TOCTOU recheck + artifact digest
+        id: artifact
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CONFIRMATION: ${{ inputs.confirmation }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          node scripts/release/validate-public-blocknote-release.mjs verify-artifact release-artifact-blocknote | tee /tmp/artifact-verify.log
+          TARBALL_PATH=$(grep '^TARBALL_PATH=' /tmp/artifact-verify.log | cut -d= -f2-)
+          if [ -z "$TARBALL_PATH" ] || [ ! -f "$TARBALL_PATH" ]; then
+            echo "STOP — tarball path missing after artifact verify"
+            exit 1
+          fi
+          echo "tarball=$TARBALL_PATH" >> "$GITHUB_OUTPUT"
+
+      # Tokenless Trusted Publishing (OIDC). Publish the immutable prepared
+      # tarball only — no workspace rebuild (-w), no lifecycle scripts.
+      # Provenance is automatic for public repo + public package under TP.
+      # OWNER must configure Trusted Publisher for this workflow filename
+      # and confirm "Allowed actions" includes direct `npm publish`
+      # before the first real dispatch.
+      # TRUSTED PUBLISHER: OWNER CONFIGURATION REQUIRED
+      - name: Publish tarball to npmjs (OIDC / Trusted Publishing)
+        run: >
+          npm publish "${{ steps.artifact.outputs.tarball }}"
+          --access public
+          --registry=https://registry.npmjs.org
+          --ignore-scripts
