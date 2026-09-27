@@ -67,7 +67,7 @@ function ensurePacks() {
     }
   }
   const coreTgz = join(root, "hello-ai-company-editor-core-0.1.1.tgz");
-  const bnTgz = join(root, "hello-ai-company-editor-blocknote-0.1.0.tgz");
+  const bnTgz = join(root, "hello-ai-company-editor-blocknote-0.1.1.tgz");
   if (!existsSync(coreTgz) || !existsSync(bnTgz)) {
     console.error("Missing packed tarballs");
     process.exit(1);
@@ -119,7 +119,7 @@ function repackWithPeers(bnTgz, peerCoreRange, outName) {
       throw new Error(`repack failed: ${packed.stderr}`);
     }
     const outPath = join(root, outName);
-    const produced = join(outDir, "hello-ai-company-editor-blocknote-0.1.0.tgz");
+    const produced = join(outDir, "hello-ai-company-editor-blocknote-0.1.1.tgz");
     copyFileSync(produced, outPath);
     rmSync(outDir, { recursive: true, force: true });
     return outPath;
@@ -403,7 +403,7 @@ function main() {
   const widenedTgz = repackWithPeers(
     packs.bnTgz,
     "0.52.1 || 0.54.2",
-    "hello-ai-company-editor-blocknote-0.1.0-matrix-widened.tgz"
+    "hello-ai-company-editor-blocknote-0.1.1-matrix-widened.tgz"
   );
 
   const report = {

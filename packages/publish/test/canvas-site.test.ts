@@ -107,6 +107,40 @@ describe("Canvas site projection", () => {
     };
     expect(() => renderOpenEditorSite(doc, { canvasSpec: invalid as never })).toThrow(/breakpoints/i);
   });
+
+  it("applies only validated Canvas visibility and alignment state to Site output", () => {
+    const doc = document([
+      { id: "hidden-copy", type: "paragraph", content: "Hidden copy" },
+      { id: "visible-copy", type: "paragraph", content: "Visible copy" }
+    ]);
+    const spec: CanvasLayoutSpec = {
+      template: "landing-page",
+      breakpoints: { ...DEFAULT_CANVAS_BREAKPOINTS },
+      theme: "minimal",
+      root: { id: "root", type: "stack", direction: "vertical", children: [
+        { id: "hidden-section", type: "section", children: [{ id: "hidden-ref", type: "text", blockId: "hidden-copy" }] },
+        { id: "visible-section", type: "section", children: [{ id: "visible-ref", type: "text", blockId: "visible-copy" }] }
+      ] }
+    };
+
+    const html = renderOpenEditorSite(doc, {
+      title: "Site title",
+      description: "Visible description",
+      canvasSpec: spec,
+      canvasRenderState: {
+        hiddenNodeIds: ["hidden-section"],
+        alignmentByNodeId: { "visible-section": "center" }
+      }
+    });
+    expect(html).not.toContain("Hidden copy");
+    expect(html).toContain("Visible copy");
+    expect(html).toContain("text-align:center");
+    expect(html).toContain('class="oe-site__layout-group oe-site__layout-');
+    expect(() => renderOpenEditorSite(doc, {
+      canvasSpec: spec,
+      canvasRenderState: { alignmentByNodeId: { "visible-section": "url(javascript:alert(1))" as never } }
+    })).toThrow(/invalid alignment/i);
+  });
 });
 
 describe("OpenEditor presentation player", () => {
@@ -133,5 +167,38 @@ describe("OpenEditor presentation player", () => {
     expect(html).toContain("@media(prefers-reduced-motion:reduce)");
     expect(html).not.toContain("Hidden slide");
     expect(html).not.toMatch(/<iframe\b/i);
+  });
+
+  it("uses Canvas frame order, theme, visibility, and alignment for presentation slides", () => {
+    const doc = document([
+      { id: "heading-a", type: "heading", props: { level: 1 }, content: "First frame" },
+      { id: "body-a", type: "paragraph", content: "First body" },
+      { id: "heading-b", type: "heading", props: { level: 1 }, content: "Second frame" },
+      { id: "body-b", type: "paragraph", content: "Second body" }
+    ]);
+    const spec: CanvasLayoutSpec = {
+      template: "presentation",
+      breakpoints: { ...DEFAULT_CANVAS_BREAKPOINTS },
+      theme: "editorial",
+      root: { id: "root", type: "stack", direction: "vertical", children: [
+        { id: "frame-a", type: "frame", blockId: "heading-a", children: [{ id: "body-a-ref", type: "text", blockId: "body-a" }] },
+        { id: "frame-b", type: "frame", blockId: "heading-b", children: [{ id: "body-b-ref", type: "text", blockId: "body-b" }] }
+      ] }
+    };
+
+    const html = renderOpenEditorPresentation(doc, {
+      title: "Presentation title",
+      canvasSpec: spec,
+      canvasRenderState: {
+        hiddenNodeIds: ["frame-a"],
+        alignmentByNodeId: { "frame-b": "center" }
+      }
+    });
+    expect(html).toContain('aria-label="Slide 1 of 1"');
+    expect(html).not.toContain("First frame");
+    expect(html).toContain("Second frame");
+    expect(html).toContain("Second body");
+    expect(html).toContain("--oe-site-accent:#8A4B32");
+    expect(html).toContain("text-align:center");
   });
 });

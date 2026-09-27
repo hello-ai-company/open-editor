@@ -82,8 +82,8 @@ jobs:
               console.error("STOP — blocknote package name mismatch");
               process.exit(1);
             }
-            if (bn.version !== "0.1.0") {
-              console.error("STOP — blocknote version is not 0.1.0");
+            if (bn.version !== "0.1.1") {
+              console.error("STOP — blocknote version is not 0.1.1");
               process.exit(1);
             }
             if (bn.dependencies?.["@hello-ai-company/editor-core"] !== "^0.1.1") {

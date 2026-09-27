@@ -22,7 +22,7 @@ function findBlocknoteLeakageHits(text) {
 }
 
 const AUTHORIZED_NAME = "@hello-ai-company/editor-blocknote";
-const AUTHORIZED_VERSION = "0.1.0";
+const AUTHORIZED_VERSION = "0.1.1";
 const AUTHORIZED_REGISTRY = "https://registry.npmjs.org";
 const AUTHORIZED_LICENSE = "MIT";
 const AUTHORIZED_ACCESS = "public";

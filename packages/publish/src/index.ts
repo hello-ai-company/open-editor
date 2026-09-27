@@ -6,6 +6,7 @@ import {
 import {
   CANVAS_THEME_PRESETS,
   CanvasLayoutValidationError,
+  flattenCanvasNodes,
   validateCanvasLayoutSpec,
   type CanvasBlockElementRef,
   type CanvasLayoutNode,
@@ -22,6 +23,13 @@ export type OpenEditorSiteOptions = {
   language?: string;
   /** Validated responsive Canvas layout; omitted for the legacy article layout. */
   canvasSpec?: CanvasLayoutSpec;
+  /** Publication-visible subset of Canvas view state. Unknown/stale node IDs are ignored. */
+  canvasRenderState?: CanvasRenderState;
+};
+
+export type CanvasRenderState = {
+  hiddenNodeIds?: readonly string[];
+  alignmentByNodeId?: Readonly<Record<string, "left" | "center" | "right" | "stretch">>;
 };
 
 export type PublicKnowledgeBlock = {
@@ -96,7 +104,7 @@ export function renderOpenEditorSite(
 ): string {
   const nodes = projectExportIR(document);
   const canvas = options.canvasSpec
-    ? renderCanvasLayout(options.canvasSpec, document, nodes)
+    ? renderCanvasLayout(options.canvasSpec, document, nodes, options.canvasRenderState)
     : null;
   const context = knowledgeFromNodes(nodes, options);
   const title = cleanText(options.title) || context.title;
@@ -138,11 +146,20 @@ export function renderOpenEditorPresentation(
   const nodes = projectExportIR(document);
   const context = knowledgeFromNodes(nodes, options);
   const title = cleanText(options.title) || context.title;
-  const slides = presentationSlides(nodes);
-  const renderedSlides = slides.map((slide, index) =>
-    `<section class="oe-presentation__slide" data-slide aria-label="Slide ${index + 1} of ${slides.length}" tabindex="-1"${index > 0 ? " hidden" : ""}>${slide.length ? renderNodes(slide) : "<p class=\"oe-presentation__empty\">No public content in this slide.</p>"}</section>`
+  const canvasRoots = options.canvasSpec
+    ? presentationCanvasRoots(options.canvasSpec) ?? [options.canvasSpec.root]
+    : null;
+  const canvas = options.canvasSpec
+    ? renderCanvasLayout(options.canvasSpec, document, nodes, options.canvasRenderState, canvasRoots ?? undefined)
+    : null;
+  const slides = canvasRoots
+    ? (canvas?.parts.filter((part): part is string => part !== null) ?? [])
+    : presentationSlides(nodes).map((slide) => renderNodes(slide));
+  const slideContents = slides.length > 0 ? slides : ["<p class=\"oe-presentation__empty\">No public content in this slide.</p>"];
+  const renderedSlides = slideContents.map((content, index) =>
+    `<section class="oe-presentation__slide" data-slide aria-label="Slide ${index + 1} of ${slideContents.length}" tabindex="-1"${index > 0 ? " hidden" : ""}>${content}</section>`
   ).join("");
-  return `<!doctype html><html lang="${escapeHtml(safeLanguage(options.language))}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)} — Presentation</title><style>${SITE_CSS}${PRESENTATION_CSS}${PRESENTATION_BUTTON_CSS}</style></head><body><main class="oe-presentation" data-presentation tabindex="-1"><header class="oe-presentation__header"><h1 class="oe-presentation__title">${escapeHtml(title)}</h1><button type="button" data-fullscreen aria-label="Enter presentation mode">Enter presentation</button></header><div class="oe-presentation__stage" data-stage>${renderedSlides}</div><nav class="oe-presentation__controls" aria-label="Presentation controls"><button type="button" data-previous aria-label="Previous slide">Previous</button><output class="oe-presentation__counter" data-counter aria-live="polite">1 / ${slides.length}</output><button type="button" data-next aria-label="Next slide">Next</button></nav></main><script>${PRESENTATION_SCRIPT}</script></body></html>`;
+  return `<!doctype html><html lang="${escapeHtml(safeLanguage(options.language))}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)} — Presentation</title><style>${SITE_CSS}${PRESENTATION_CSS}${PRESENTATION_BUTTON_CSS}${canvas?.css ?? ""}</style></head><body><main class="oe-presentation" data-presentation tabindex="-1"><header class="oe-presentation__header"><h1 class="oe-presentation__title">${escapeHtml(title)}</h1><button type="button" data-fullscreen aria-label="Enter presentation mode">Enter presentation</button></header><div class="oe-presentation__stage" data-stage>${renderedSlides}</div><nav class="oe-presentation__controls" aria-label="Presentation controls"><button type="button" data-previous aria-label="Previous slide">Previous</button><output class="oe-presentation__counter" data-counter aria-live="polite">1 / ${slideContents.length}</output><button type="button" data-next aria-label="Next slide">Next</button></nav></main><script>${PRESENTATION_SCRIPT}</script></body></html>`;
 }
 
 /** Return only visible, allowlisted document text for a public-page Q&A adapter. */
@@ -469,11 +486,14 @@ type ResponsiveDeclarations = {
 function renderCanvasLayout(
   spec: CanvasLayoutSpec,
   document: EditorDocument,
-  nodes: readonly ExportNode[]
-): { html: string; css: string; maxWidth: number } {
+  nodes: readonly ExportNode[],
+  renderState?: CanvasRenderState,
+  roots: readonly CanvasLayoutNode[] = [spec.root]
+): { html: string; css: string; maxWidth: number; parts: Array<string | null> } {
   const issues = validateCanvasLayoutSpec(spec, document);
   const fatal = issues.filter(({ code }) => code !== "MISSING_BLOCK_REFERENCE");
   if (fatal.length > 0) throw new CanvasLayoutValidationError(fatal);
+  const state = normalizeCanvasRenderState(renderState, spec);
   const tokens: CanvasThemeTokens = typeof spec.theme === "string"
     ? CANVAS_THEME_PRESETS[spec.theme]
     : spec.theme;
@@ -505,6 +525,23 @@ function renderCanvasLayout(
     return name;
   }
 
+  function alignmentClass(nodeId: string): string {
+    const value = state.alignmentByNodeId.get(nodeId);
+    if (!value) return "";
+    const declarations: Record<string, string> = {
+      "justify-self": value === "left" ? "start" : value === "right" ? "end" : value,
+      "align-self": value === "left" ? "flex-start" : value === "right" ? "flex-end" : value,
+      "text-align": value === "stretch" ? "left" : value,
+      "margin-left": value === "center" || value === "right" ? "auto" : "0",
+      "margin-right": value === "center" || value === "left" ? "auto" : "0"
+    };
+    return cssClass({ mobile: declarations });
+  }
+
+  function withClass(base: string, extra: string): string {
+    return extra ? base + " " + extra : base;
+  }
+
   function renderBlock(blockId: string): string {
     const block = publicBlocks.get(blockId);
     if (!block) return '<div class="oe-site__placeholder" role="note">Content unavailable.</div>';
@@ -514,22 +551,23 @@ function renderCanvasLayout(
   }
 
   function renderElement(node: CanvasBlockElementRef): string {
+    if (state.hiddenNodeIds.has(node.id)) return "";
     const block = publicBlocks.get(node.blockId);
     const content = renderBlock(node.blockId);
-    if (node.type === "card") return '<article class="oe-site__card">' + content + "</article>";
-    if (node.type === "button") return '<span class="oe-site__button">' + (block ? content : "Button") + "</span>";
-    if (node.type === "divider") return block && block.text.trim() ? content : '<hr class="oe-site__layout-divider">';
-    if (node.type === "image" && (block?.type !== "image" || !block.src)) {
-      return '<div class="oe-site__placeholder" role="img" aria-label="Image preview">Image preview</div>';
-    }
-    if (node.type === "chart" || node.type === "embed") {
-      return '<div class="oe-site__placeholder" role="img" aria-label="' + (node.type === "chart" ? "Chart" : "Embed") + ' preview">' + (node.type === "chart" ? "Chart" : "Embedded content") + " preview</div>";
-    }
-    return content;
+    let rendered: string;
+    if (node.type === "card") rendered = '<article class="oe-site__card">' + content + "</article>";
+    else if (node.type === "button") rendered = '<span class="oe-site__button">' + (block ? content : "Button") + "</span>";
+    else if (node.type === "divider") rendered = block && block.text.trim() ? content : '<hr class="oe-site__layout-divider">';
+    else if (node.type === "image" && (block?.type !== "image" || !block.src)) rendered = '<div class="oe-site__placeholder" role="img" aria-label="Image preview">Image preview</div>';
+    else if (node.type === "chart" || node.type === "embed") {
+      rendered = '<div class="oe-site__placeholder" role="img" aria-label="' + (node.type === "chart" ? "Chart" : "Embed") + ' preview">' + (node.type === "chart" ? "Chart" : "Embed") + " preview</div>";
+    } else rendered = content;
+    return '<div class="oe-site__canvas-element ' + alignmentClass(node.id) + '">' + rendered + "</div>";
   }
 
   function renderLayoutNode(node: CanvasLayoutNode, depth = 0): string {
-    if (depth > 32) return "";
+    if (depth > 32 || state.hiddenNodeIds.has(node.id)) return "";
+    const alignClass = alignmentClass(node.id);
     if (node.type === "stack") {
       const cls = cssClass({
         mobile: {
@@ -549,7 +587,7 @@ function renderCanvasLayout(
           padding: (node.padding?.desktop ?? node.padding?.tablet ?? node.padding?.mobile ?? 0) + "px"
         }
       });
-      return '<div class="oe-site__layout-stack ' + cls + '">' + node.children.map((child) => renderLayoutNode(child, depth + 1)).join("") + "</div>";
+      return '<div class="' + withClass("oe-site__layout-stack " + cls, alignClass) + '">' + node.children.map((child) => renderLayoutNode(child, depth + 1)).join("") + "</div>";
     }
     if (node.type === "grid" || node.type === "columns") {
       const isGrid = node.type === "grid";
@@ -573,7 +611,7 @@ function renderCanvasLayout(
       const children = isGrid
         ? node.children.map((child) => renderLayoutNode(child, depth + 1)).join("")
         : node.columns.map((column) => '<div class="oe-site__column">' + column.map((child) => renderLayoutNode(child, depth + 1)).join("") + "</div>").join("");
-      return '<div class="oe-site__layout-' + (isGrid ? "grid" : "columns") + " " + cls + '">' + children + "</div>";
+      return '<div class="' + withClass("oe-site__layout-" + (isGrid ? "grid" : "columns") + " " + cls, alignClass) + '">' + children + "</div>";
     }
     if (node.type === "section" || node.type === "frame") {
       const anchoredBlock = node.blockId ? publicBlocks.get(node.blockId) : undefined;
@@ -582,7 +620,7 @@ function renderCanvasLayout(
       const anchor = anchoredBlock && node.blockId && !childRefs.has(node.blockId)
         ? renderBlock(node.blockId)
         : "";
-      return '<section class="oe-site__layout-group" data-kind="' + node.type + '">' + anchor + children + "</section>";
+      return '<section class="' + withClass("oe-site__layout-group", alignClass) + '" data-kind="' + node.type + '">' + anchor + children + "</section>";
     }
     if (node.type === "absolute") {
       const cls = cssClass({ mobile: { position: "relative" } });
@@ -610,11 +648,9 @@ function renderCanvasLayout(
         });
         return '<div class="oe-site__absolute-item ' + itemClass + '">' + renderElement(element) + "</div>";
       }).join("");
-      return '<div class="oe-site__layout-absolute ' + cls + '">' + items + "</div>";
+      return '<div class="' + withClass("oe-site__layout-absolute " + cls, alignClass) + '">' + items + "</div>";
     }
-    return isCanvasBlockElement(node)
-      ? '<div class="oe-site__canvas-element">' + renderElement(node) + "</div>"
-      : "";
+    return isCanvasBlockElement(node) ? renderElement(node) : "";
   }
 
   const fontStacks = {
@@ -647,11 +683,71 @@ function renderCanvasLayout(
     + ";--oe-site-shadow:" + shadow
     + ";--oe-site-frame-shadow:" + (tokens.shadow === "strong" ? "0 5px 18px rgb(25 35 27 / 12%)" : tokens.shadow === "soft" ? "0 3px 12px rgb(25 35 27 / 7%)" : "none")
     + "}";
+  const parts = roots.map((root) => state.hiddenNodeIds.has(root.id)
+    ? null
+    : '<div class="oe-site__canvas">' + renderLayoutNode(root) + "</div>");
   return {
-    html: '<div class="oe-site__canvas">' + renderLayoutNode(spec.root) + "</div>",
+    html: roots.length === 1 && roots[0] === spec.root
+      ? parts[0] ?? '<div class="oe-site__canvas"></div>'
+      : "",
     css: themeCss + rules.join(""),
-    maxWidth: tokens.maxWidth
+    maxWidth: tokens.maxWidth,
+    parts
   };
+}
+
+type NormalizedCanvasRenderState = {
+  hiddenNodeIds: Set<string>;
+  alignmentByNodeId: Map<string, NonNullable<CanvasRenderState["alignmentByNodeId"]>[string]>;
+};
+
+const MAX_CANVAS_RENDER_STATE_ENTRIES = 1000;
+
+function normalizeCanvasRenderState(
+  state: CanvasRenderState | undefined,
+  spec: CanvasLayoutSpec
+): NormalizedCanvasRenderState {
+  const nodeIds = new Set(flattenCanvasNodes(spec.root).map(({ id }) => id));
+  const hiddenNodeIds = new Set<string>();
+  const alignmentByNodeId = new Map<string, NonNullable<CanvasRenderState["alignmentByNodeId"]>[string]>();
+  if (state === undefined) return { hiddenNodeIds, alignmentByNodeId };
+  if (!state || typeof state !== "object" || Array.isArray(state)) {
+    throw new TypeError("Canvas render state must be an object.");
+  }
+  if (state.hiddenNodeIds !== undefined) {
+    if (!Array.isArray(state.hiddenNodeIds) || state.hiddenNodeIds.length > MAX_CANVAS_RENDER_STATE_ENTRIES) {
+      throw new TypeError("Canvas render state has an invalid hidden-node list.");
+    }
+    for (const id of state.hiddenNodeIds) {
+      if (typeof id !== "string") throw new TypeError("Canvas render state node IDs must be strings.");
+      if (nodeIds.has(id)) hiddenNodeIds.add(id);
+    }
+  }
+  if (state.alignmentByNodeId !== undefined) {
+    const alignments = state.alignmentByNodeId;
+    if (!alignments || typeof alignments !== "object" || Array.isArray(alignments)) {
+      throw new TypeError("Canvas render state has an invalid alignment map.");
+    }
+    let count = 0;
+    for (const id in alignments) {
+      if (!Object.hasOwn(alignments, id)) continue;
+      count += 1;
+      if (count > MAX_CANVAS_RENDER_STATE_ENTRIES) throw new TypeError("Canvas render state has too many alignments.");
+      const value = alignments[id];
+      if (!nodeIds.has(id)) continue;
+      if (value !== "left" && value !== "center" && value !== "right" && value !== "stretch") {
+        throw new TypeError("Canvas render state contains an invalid alignment.");
+      }
+      alignmentByNodeId.set(id, value);
+    }
+  }
+  return { hiddenNodeIds, alignmentByNodeId };
+}
+
+function presentationCanvasRoots(spec: CanvasLayoutSpec): CanvasLayoutNode[] | null {
+  const root = spec.root;
+  if ((root.type !== "stack" && root.type !== "grid") || root.children.length === 0) return null;
+  return root.children;
 }
 
 function collectCanvasBlockReferences(root: CanvasLayoutNode): Set<string> {
