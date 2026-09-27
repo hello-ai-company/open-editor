@@ -12,11 +12,9 @@ export const TARBALL_PREFIX = "hello-ai-company-editor-core-";
 
 export function findTarball(root) {
   const directories = [root, join(root, "packages/core")];
+  const expected = `${TARBALL_PREFIX}${AUTHORIZED_VERSION}.tgz`;
   for (const directory of directories) {
-    const match = readdirSync(directory).find(
-      (name) => name.startsWith(TARBALL_PREFIX) && name.endsWith(".tgz")
-    );
-    if (match) return join(directory, match);
+    if (readdirSync(directory).includes(expected)) return join(directory, expected);
   }
   return undefined;
 }

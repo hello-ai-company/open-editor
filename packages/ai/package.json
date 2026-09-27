@@ -1,0 +1,32 @@
+{
+  "name": "@hello-ai-company/editor-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Provider-neutral agent, suggestion, and explicit learning contracts for OpenEditor.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "LICENSE", "README.md"],
+  "scripts": {
+    "build": "npm run build -w @hello-ai-company/editor-core && tsc -p tsconfig.build.json",
+    "typecheck": "npm run build -w @hello-ai-company/editor-core && tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@hello-ai-company/editor-core": "^0.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

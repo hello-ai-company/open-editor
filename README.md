@@ -1,6 +1,6 @@
 # OpenEditor
 
-OpenEditor is a **portable document layer** for host-neutral editors — not another rich-text editor.
+OpenEditor is a reusable editor platform built around a small portable document core. BlockNote is one editing adapter; host-specific AI, agent, canvas, and publishing behavior stays outside the core.
 
 The public package is [`@hello-ai-company/editor-core`](./packages/core). It is a small TypeScript core: a versioned document model, JSON serialization, and optional provider **types**. Host UI, React, BlockNote, and other adapters are out of scope for this package.
 
@@ -11,10 +11,10 @@ The public package is [`@hello-ai-company/editor-core`](./packages/core). It is 
 | Repository | **PUBLIC** — https://github.com/hello-ai-company/open-editor |
 | Package (published) | `@hello-ai-company/editor-core@0.1.0` + `@0.1.1` on npmjs (**immutable**) |
 | Package (workspace) | `@hello-ai-company/editor-core@0.1.1` (matches published line) |
-| Adapter | `@hello-ai-company/editor-blocknote@0.1.0` — in-repo, **unpublished** (depends on core `^0.1.1`) |
+| Adapter | `@hello-ai-company/editor-blocknote@0.1.0` — published on npm (depends on core `^0.1.1`) |
 | License | MIT — Copyright (c) 2026 Yuki Shibata |
 | Registry | https://registry.npmjs.org (`publishConfig.access`: public) |
-| Publish sequence | core `0.1.1` LIVE → land `publish-public-blocknote.yml` + ChatGPT review + owner TP config → publish blocknote → Personal AI integration |
+| New packages | `editor-ai`, `editor-canvas`, and `editor-publish` are in-repo experimental packages and are not published |
 | Runtime dependencies (core) | none |
 
 ## Install
@@ -57,11 +57,14 @@ Public shape: **Small Core + Adapters + Docs + Examples**.
 | Layer | What it is | line |
 | --- | --- | --- |
 | **Small Core** | `@hello-ai-company/editor-core` — document model, JSON, optional provider types | `0.1.1` published (`0.1.0` immutable) |
-| **Adapters** | `@hello-ai-company/editor-blocknote` — BlockNote power layer (lossless adapter, commands, incremental bridge) | **in-repo, unpublished** `0.1.0` (depends on core `^0.1.1`) |
+| **Editing adapter** | `@hello-ai-company/editor-blocknote` — BlockNote power layer, commands, and incremental bridge | `0.1.0` published; BlockNote peers `^0.54.2` |
+| **AI contracts** | `@hello-ai-company/editor-ai` — agent events, validated suggestions, provenance results, and explicit learning decisions | experimental, in-repo |
+| **Canvas model** | `@hello-ai-company/editor-canvas` — responsive layout specs, Magic Layout grouping, and derived slide references | experimental, in-repo |
+| **Publishing** | `@hello-ai-company/editor-publish` — safe static HTML and public knowledge projection | experimental, in-repo |
 | **Docs** | Architecture, public API, contributing, security | this repository |
 | **Examples** | `examples/blocknote-power` | demo / Quick Start |
 
-See [docs/architecture.md](./docs/architecture.md), [docs/public-api.md](./docs/public-api.md), [docs/providers.md](./docs/providers.md), [docs/versioning.md](./docs/versioning.md), and [docs/security-boundary.md](./docs/security-boundary.md).
+See [docs/architecture.md](./docs/architecture.md), [docs/AI_INTEGRATION.md](./docs/AI_INTEGRATION.md), [docs/AGENT_INTEGRATION.md](./docs/AGENT_INTEGRATION.md), [docs/CANVAS.md](./docs/CANVAS.md), [docs/PUBLISHING.md](./docs/PUBLISHING.md), [docs/PLUGIN_API.md](./docs/PLUGIN_API.md), [docs/SECURITY.md](./docs/SECURITY.md), and [docs/MIGRATION.md](./docs/MIGRATION.md).
 
 ## Roadmap
 
@@ -69,7 +72,7 @@ v0.1.0 is an early 0.x line:
 
 - **Stable:** document model, JSON serialization, `schemaVersion` `1`, runtime helpers, document types
 - **Experimental:** optional provider type seams
-- **Later:** adapter packages, more docs and examples
+- **Experimental:** AI suggestion contracts, responsive canvas specs, and static public-page rendering; these packages do not include a full interactive canvas or host UI
 
 This repository will not turn the core into a hosted editor, Cloud/Enterprise SKU, or paid plugin. Using, modifying, forking, self-hosting, and commercially using the core is free under MIT. Optional sponsorship may be offered later to help sustain maintenance; it will not unlock exclusive core functionality. There is no `.github/FUNDING.yml` yet.
 

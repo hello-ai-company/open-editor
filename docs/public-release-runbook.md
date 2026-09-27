@@ -3,7 +3,7 @@
 **INTERNAL EVIDENCE** — not a public product document.
 
 **Case:** ENG-20260913-007 Phase 4E R1 / PA-20260917-002 / post-D1-EXEC / TP production-ready  
-Human-gated plan for remaining post-publish steps. Bootstrap visibility + npm `0.1.0` + tag/Release + Environment + Trusted Publisher are **done**. Do not republish `0.1.0`. Do not recreate or move tag/Release. Do not `workflow_dispatch` the publish workflow until a separate ChatGPT-reviewed gate.
+Historical human-gated release plan. Core `0.1.0`/`0.1.1` and BlockNote `0.1.0` are currently published; proposed BlockNote source changes and the new packages in this PR remain unreleased. Do not publish, tag, create a Release, or dispatch a workflow as part of this task.
 
 Companion: [public-release-decision.md](./public-release-decision.md), [first-public-publish-bootstrap.md](./first-public-publish-bootstrap.md).
 

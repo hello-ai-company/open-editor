@@ -3,7 +3,7 @@
 **INTERNAL EVIDENCE** — not a public product document.
 
 **Case:** ENG-20260913-007 Phase 4E R1 / PA-20260917-002 / post-D1-EXEC / TP production-ready  
-**Role:** Canonical decision matrix plus **current** state. Bootstrap visibility + npm `0.1.0` + tag/Release + Environment + Trusted Publisher are done. This document does **not** authorize republishing `0.1.0`, dispatching the publish workflow, or bumping to `0.1.1` without a separate ChatGPT-reviewed gate.
+**Role:** Release decision record. Core `0.1.0`/`0.1.1` and BlockNote `0.1.0` are currently published on npm. The package rows below are historical release-preparation evidence; the OpenEditor human-agent workspace PR does **not** publish, tag, or create a release.
 
 Master companions: [public-release-runbook.md](./public-release-runbook.md), [first-public-publish-bootstrap.md](./first-public-publish-bootstrap.md), [owner-release-confirmations.md](./owner-release-confirmations.md), [release-gate-closure.md](./release-gate-closure.md).
 
@@ -31,11 +31,11 @@ Master companions: [public-release-runbook.md](./public-release-runbook.md), [fi
 | Future publish workflow (core) | **production-ready** — `.github/workflows/publish-public-core.yml` (manual OIDC for `0.1.1+`) | MACHINE-VERIFIED file |
 | Future publish workflow (blocknote) | **production-ready candidate** — `.github/workflows/publish-public-blocknote.yml` (manual OIDC for first `editor-blocknote@0.1.0`; do not dispatch until ChatGPT review + owner TP config) | MACHINE-VERIFIED file when landed |
 | READY TO REPUBLISH `0.1.0` / `0.1.1` | **NO** | — |
-| `@hello-ai-company/editor-blocknote` | **not published** | MACHINE-VERIFIED (npm 404) |
+| `@hello-ai-company/editor-blocknote@0.1.0` | **PUBLISHED** | npm registry lookup (2026-09-27) |
 | `packages/core/src/**` | frozen; **CORE SOURCE CHANGE REQUIRED: NO** | — |
 | Root workspace | `"private": true` (never publishable) | MACHINE-VERIFIED |
 
-Machine locks: `packages/core/package.json` / `scripts/lib/tarball.mjs` (`AUTHORIZED_*` = **`0.1.1`** / MIT / npmjs / public; published `0.1.0`+`0.1.1` immutable), `packages/blocknote/package.json` (`0.1.0` unpublished candidate; core `^0.1.1`; BN peers `^0.54.2`), `packages/core/test/publish-gate.test.ts`, `scripts/release/validate-public-core-release.mjs`, `scripts/release/validate-public-blocknote-release.mjs` (fail-closed registry + artifact digest). Active non-publishing CI: `.github/workflows/ci.yml` and `.github/workflows/public-release-preflight.yml`. Active OIDC: `publish-public-core.yml` + candidate `publish-public-blocknote.yml` (prepare packs tarball+digest → Environment `public-npmjs` → publish under OIDC). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml). Infrastructure PRs do **not** publish.
+Release files below describe the package bootstrap at the time they were written. The current BlockNote source changes in the human-agent workspace PR remain unreleased and need a separate version/release review. Active non-publishing CI: `.github/workflows/ci.yml` and `.github/workflows/public-release-preflight.yml`. Active OIDC workflows remain release tooling; this task does **not** dispatch them.
 
 ## Companion documents
 
