@@ -13,6 +13,7 @@ import type {
   DatabaseRowMediaRequest,
   DatabaseViewRuntime
 } from "./databaseViewRuntime.js";
+import { isSafeMediaUrl } from "../security/safeUrl.js";
 
 type RowLike =
   | DatabaseRowItem
@@ -199,7 +200,7 @@ export function buildDatabaseRowPresentation(
 function normalizeResolvedMedia(
   media: DatabaseRowMedia | null | undefined
 ): DatabaseRowMedia | null {
-  if (!media || typeof media.src !== "string") return null;
+  if (!media || !isSafeMediaUrl(media.src)) return null;
   const src = media.src.trim();
   if (!src) return null;
   return {

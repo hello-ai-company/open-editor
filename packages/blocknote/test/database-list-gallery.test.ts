@@ -771,11 +771,11 @@ describe("4F-4B — GalleryRenderer", () => {
       if (request.rowKey === "nullish") return null;
       if (request.rowKey === "empty") return { src: "" };
       if (request.rowKey === "img") {
-        return { src: "data:image/svg+xml,%3Csvg/%3E" };
+        return { src: "https://example.test/image.svg" };
       }
       if (request.rowKey === opaqueKey) {
         return {
-          src: "data:image/svg+xml,%3Csvg/%3E",
+          src: "https://example.test/custom.svg",
           alt: "Custom alt"
         };
       }
@@ -850,7 +850,7 @@ describe("4F-4B — GalleryRenderer", () => {
           database: provider,
           onOpenRow,
           resolveRowMedia: () => ({
-            src: "data:image/svg+xml,%3Csvg/%3E",
+            src: "https://example.test/gallery.svg",
             alt: "x"
           })
         }
@@ -899,13 +899,13 @@ describe("4F-4B — resolveRowMedia runtime isolation", () => {
 
     const resolveA = vi.fn(
       (_request: DatabaseRowMediaRequest): DatabaseRowMedia => ({
-        src: "data:image/svg+xml,A",
+        src: "https://example.test/a.svg",
         alt: "A"
       })
     );
     const resolveB = vi.fn(
       (_request: DatabaseRowMediaRequest): DatabaseRowMedia => ({
-        src: "data:image/svg+xml,B",
+        src: "https://example.test/b.svg",
         alt: "B"
       })
     );

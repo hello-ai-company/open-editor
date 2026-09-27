@@ -478,6 +478,7 @@ describe("WorkspacePagePicker integration", () => {
     });
     expect(host.textContent).toContain("Alpha");
     expect(host.textContent).not.toContain("Searching");
+    expect((host.querySelector('[role="option"]') as HTMLButtonElement).tabIndex).toBe(-1);
     await cleanup();
   });
 

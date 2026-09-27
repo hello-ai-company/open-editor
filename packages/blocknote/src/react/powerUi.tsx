@@ -13,6 +13,7 @@ import type {
 } from "../commands/registry.js";
 import { createOpenEditorDictionary } from "../dictionary.js";
 import type { PowerSeams } from "../seams/types.js";
+import { useDialogFocusTrap } from "./useDialogFocusTrap.js";
 
 type EditorLike = {
   onChange: (
@@ -126,7 +127,8 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
   const [activeIndex, setActiveIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const previousFocus = useRef<HTMLElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  useDialogFocusTrap(open, dialogRef);
 
   const items: PaletteItem[] = useMemo(
     () => registry.toPaletteItems(context, query),
@@ -135,14 +137,12 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
 
   useEffect(() => {
     if (!open) return;
-    previousFocus.current = document.activeElement as HTMLElement | null;
     setQuery("");
     setActiveIndex(0);
     setError(null);
     const id = requestAnimationFrame(() => inputRef.current?.focus());
     return () => {
       cancelAnimationFrame(id);
-      previousFocus.current?.focus?.();
     };
   }, [open]);
 
@@ -176,10 +176,18 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
       }}
     >
       <div
+        ref={dialogRef}
         className="oe-command-palette__panel"
         role="dialog"
         aria-modal="true"
         aria-label={dict.commandPaletteTitle}
+        tabIndex={-1}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onOpenChange(false);
+          }
+        }}
       >
         <input
           ref={inputRef}
@@ -187,15 +195,14 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
           role="combobox"
           aria-expanded="true"
           aria-controls="oe-command-palette-list"
+          aria-activedescendant={items[activeIndex] ? `oe-command-palette-option-${activeIndex}` : undefined}
           aria-autocomplete="list"
+          aria-label={dict.commandPalettePlaceholder}
           placeholder={dict.commandPalettePlaceholder}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              onOpenChange(false);
-            } else if (event.key === "ArrowDown") {
+            if (event.key === "ArrowDown") {
               event.preventDefault();
               setActiveIndex((index) => Math.min(index + 1, Math.max(items.length - 1, 0)));
             } else if (event.key === "ArrowUp") {
@@ -230,6 +237,8 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
                     type="button"
                     className="oe-command-palette__item"
                     role="option"
+                    tabIndex={-1}
+                    id={`oe-command-palette-option-${index}`}
                     aria-selected={index === activeIndex}
                     data-active={index === activeIndex ? "true" : "false"}
                     disabled={Boolean(item.disabledReason)}

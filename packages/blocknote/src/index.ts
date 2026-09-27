@@ -124,6 +124,10 @@ export {
   type OpenEditorPowerFeature
 } from "./features/types.js";
 export {
+  createOpenEditorPowerFeatureRegistry,
+  type OpenEditorPowerFeatureRegistry
+} from "./features/registry.js";
+export {
   createOpenEditorPowerPreset,
   type OpenEditorPowerPreset,
   type OpenEditorPowerPresetOptions,
