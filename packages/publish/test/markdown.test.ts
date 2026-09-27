@@ -66,6 +66,7 @@ describe("OpenEditor Markdown export", () => {
       { id: "relative", type: "image", props: { url: "../images/cover.png", alt: "Relative cover" } },
       { id: "javascript", type: "image", props: { url: "javascript:alert(1)", alt: "Unsafe image" } },
       { id: "entity-scheme", type: "image", props: { url: "&#x6a;avascript:alert(1)", alt: "Entity image" } },
+      { id: "encoded-scheme", type: "image", props: { url: "javascript&#58;alert(1)", alt: "Encoded scheme image" } },
       { id: "data", type: "image", props: { url: "data:image/svg+xml,<svg>", alt: "Data image" } },
       { id: "protocol-relative", type: "image", props: { url: "//tracker.example.test/image.png", alt: "Remote image" } }
     ]));
@@ -74,10 +75,12 @@ describe("OpenEditor Markdown export", () => {
     expect(markdown).toContain("![Relative cover](../images/cover.png)");
     expect(markdown).toContain("Unsafe image");
     expect(markdown).toContain("Entity image");
+    expect(markdown).toContain("Encoded scheme image");
     expect(markdown).toContain("Data image");
     expect(markdown).toContain("Remote image");
     expect(markdown).not.toContain("javascript:");
     expect(markdown).not.toContain("&#x6a;avascript:");
+    expect(markdown).not.toContain("javascript&#58;");
     expect(markdown).not.toContain("data:image");
     expect(markdown).not.toContain("tracker.example.test");
     expect(markdown).not.toContain("private parent");

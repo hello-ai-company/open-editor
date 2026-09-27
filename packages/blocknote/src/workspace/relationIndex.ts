@@ -12,6 +12,7 @@ import {
   DATABASE_RELATION_TYPE,
   DATABASE_VIEW_TYPE,
   PAGE_CARD_TYPE,
+  PAGE_TRANSCLUSION_TYPE,
   PAGE_MENTION_TYPE
 } from "./types.js";
 
@@ -112,7 +113,7 @@ function extractFromBlock(
   block: EditorBlock,
   out: RelationEdge[]
 ): void {
-  if (block.type === PAGE_CARD_TYPE) {
+  if (block.type === PAGE_CARD_TYPE || block.type === PAGE_TRANSCLUSION_TYPE) {
     const pageId = readProp(block.props, "pageId");
     if (pageId) {
       out.push(

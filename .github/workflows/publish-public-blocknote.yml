@@ -1,5 +1,5 @@
-# Production-safe manual OIDC publish path for @hello-ai-company/editor-blocknote@0.1.0
-# (first public publish of the BlockNote power layer).
+# Production-safe manual OIDC publish path for @hello-ai-company/editor-blocknote@0.1.1
+# (R2 update to the published BlockNote power layer).
 #
 # HARD RULES:
 # - workflow_dispatch ONLY (never push / pull_request / release / schedule)
@@ -19,7 +19,7 @@
 #     → identity/ref/input/registry TOCTOU recheck (NO npm ci / verify / build)
 #     → npm publish <tarball.tgz> (tokenless OIDC; --ignore-scripts)
 #
-# OWNER ACTION before first dispatch:
+# OWNER ACTION before dispatch:
 #   Configure npm Trusted Publisher for this package →
 #     GitHub Actions / hello-ai-company/open-editor /
 #     publish-public-blocknote.yml / Environment public-npmjs
@@ -36,7 +36,7 @@ on:
         required: true
         type: string
       confirmation:
-        description: 'Type exactly: PUBLISH @hello-ai-company/editor-blocknote@0.1.0'
+        description: 'Type exactly: PUBLISH @hello-ai-company/editor-blocknote@0.1.1'
         required: true
         type: string
 

@@ -134,4 +134,24 @@ describe("editor-canvas", () => {
     ]);
     expect(createPresentationSlides(doc)).toEqual(slides);
   });
+
+  it("includes nested headings and child blocks by stable reference", () => {
+    const nested = createEditorDocument([{
+      id: "outer-title",
+      type: "heading",
+      content: [{ type: "text", text: "Outer" }],
+      children: [
+        { id: "outer-copy", type: "paragraph", content: [{ type: "text", text: "Child" }] },
+        {
+          id: "nested-title",
+          type: "heading",
+          content: [{ type: "text", text: "Nested" }],
+          children: [{ id: "nested-copy", type: "paragraph", content: [{ type: "text", text: "Nested body" }] }]
+        }
+      ]
+    }]);
+    const spec = createMagicLayoutSpec(nested, "report");
+    expect(referencedBlockIds(spec.root)).toEqual(["outer-title", "outer-copy", "nested-title", "nested-copy"]);
+    expect(validateCanvasLayoutSpec(spec, nested)).toEqual([]);
+  });
 });

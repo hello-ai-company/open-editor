@@ -687,3 +687,14 @@ export function createPresentationSlides(document: EditorDocument): Presentation
     };
   });
 }
+
+export {
+  duplicateCanvasNode,
+  findCanvasNode,
+  flattenCanvasNodes,
+  getCanvasGapNode,
+  moveCanvasNode,
+  reorderCanvasNode,
+  resolveResponsiveValue,
+  setCanvasNodeGap
+} from "./layoutOperations.js";

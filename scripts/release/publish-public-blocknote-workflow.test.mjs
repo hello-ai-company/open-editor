@@ -32,10 +32,10 @@ describe("publish-public-blocknote.yml regression", () => {
     assert.doesNotMatch(yaml, /^\s*schedule:\s*$/m);
   });
 
-  it("requires exact confirmation input for 0.1.0", () => {
+  it("requires exact confirmation input for 0.1.1", () => {
     assert.match(
       yaml,
-      /PUBLISH @hello-ai-company\/editor-blocknote@0\.1\.0/
+      /PUBLISH @hello-ai-company\/editor-blocknote@0\.1\.1/
     );
   });
 

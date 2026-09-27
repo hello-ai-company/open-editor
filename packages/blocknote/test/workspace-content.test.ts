@@ -10,6 +10,7 @@ import {
   DATABASE_RELATION_TYPE,
   DATABASE_VIEW_TYPE,
   PAGE_CARD_TYPE,
+  PAGE_TRANSCLUSION_TYPE,
   PAGE_MENTION_TYPE,
   createPageCardBlockSpec,
   createPageMentionDom,
@@ -17,6 +18,10 @@ import {
   createRelationIndex,
   createWorkspaceContentCommands,
   extractRelationEdges,
+  loadPageTransclusion,
+  MAX_PAGE_TRANSCLUSION_CHARACTERS,
+  MAX_PAGE_TRANSCLUSION_DEPTH,
+  MAX_PAGE_TRANSCLUSION_BLOCKS,
   resolveChildPageDisplay,
   resolvePageCardDisplay,
   type PageMentionRuntime
@@ -32,10 +37,12 @@ describe("workspace content primitives", () => {
       DATABASE_RELATION_TYPE
     );
     expect(preset.schema.blockSchema).toHaveProperty(PAGE_CARD_TYPE);
+    expect(preset.schema.blockSchema).toHaveProperty(PAGE_TRANSCLUSION_TYPE);
     expect(preset.schema.blockSchema).toHaveProperty(CHILD_PAGE_TYPE);
     expect(preset.schema.blockSchema).toHaveProperty(DATABASE_VIEW_TYPE);
     expect(preset.registry.get("page.insert-mention")).toBeDefined();
     expect(preset.registry.get("page.insert-card")).toBeDefined();
+    expect(preset.registry.get("page.insert-transclusion")).toBeDefined();
     expect(preset.registry.get("page.create-child")).toBeDefined();
     expect(preset.registry.get("database.insert-view")).toBeDefined();
   });
@@ -51,11 +58,12 @@ describe("workspace content primitives", () => {
       DATABASE_RELATION_TYPE
     );
     expect(preset.schema.blockSchema).not.toHaveProperty(PAGE_CARD_TYPE);
+    expect(preset.schema.blockSchema).not.toHaveProperty(PAGE_TRANSCLUSION_TYPE);
     expect(preset.registry.get("page.insert-mention")).toBeUndefined();
     expect(preset.registry.get("database.insert-view")).toBeUndefined();
   });
 
-  it("round-trips page mention, page card, child page, databaseView, and databaseRelation", () => {
+  it("round-trips page mention, page card, transclusion, child page, databaseView, and databaseRelation", () => {
     const preset = createOpenEditorPowerPreset();
     const doc = createEditorDocument([
       {
@@ -73,6 +81,11 @@ describe("workspace content primitives", () => {
         id: "c1",
         type: PAGE_CARD_TYPE,
         props: { pageId: "page-card", titleHint: "Card" }
+      },
+      {
+        id: "t1",
+        type: PAGE_TRANSCLUSION_TYPE,
+        props: { pageId: "page-embedded", titleHint: "Embedded" }
       },
       {
         id: "ch1",
@@ -95,6 +108,7 @@ describe("workspace content primitives", () => {
     const json = JSON.stringify(back.blocks);
     expect(json).toContain("page/arch#1");
     expect(json).toContain(PAGE_CARD_TYPE);
+    expect(json).toContain(PAGE_TRANSCLUSION_TYPE);
     expect(json).toContain(CHILD_PAGE_TYPE);
     expect(json).toContain(DATABASE_VIEW_TYPE);
     expect(json).toContain(DATABASE_RELATION_TYPE);
@@ -102,6 +116,97 @@ describe("workspace content primitives", () => {
     expect(json).toContain("board-1");
     expect(json).not.toContain("rowKey");
     expect(json).not.toContain('"title":"Alpha Project"');
+  });
+
+  it("expands current content read-only and stops a cross-page cycle before refetching", async () => {
+    const loadCurrentProjection = vi.fn(async (pageId: string) => {
+      const blocks = pageId === "a"
+        ? [{ id: "a-to-b", type: PAGE_TRANSCLUSION_TYPE, props: { pageId: "b" } }]
+        : [{ id: "b-to-a", type: PAGE_TRANSCLUSION_TYPE, props: { pageId: "a" } }];
+      return { pageId, title: pageId.toUpperCase(), document: createEditorDocument(blocks) };
+    });
+    const projection = await loadPageTransclusion("a", {
+      currentPageId: "source",
+      loadCurrentProjection
+    });
+
+    const nested = projection.blocks[0]?.transclusion?.blocks[0]?.transclusion;
+    expect(projection.status).toBe("ready");
+    expect(nested?.status).toBe("cycle");
+    expect(loadCurrentProjection.mock.calls.map(([id]) => id)).toEqual(["a", "b"]);
+  });
+
+  it("bounds expansion depth and uses a generic missing-page placeholder", async () => {
+    const loadCurrentProjection = vi.fn(async (pageId: string) => ({
+      pageId,
+      title: pageId,
+      document: createEditorDocument([
+        { id: `to-${Number(pageId) + 1}`, type: PAGE_TRANSCLUSION_TYPE, props: { pageId: String(Number(pageId) + 1) } }
+      ])
+    }));
+    const projection = await loadPageTransclusion("0", { loadCurrentProjection });
+    const first = projection.blocks[0]?.transclusion;
+    const second = first?.blocks[0]?.transclusion;
+    const third = second?.blocks[0]?.transclusion;
+    expect(loadCurrentProjection).toHaveBeenCalledTimes(MAX_PAGE_TRANSCLUSION_DEPTH);
+    expect(first?.status).toBe("ready");
+    expect(second?.status).toBe("ready");
+    expect(third?.status).toBe("depth-limit");
+
+    const missing = await loadPageTransclusion("private", {
+      loadCurrentProjection: async () => null
+    });
+    expect(missing.status).toBe("missing");
+    expect(missing.title).toBe("Page unavailable");
+
+    const oversized = await loadPageTransclusion("large", {
+      loadCurrentProjection: async (pageId) => ({
+        pageId,
+        title: "Large",
+        document: createEditorDocument([{ id: "large-text", type: "paragraph", content: "x".repeat(MAX_PAGE_TRANSCLUSION_CHARACTERS + 1) }])
+      })
+    });
+    expect(oversized.blocks[0]?.text).toHaveLength(MAX_PAGE_TRANSCLUSION_CHARACTERS - "Large".length);
+    expect(oversized.truncated).toBe(true);
+  });
+
+  it("caps total provider reads even when each referenced page is empty", async () => {
+    const loadCurrentProjection = vi.fn(async (pageId: string) => ({
+      pageId,
+      title: pageId,
+      document: createEditorDocument([])
+    }));
+    const root = createEditorDocument(Array.from({ length: 40 }, (_, index) => ({
+      id: `reference-${index}`,
+      type: PAGE_TRANSCLUSION_TYPE,
+      props: { pageId: `page-${index}` }
+    })));
+    const projection = await loadPageTransclusion("root", {
+      loadCurrentProjection: async (pageId) => pageId === "root"
+        ? { pageId, title: "Root", document: root }
+        : loadCurrentProjection(pageId)
+    });
+    expect(loadCurrentProjection).toHaveBeenCalledTimes(15);
+    expect(projection.blocks[14]?.transclusion?.status).toBe("ready");
+    expect(projection.blocks[15]?.transclusion?.status).toBe("size-limit");
+  });
+
+  it("bounds projected output blocks and linked page titles", async () => {
+    const source = createEditorDocument(Array.from({ length: MAX_PAGE_TRANSCLUSION_BLOCKS + 1 }, (_, index) => ({
+      id: `empty-${index}`,
+      type: "paragraph"
+    })));
+    const projection = await loadPageTransclusion("large", {
+      loadCurrentProjection: async (pageId) => ({
+        pageId,
+        title: "T".repeat(MAX_PAGE_TRANSCLUSION_CHARACTERS + 1),
+        document: source
+      })
+    });
+
+    expect(projection.title.length).toBeLessThanOrEqual(256);
+    expect(projection.blocks.length).toBe(MAX_PAGE_TRANSCLUSION_BLOCKS);
+    expect(projection.truncated).toBe(true);
   });
 
   it("does not share pageCard runtime across presets (P1-1)", () => {
@@ -239,6 +344,11 @@ describe("workspace content primitives", () => {
       } as never)
     ).toEqual({ ok: false, reason: "Page picker not available" });
     expect(
+      registry.get("page.insert-transclusion")!.isEnabled?.({
+        editor: baseEditor
+      } as never)
+    ).toEqual({ ok: false, reason: "Page picker not available" });
+    expect(
       registry.get("page.create-child")!.isEnabled?.({
         editor: baseEditor
       } as never)
@@ -248,6 +358,28 @@ describe("workspace content primitives", () => {
         editor: baseEditor
       } as never)
     ).toEqual({ ok: false, reason: "Database provider not available" });
+  });
+
+  it("inserts a transclusion only after an explicit page pick and excludes the current page", async () => {
+    const insertBlocks = vi.fn();
+    const requestPagePick = vi.fn(async () => ({ pageId: "target", title: "Target" }));
+    const registry = createCommandRegistry(createWorkspaceContentCommands());
+    await registry.run("page.insert-transclusion", {
+      editor: {
+        insertBlocks,
+        updateBlock: () => undefined,
+        getTextCursorPosition: () => ({ block: { id: "cursor" } }),
+        transact: <T>(fn: () => T) => fn()
+      },
+      documentId: "current",
+      requestPagePick
+    } as never);
+    expect(requestPagePick).toHaveBeenCalledWith({ excludeIds: ["current"] });
+    expect(insertBlocks).toHaveBeenCalledWith(
+      [{ type: PAGE_TRANSCLUSION_TYPE, props: { pageId: "target" } }],
+      { id: "cursor" },
+      "after"
+    );
   });
 
   it("requires database picker even when DatabaseProvider is present (P1-3)", () => {
@@ -458,6 +590,14 @@ describe("RelationIndex", () => {
       "database-view-reference",
       "page-reference",
       "page-reference"
+    ]);
+  });
+
+  it("indexes transclusions as page relations", () => {
+    expect(extractRelationEdges("doc-1", [
+      { id: "embed", type: PAGE_TRANSCLUSION_TYPE, props: { pageId: "target" } }
+    ] as never)).toMatchObject([
+      { sourceBlockId: "embed", targetType: "page", targetId: "target", kind: "page-reference" }
     ]);
   });
 

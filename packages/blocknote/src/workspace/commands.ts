@@ -3,6 +3,7 @@ import {
   CHILD_PAGE_TYPE,
   DATABASE_VIEW_TYPE,
   PAGE_CARD_TYPE,
+  PAGE_TRANSCLUSION_TYPE,
   PAGE_MENTION_TYPE,
   isDatabaseViewType,
   type DatabaseViewType
@@ -105,6 +106,36 @@ export function createWorkspaceContentCommands(): EditorCommand[] {
                 props: { pageId, titleHint }
               }
             ],
+            cursor.block,
+            "after"
+          );
+        });
+      }
+    },
+    {
+      id: "page.insert-transclusion",
+      title: "Embed page content",
+      subtitle: "Show the current page content as a read-only projection",
+      group: "navigation",
+      aliases: ["transclusion", "embed page", "linked content"],
+      keywords: ["page", "embed", "read-only"],
+      surfaces: ["slash", "palette"],
+      isEnabled: (ctx) =>
+        hasPagePicker(ctx)
+          ? true
+          : { ok: false, reason: "Page picker not available" },
+      run: async (ctx) => {
+        if (!ctx.requestPagePick) return;
+        const cursor = ctx.editor.getTextCursorPosition();
+        const picked = await ctx.requestPagePick({
+          excludeIds: ctx.documentId ? [ctx.documentId] : []
+        });
+        if (!picked) return;
+        const pageId = typeof picked === "string" ? picked : picked.pageId;
+        if (!pageId) return;
+        ctx.editor.transact(() => {
+          ctx.editor.insertBlocks(
+            [{ type: PAGE_TRANSCLUSION_TYPE, props: { pageId } }],
             cursor.block,
             "after"
           );

@@ -1,9 +1,8 @@
 {
   "name": "@hello-ai-company/editor-publish",
   "version": "0.1.0",
-  "private": true,
   "license": "MIT",
-  "description": "Safe static HTML rendering and public knowledge projection for OpenEditor documents.",
+  "description": "Safe HTML, Markdown, presentation, DOCX, and PDF-print exports for OpenEditor documents.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,10 +12,15 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "LICENSE", "README.md"],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
-    "build": "npm run build -w @hello-ai-company/editor-core && tsc -p tsconfig.build.json",
-    "typecheck": "npm run build -w @hello-ai-company/editor-core && tsc -p tsconfig.json --noEmit",
+    "build": "npm run build -w @hello-ai-company/editor-core && npm run build -w @hello-ai-company/editor-canvas && tsc -p tsconfig.build.json",
+    "typecheck": "npm run build -w @hello-ai-company/editor-core && npm run build -w @hello-ai-company/editor-canvas && tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run build",
     "test": "vitest run"
   },
   "repository": {
@@ -25,7 +29,13 @@
     "directory": "packages/publish"
   },
   "dependencies": {
-    "@hello-ai-company/editor-core": "^0.1.1"
+    "@hello-ai-company/editor-canvas": "^0.1.0",
+    "@hello-ai-company/editor-core": "^0.1.1",
+    "docx": "^9.7.2"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
   },
   "devDependencies": {
     "typescript": "^5.9.2",

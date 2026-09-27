@@ -24,11 +24,13 @@ import {
   createDatabaseRelationInlineContentSpec,
   createDatabaseViewBlockSpec,
   createPageCardBlockSpec,
+  createPageTransclusionBlockSpec,
   createPageMentionInlineContentSpec,
   createWorkspaceContentCommands,
   type ChildPageRuntime,
   type DatabaseViewRuntime,
   type PageCardRuntime,
+  type PageTransclusionRuntime,
   type PageMentionRuntime,
   type PageMentionSpecOptions
 } from "../workspace/index.js";
@@ -51,6 +53,7 @@ type WorkspaceInline = {
 
 type WorkspaceBlocks = {
   pageCard: ReturnType<typeof createPageCardBlockSpec>;
+  pageTransclusion: ReturnType<typeof createPageTransclusionBlockSpec>;
   childPage: ReturnType<typeof createChildPageBlockSpec>;
   databaseView: ReturnType<typeof createDatabaseViewBlockSpec>;
 };
@@ -95,7 +98,7 @@ export type OpenEditorPowerPresetOptions<
   includeBlockActions?: boolean;
   includeBlockReference?: IncludeRef;
   /**
-   * When false, pageMention / pageCard / childPage / databaseView /
+   * When false, pageMention / pageCard / pageTransclusion / childPage / databaseView /
    * databaseRelation are omitted from both schema and command registry
    * (schema ↔ commands must agree).
    */
@@ -105,6 +108,7 @@ export type OpenEditorPowerPresetOptions<
   pageMention?: PageMentionSpecOptions;
   pageMentionRuntime?: PageMentionRuntime;
   pageCardRuntime?: PageCardRuntime;
+  pageTransclusionRuntime?: PageTransclusionRuntime;
   childPageRuntime?: ChildPageRuntime;
   databaseViewRuntime?: DatabaseViewRuntime;
   editor?: PowerEditorOptions;
@@ -118,6 +122,7 @@ export type OpenEditorPowerPreset<Schema = unknown> = {
   blockReferenceRuntime: BlockReferenceRuntime;
   pageMentionRuntime: PageMentionRuntime;
   pageCardRuntime: PageCardRuntime;
+  pageTransclusionRuntime: PageTransclusionRuntime;
   childPageRuntime: ChildPageRuntime;
   databaseViewRuntime: DatabaseViewRuntime;
   editorOptions: (
@@ -194,6 +199,7 @@ export function createOpenEditorPowerPreset<
 
   // Each preset captures its own runtime objects by closure — never module-global.
   const pageCardRuntime: PageCardRuntime = options?.pageCardRuntime ?? {};
+  const pageTransclusionRuntime: PageTransclusionRuntime = options?.pageTransclusionRuntime ?? {};
   const childPageRuntime: ChildPageRuntime = options?.childPageRuntime ?? {};
   const databaseViewRuntime: DatabaseViewRuntime =
     options?.databaseViewRuntime ?? {};
@@ -225,6 +231,7 @@ export function createOpenEditorPowerPreset<
     includeWorkspace
       ? {
           pageCard: createPageCardBlockSpec(pageCardRuntime),
+          pageTransclusion: createPageTransclusionBlockSpec(pageTransclusionRuntime),
           childPage: createChildPageBlockSpec(childPageRuntime),
           databaseView: createDatabaseViewBlockSpec(databaseViewRuntime)
         }
@@ -276,6 +283,7 @@ export function createOpenEditorPowerPreset<
     blockReferenceRuntime,
     pageMentionRuntime,
     pageCardRuntime,
+    pageTransclusionRuntime,
     childPageRuntime,
     databaseViewRuntime,
     editorOptions(overrides?: PowerEditorOptions) {

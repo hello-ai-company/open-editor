@@ -123,6 +123,8 @@ describe("OpenEditor public site rendering", () => {
     expect(html).toContain("<article class=\"oe-site__article\">");
     expect(html).toContain("<blockquote>A quote</blockquote>");
     expect(html).toContain("<ul><li>First</li><li>Second</li></ul>");
+    expect(html).toContain('class="oe-site__callout oe-site__callout--warning"');
+    expect(html).toContain('class="oe-site__callout-title"');
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;&lt;iframe");
     expect(html).toContain("@media(prefers-color-scheme:dark)");
     expect(html).not.toMatch(/<script\b/i);

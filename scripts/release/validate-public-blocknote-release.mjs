@@ -1,7 +1,7 @@
 /**
- * Release guards for @hello-ai-company/editor-blocknote (first public 0.1.0).
+ * Release guards for @hello-ai-company/editor-blocknote R2 candidate 0.1.1.
  *
- * Unlike editor-core, this package is not yet on npmjs. Registry eligibility:
+ * The 0.1.0 release is already on npmjs. Candidate registry eligibility:
  * - Successful `npm view` that returns explicit npm E404 → eligible for first publish
  * - Successful versions array that already contains the candidate → STOP
  * - Any other npm view failure (including lone "404 Not Found") → STOP (fail-closed)

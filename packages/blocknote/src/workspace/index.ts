@@ -4,6 +4,7 @@ export {
   DATABASE_VIEW_TYPE,
   DATABASE_VIEW_TYPES,
   PAGE_CARD_TYPE,
+  PAGE_TRANSCLUSION_TYPE,
   PAGE_MENTION_TYPE,
   isDatabaseViewType,
   type DatabaseViewType
@@ -26,6 +27,18 @@ export {
   type PageCardDisplay,
   type PageCardRuntime
 } from "./pageCard.js";
+
+export {
+  createPageTransclusionBlockSpec,
+  loadPageTransclusion,
+  MAX_PAGE_TRANSCLUSION_DEPTH,
+  MAX_PAGE_TRANSCLUSION_CHARACTERS,
+  MAX_PAGE_TRANSCLUSION_BLOCKS,
+  type PageTransclusionContent,
+  type PageTransclusionRuntime,
+  type PageTransclusionSource,
+  type ProjectedBlock
+} from "./pageTransclusion.js";
 
 export {
   createChildPageBlockSpec,

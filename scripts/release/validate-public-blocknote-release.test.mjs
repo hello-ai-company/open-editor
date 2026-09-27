@@ -18,7 +18,7 @@ import {
 
 const basePkg = {
   name: "@hello-ai-company/editor-blocknote",
-  version: "0.1.0",
+  version: "0.1.1",
   license: "MIT",
   publishConfig: {
     registry: "https://registry.npmjs.org",
@@ -43,8 +43,8 @@ const basePkg = {
 
 const baseEnv = {
   pkg: basePkg,
-  inputVersion: "0.1.0",
-  confirmation: expectedConfirmation("0.1.0"),
+  inputVersion: "0.1.1",
+  confirmation: expectedConfirmation("0.1.1"),
   githubRef: "refs/heads/main",
   githubRepository: "hello-ai-company/open-editor",
   // Default: core@0.1.1 already published (required publish order).
@@ -69,10 +69,10 @@ function failingExec(stderr, status = 1) {
 }
 
 describe("validate-public-blocknote-release", () => {
-  it("accepts identity for first publish", () => {
+  it("accepts identity for the R2 update candidate", () => {
     const id = validateIdentityAndInputs(baseEnv);
     assert.equal(id.name, basePkg.name);
-    assert.equal(id.version, "0.1.0");
+    assert.equal(id.version, "0.1.1");
   });
 
   it("rejects private:true", () => {
@@ -373,7 +373,7 @@ describe("validate-public-blocknote-release", () => {
   it("verifyReleaseArtifact accepts matching digest + tarball", () => {
     const dir = mkdtempSync(join(tmpdir(), "bn-artifact-"));
     try {
-      const filename = tarballFilenameFor("0.1.0");
+      const filename = tarballFilenameFor("0.1.1");
       const payload = Buffer.from("fake-blocknote-tarball");
       const tarballPath = join(dir, filename);
       writeFileSync(tarballPath, payload);
@@ -382,7 +382,7 @@ describe("validate-public-blocknote-release", () => {
         join(dir, "digest.json"),
         JSON.stringify({
           name: "@hello-ai-company/editor-blocknote",
-          version: "0.1.0",
+          version: "0.1.1",
           filename,
           sha256,
           size: payload.length
@@ -390,7 +390,7 @@ describe("validate-public-blocknote-release", () => {
       );
       const { digest, tarballPath: verified } = verifyReleaseArtifact({
         artifactDir: dir,
-        expectedVersion: "0.1.0"
+        expectedVersion: "0.1.1"
       });
       assert.equal(digest.sha256, sha256);
       assert.equal(verified, tarballPath);
@@ -402,13 +402,13 @@ describe("validate-public-blocknote-release", () => {
   it("verifyReleaseArtifact rejects SHA-256 mismatch", () => {
     const dir = mkdtempSync(join(tmpdir(), "bn-artifact-bad-"));
     try {
-      const filename = tarballFilenameFor("0.1.0");
+      const filename = tarballFilenameFor("0.1.1");
       writeFileSync(join(dir, filename), "payload-a");
       writeFileSync(
         join(dir, "digest.json"),
         JSON.stringify({
           name: "@hello-ai-company/editor-blocknote",
-          version: "0.1.0",
+          version: "0.1.1",
           filename,
           sha256: "0".repeat(64),
           size: Buffer.byteLength("payload-a")
@@ -418,7 +418,7 @@ describe("validate-public-blocknote-release", () => {
         () =>
           verifyReleaseArtifact({
             artifactDir: dir,
-            expectedVersion: "0.1.0"
+            expectedVersion: "0.1.1"
           }),
         /SHA-256 mismatch/
       );
