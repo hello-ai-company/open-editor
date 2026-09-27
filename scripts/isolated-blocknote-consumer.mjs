@@ -31,7 +31,7 @@ import {
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const CORE_VERSION = CORE_CANDIDATE_VERSION;
-const BN_VERSION = "0.1.0";
+const BN_VERSION = "0.1.1";
 const CORE_FLOOR = CORE_DEP_RANGE;
 const CORE_TGZ_NAME = `hello-ai-company-editor-core-${CORE_VERSION}.tgz`;
 const BN_TGZ_NAME = `hello-ai-company-editor-blocknote-${BN_VERSION}.tgz`;
