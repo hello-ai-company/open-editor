@@ -28,6 +28,8 @@ Core 0.1.1 is a required live dependency. Publish also requires exact Canvas 0.1
 
 Each OIDC workflow independently checks the full reviewed SHA, package name/version, exact confirmation, public npmjs registry, immutable version absence, dependency availability, lifecycle-script settings, tarball inventory and digest, and post-publish registry identity/integrity. The prepare job has no OIDC token; only the minimal publish job receives `id-token: write`. Do not bypass those workflow checks.
 
+npm publication may become registry-visible asynchronously. The post-publish verifier permits a bounded multi-minute propagation window. If npm reports a successful publish but the verifier fails, query npm's registry and investigate before any rerun because the immutable version may already exist. Never blindly rerun a failed publish workflow; first query npm registry.
+
 ## BlockNote 0.1.1 — OIDC update
 
 Because `@hello-ai-company/editor-blocknote@0.1.0` already exists, configure the package's npm Trusted Publisher before dispatch:
@@ -87,7 +89,7 @@ As of this correction review, the `public-npmjs` Environment permits self-review
 
 ## Current registry snapshot
 
-Read-only checks on 2026-09-28 found Core 0.1.1 and BlockNote 0.1.0 live. BlockNote 0.1.1, AI 0.1.0, Canvas 0.1.0, and Publish 0.1.0 were absent. This is a dated snapshot; repeat the registry checks immediately before any owner-authorized release. No package was published by this correction.
+Read-only checks on 2026-09-28 found Core 0.1.1 and BlockNote 0.1.0 live; BlockNote 0.1.1 was subsequently published and independently confirmed live. AI 0.1.0, Canvas 0.1.0, and Publish 0.1.0 remain unpublished in that snapshot. Repeat registry checks immediately before any owner-authorized release.
 
 ## Personal-AI dependency
 
