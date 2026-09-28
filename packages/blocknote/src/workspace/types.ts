@@ -1,5 +1,6 @@
 export const PAGE_MENTION_TYPE = "pageMention" as const;
 export const PAGE_CARD_TYPE = "pageCard" as const;
+export const PAGE_TRANSCLUSION_TYPE = "pageTransclusion" as const;
 export const CHILD_PAGE_TYPE = "childPage" as const;
 export const DATABASE_VIEW_TYPE = "databaseView" as const;
 /** Structured reference to a host database row — never embeds row data. */

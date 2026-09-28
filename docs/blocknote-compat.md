@@ -8,7 +8,7 @@ Harness: `node scripts/blocknote-compat-matrix.mjs` (no `--force` / `--legacy-pe
 
 **Supported peer range: `@blocknote/core` + `@blocknote/react` `^0.54.2`.**
 
-Do **not** widen to include Personal AI’s `^0.52.1` line.
+Do **not** widen to include BlockNote `^0.52.1`.
 
 ## Matrix summary
 
@@ -27,12 +27,7 @@ Do **not** widen to include Personal AI’s `^0.52.1` line.
 
 ## Personal AI implication
 
-Personal AI today pins BlockNote `^0.52.1`. To consume `@hello-ai-company/editor-blocknote` it must:
-
-1. Upgrade host `@blocknote/*` to `^0.54.2`, **or**
-2. Stay on 0.52.1 and integrate **only** `@hello-ai-company/editor-core` (document model / providers) until the upgrade lands.
-
-Shadow / guarded editor mount (Phase 4F-5D/5E) therefore depends on a BlockNote upgrade on the Personal AI side — not on widening OpenEditor peers.
+Personal AI consumes `@hello-ai-company/editor-blocknote@0.1.0` with BlockNote `^0.54.2`. The compatibility matrix still rejects `0.52.1`; do not widen the package peer range.
 
 ## editor-core
 

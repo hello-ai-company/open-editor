@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore, type ReactElement } from "react";
 import type { PageRuntimeStore } from "./pageRuntimeStore.js";
 import type { PageCardResolveResult } from "./pageCard.js";
 import { CHILD_PAGE_TYPE } from "./types.js";
+import { isSafeMediaUrl } from "../security/safeUrl.js";
 
 export type ChildPageRuntime = {
   store?: PageRuntimeStore;
@@ -62,7 +63,7 @@ export function resolveChildPageDisplay(
         runtime.untitledLabel ||
         "Untitled",
       preview: snap.preview,
-      imageUrl: snap.imageUrl,
+      imageUrl: isSafeMediaUrl(snap.imageUrl) ? snap.imageUrl.trim() : undefined,
       imageAlt: snap.imageAlt,
       missing: false,
       loading: false,
@@ -95,7 +96,7 @@ export function resolveChildPageDisplay(
       runtime.untitledLabel ||
       "Untitled",
     preview: resolved.preview,
-    imageUrl: resolved.imageUrl,
+    imageUrl: isSafeMediaUrl(resolved.imageUrl) ? resolved.imageUrl.trim() : undefined,
     imageAlt: resolved.imageAlt,
     missing: false,
     loading: false,

@@ -1,4 +1,4 @@
-import type { BlockSpecs, StyleSpecs } from "@blocknote/core";
+import { BlockNoteSchema, type BlockSpecs, type StyleSpecs } from "@blocknote/core";
 import {
   createPowerEditorOptions,
   createPowerSchemaWithExtras,
@@ -24,11 +24,13 @@ import {
   createDatabaseRelationInlineContentSpec,
   createDatabaseViewBlockSpec,
   createPageCardBlockSpec,
+  createPageTransclusionBlockSpec,
   createPageMentionInlineContentSpec,
   createWorkspaceContentCommands,
   type ChildPageRuntime,
   type DatabaseViewRuntime,
   type PageCardRuntime,
+  type PageTransclusionRuntime,
   type PageMentionRuntime,
   type PageMentionSpecOptions
 } from "../workspace/index.js";
@@ -51,6 +53,7 @@ type WorkspaceInline = {
 
 type WorkspaceBlocks = {
   pageCard: ReturnType<typeof createPageCardBlockSpec>;
+  pageTransclusion: ReturnType<typeof createPageTransclusionBlockSpec>;
   childPage: ReturnType<typeof createChildPageBlockSpec>;
   databaseView: ReturnType<typeof createDatabaseViewBlockSpec>;
 };
@@ -95,7 +98,7 @@ export type OpenEditorPowerPresetOptions<
   includeBlockActions?: boolean;
   includeBlockReference?: IncludeRef;
   /**
-   * When false, pageMention / pageCard / childPage / databaseView /
+   * When false, pageMention / pageCard / pageTransclusion / childPage / databaseView /
    * databaseRelation are omitted from both schema and command registry
    * (schema ↔ commands must agree).
    */
@@ -105,6 +108,7 @@ export type OpenEditorPowerPresetOptions<
   pageMention?: PageMentionSpecOptions;
   pageMentionRuntime?: PageMentionRuntime;
   pageCardRuntime?: PageCardRuntime;
+  pageTransclusionRuntime?: PageTransclusionRuntime;
   childPageRuntime?: ChildPageRuntime;
   databaseViewRuntime?: DatabaseViewRuntime;
   editor?: PowerEditorOptions;
@@ -118,6 +122,7 @@ export type OpenEditorPowerPreset<Schema = unknown> = {
   blockReferenceRuntime: BlockReferenceRuntime;
   pageMentionRuntime: PageMentionRuntime;
   pageCardRuntime: PageCardRuntime;
+  pageTransclusionRuntime: PageTransclusionRuntime;
   childPageRuntime: ChildPageRuntime;
   databaseViewRuntime: DatabaseViewRuntime;
   editorOptions: (
@@ -158,6 +163,12 @@ export function createOpenEditorPowerPreset<
   const composed = composePowerFeatures(
     (options?.features ?? []) as Features
   );
+  assertNoSchemaKeyCollisions(
+    composed,
+    options?.schema,
+    options?.includeWorkspaceContent !== false,
+    options?.includeBlockReference !== false
+  );
   const includeRef = (options?.includeBlockReference ?? true) as IncludeRef;
   const includeWorkspace = (options?.includeWorkspaceContent ??
     true) as IncludeWorkspace;
@@ -188,6 +199,7 @@ export function createOpenEditorPowerPreset<
 
   // Each preset captures its own runtime objects by closure — never module-global.
   const pageCardRuntime: PageCardRuntime = options?.pageCardRuntime ?? {};
+  const pageTransclusionRuntime: PageTransclusionRuntime = options?.pageTransclusionRuntime ?? {};
   const childPageRuntime: ChildPageRuntime = options?.childPageRuntime ?? {};
   const databaseViewRuntime: DatabaseViewRuntime =
     options?.databaseViewRuntime ?? {};
@@ -219,6 +231,7 @@ export function createOpenEditorPowerPreset<
     includeWorkspace
       ? {
           pageCard: createPageCardBlockSpec(pageCardRuntime),
+          pageTransclusion: createPageTransclusionBlockSpec(pageTransclusionRuntime),
           childPage: createChildPageBlockSpec(childPageRuntime),
           databaseView: createDatabaseViewBlockSpec(databaseViewRuntime)
         }
@@ -270,6 +283,7 @@ export function createOpenEditorPowerPreset<
     blockReferenceRuntime,
     pageMentionRuntime,
     pageCardRuntime,
+    pageTransclusionRuntime,
     childPageRuntime,
     databaseViewRuntime,
     editorOptions(overrides?: PowerEditorOptions) {
@@ -286,4 +300,46 @@ export function createOpenEditorPowerPreset<
       });
     }
   } satisfies OpenEditorPowerPreset<typeof schema>;
+}
+
+function assertNoSchemaKeyCollisions(
+  features: ReturnType<typeof composePowerFeatures>,
+  host: OpenEditorPowerPresetOptions["schema"],
+  includeWorkspace: boolean,
+  includeBlockReference: boolean
+): void {
+  const base = BlockNoteSchema.create();
+  const check = (
+    kind: "block" | "inline content" | "style",
+    groups: readonly [string, readonly string[]][]
+  ) => {
+    const seen = new Map<string, string>();
+    for (const [owner, keys] of groups) {
+      for (const key of keys) {
+        const previous = seen.get(key);
+        if (previous) {
+          throw new Error(`OpenEditor ${kind} schema conflict for "${key}" between ${previous} and ${owner}`);
+        }
+        seen.set(key, owner);
+      }
+    }
+  };
+  const powerBlocks = ["oeUnknownBlock", "callout", "status"];
+  const workspaceBlocks = includeWorkspace ? ["pageCard", "childPage", "databaseView"] : [];
+  const workspaceInline = includeWorkspace ? ["pageMention", "databaseRelation"] : [];
+  check("block", [
+    ["BlockNote/OpenEditor built-ins", [...Object.keys(base.blockSchema), ...powerBlocks, ...workspaceBlocks]],
+    ["features", Object.keys(features.blockSpecs)],
+    ["host schema", Object.keys(host?.blockSpecs ?? {})]
+  ]);
+  check("inline content", [
+    ["BlockNote/OpenEditor built-ins", [...Object.keys(base.inlineContentSchema), ...(includeBlockReference ? ["blockReference"] : []), ...workspaceInline]],
+    ["features", Object.keys(features.inlineContentSpecs)],
+    ["host schema", Object.keys(host?.inlineContentSpecs ?? {})]
+  ]);
+  check("style", [
+    ["BlockNote built-ins", Object.keys(base.styleSchema)],
+    ["features", Object.keys(features.styleSpecs)],
+    ["host schema", Object.keys(host?.styleSpecs ?? {})]
+  ]);
 }

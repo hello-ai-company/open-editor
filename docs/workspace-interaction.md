@@ -82,6 +82,12 @@ Selection inserts structured `{ type: "pageMention", props: { pageId } }` — no
 
 Slash/palette commands still use `WorkspacePagePicker` via `requestPagePick`.
 
+## Read-only page transclusion
+
+`page.insert-transclusion` stores only `{ pageId }`. The block asks the host's `PageTransclusionRuntime.loadCurrentProjection` for the current authorized `EditorDocument` and renders escaped text; it never edits the source or copies the projection into the owning document. Refresh performs a new host read.
+
+Hosts must authorize every projection read at their trusted boundary, return only the content the current user may read, and use `null` for both missing and inaccessible pages. OpenEditor does not cache this content. Expansion stops at three linked pages, caps one projection at sixteen loaded pages and 20,000 displayed characters, detects repeated IDs on the current expansion path, and renders placeholders for missing, unavailable, cyclic, or over-limit content. Text-only rendering is intentional; source block styling and media are not copied.
+
 ## Child-page creation lifecycle
 
 ```

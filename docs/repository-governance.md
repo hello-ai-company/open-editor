@@ -1,6 +1,6 @@
 # Repository governance (recommendations only)
 
-**INTERNAL EVIDENCE** — not a public product document. Historical governance notes plus Phase 4E CI updates and post-D1-EXEC facts. Current identity: `@hello-ai-company/editor-core@0.1.0` MIT **published** on npmjs; repo **PUBLIC**.
+**INTERNAL EVIDENCE** — not a public product document. Historical governance notes plus Phase 4E CI updates and post-D1-EXEC facts. Current registry status: `editor-core@0.1.0`/`0.1.1` and `editor-blocknote@0.1.0` are published on npm; the new AI, canvas, and publishing packages are not published.
 
 Phase 4E applied public-facing files and canonical CI. D1-EXEC later made the repo PUBLIC, enabled PVR, activated Protect main, and published `0.1.0`. Environment `public-npmjs` is **CONFIGURED** (MACHINE-VERIFIED). Trusted Publisher is **OWNER-CONFIRMED CONFIGURED**. Production-ready OIDC publish for `0.1.1+` is a separate reviewed PR/gate.
 
@@ -19,7 +19,7 @@ Public-facing files live at repo root (`README.md`, `CONTRIBUTING.md`, `SECURITY
 | Issue / PR templates | Missing (optional later) |
 | Dependabot | Missing |
 | Publish | Private GH Packages workflow **retired**. Active non-publishing `public-release-preflight.yml` (dry-run only). Active OIDC core: `.github/workflows/publish-public-core.yml` (prepare → immutable tarball+digest → Environment `public-npmjs` → OIDC publish; for core `0.1.1+`). Active OIDC blocknote candidate: `.github/workflows/publish-public-blocknote.yml` (same security model; first public `editor-blocknote@0.1.0`; do not dispatch until ChatGPT review). Historical template: [release-templates/publish-public-core.yml](./release-templates/publish-public-core.yml). Environment `public-npmjs` **CONFIGURED + PROTECTED** (MACHINE-VERIFIED) |
-| npm | `@hello-ai-company/editor-core@0.1.0` + `@0.1.1` **PUBLISHED** (do not republish). `@hello-ai-company/editor-blocknote` **not published** |
+| npm | `@hello-ai-company/editor-core@0.1.0` + `@0.1.1` and `@hello-ai-company/editor-blocknote@0.1.0` **PUBLISHED**. New AI/canvas/publishing packages are in-repo only. |
 | Trusted Publisher (core) | **OWNER-CONFIRMED CONFIGURED** for `publish-public-core.yml` |
 | Trusted Publisher (blocknote) | **OWNER CONFIGURATION REQUIRED** for `publish-public-blocknote.yml` (do not claim configured) |
 | Security contact | PVR **ENABLED** |

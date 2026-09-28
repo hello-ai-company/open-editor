@@ -11,7 +11,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present && npm run test:type-exports && npm run test:release-guards",
     "test:type-exports": "node --test scripts/lib/type-exports.test.mjs",
-    "test:release-guards": "node --test scripts/release/validate-public-core-release.test.mjs scripts/release/validate-public-blocknote-release.test.mjs scripts/release/publish-public-blocknote-workflow.test.mjs scripts/lib/core-registry-probe.test.mjs",
+    "test:release-guards": "node --test scripts/release/validate-public-core-release.test.mjs scripts/release/validate-public-blocknote-release.test.mjs scripts/release/publish-public-blocknote-workflow.test.mjs scripts/release/validate-public-package-release.test.mjs scripts/release/publish-public-package-workflows.test.mjs scripts/release/verify-public-package-published.test.mjs scripts/release/expected-tarball-files.test.mjs scripts/lib/core-registry-probe.test.mjs scripts/lib/tarball.test.mjs",
     "build": "npm run build --workspaces --if-present",
     "pack:core": "npm pack -w @hello-ai-company/editor-core",
     "pack:blocknote": "npm pack -w @hello-ai-company/editor-blocknote",
@@ -23,10 +23,11 @@
     "security:scan": "node scripts/security-scan.mjs",
     "verify:api": "node scripts/api-contract.mjs",
     "verify:blocknote": "npm run typecheck -w @hello-ai-company/editor-blocknote && npm run test -w @hello-ai-company/editor-blocknote && npm run build -w @hello-ai-company/editor-blocknote && npm run bench:smoke -w @hello-ai-company/editor-blocknote && npm run verify:isolated-blocknote",
+    "verify:public-packages": "node scripts/isolated-public-consumers.mjs",
     "verify:example-blocknote": "npm run build -w @hello-ai-company/editor-blocknote && npm install --prefix examples/blocknote-power && npm run build --prefix examples/blocknote-power",
     "publish:dry-run": "npm publish -w @hello-ai-company/editor-core --access public --registry=https://registry.npmjs.org --dry-run",
     "publish:dry-run:blocknote": "npm publish -w @hello-ai-company/editor-blocknote --access public --registry=https://registry.npmjs.org --dry-run",
-    "verify": "npm run typecheck && npm test && npm run build && npm run pack:core && npm run inspect:tarball && npm run pack:blocknote && npm run inspect:blocknote-tarball && npm run verify:isolated && npm run security:scan && npm run verify:api && npm run verify:blocknote"
+    "verify": "npm run typecheck && npm test && npm run build && npm run pack:core && npm run inspect:tarball && npm run pack:blocknote && npm run inspect:blocknote-tarball && npm run verify:isolated && npm run security:scan && npm run verify:api && npm run verify:blocknote && npm run verify:public-packages"
   },
   "engines": {
     "node": ">=20"

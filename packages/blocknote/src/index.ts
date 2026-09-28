@@ -124,6 +124,10 @@ export {
   type OpenEditorPowerFeature
 } from "./features/types.js";
 export {
+  createOpenEditorPowerFeatureRegistry,
+  type OpenEditorPowerFeatureRegistry
+} from "./features/registry.js";
+export {
   createOpenEditorPowerPreset,
   type OpenEditorPowerPreset,
   type OpenEditorPowerPresetOptions,
@@ -138,6 +142,7 @@ export {
   DATABASE_VIEW_TYPE,
   DATABASE_VIEW_TYPES,
   PAGE_CARD_TYPE,
+  PAGE_TRANSCLUSION_TYPE,
   PAGE_MENTION_TYPE,
   applyPageMentionLabel,
   createChildPageBlockSpec,
@@ -146,6 +151,7 @@ export {
   createDatabaseViewBlockSpec,
   createDatabaseViewRuntimeFromStore,
   createPageCardBlockSpec,
+  createPageTransclusionBlockSpec,
   createPageMentionDom,
   createPageMentionInlineContentSpec,
   createPageMentionResolverFromLinks,
@@ -165,6 +171,13 @@ export {
   normalizeDatabasePropertyType,
   resolveChildPageDisplay,
   resolvePageCardDisplay,
+  loadPageTransclusion,
+  MAX_PAGE_TRANSCLUSION_DEPTH,
+  MAX_PAGE_TRANSCLUSION_CHARACTERS,
+  type PageTransclusionContent,
+  type PageTransclusionRuntime,
+  type PageTransclusionSource,
+  type ProjectedBlock,
   snapshotToResolveResult,
   buildCreateRowPayload,
   buildTypedCreateRowPayload,

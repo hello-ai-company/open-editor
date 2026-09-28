@@ -1,12 +1,12 @@
 /**
- * Release guards for @hello-ai-company/editor-blocknote (first public 0.1.0).
+ * Release guards for @hello-ai-company/editor-blocknote 0.1.1 candidate.
  *
- * Unlike editor-core, this package is not yet on npmjs. Registry eligibility:
+ * The 0.1.0 release is already on npmjs. Candidate registry eligibility:
  * - Successful `npm view` that returns explicit npm E404 → eligible for first publish
  * - Successful versions array that already contains the candidate → STOP
  * - Any other npm view failure (including lone "404 Not Found") → STOP (fail-closed)
  *
- * Publish order (fail-closed): @hello-ai-company/editor-core meeting ^0.1.1
+ * Publish order (fail-closed): exact @hello-ai-company/editor-core@0.1.1
  * must already exist on npmjs before blocknote publish is allowed.
  *
  * Never infer eligibility from lone "404 Not Found" / "No match found" text.
@@ -15,16 +15,15 @@
 
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync, statSync } from "node:fs";
+import { lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import {
-  assertCoreFloorPublishedForBlocknote,
-  fetchCorePublishedVersions
-} from "../lib/core-registry-probe.mjs";
+import { isDeepStrictEqual } from "node:util";
+import { fetchCorePublishedVersions } from "../lib/core-registry-probe.mjs";
 
 export const EXPECTED_REPO = "hello-ai-company/open-editor";
 export const EXPECTED_NAME = "@hello-ai-company/editor-blocknote";
+export const EXPECTED_VERSION = "0.1.1";
 export const EXPECTED_LICENSE = "MIT";
 export const EXPECTED_REGISTRY = "https://registry.npmjs.org";
 export const EXPECTED_ACCESS = "public";
@@ -32,6 +31,7 @@ export const EXPECTED_REF = "refs/heads/main";
 export const EXPECTED_CORE_DEP = "@hello-ai-company/editor-core";
 /** Floor for blocknote → core; published 0.1.0 lacks APIs required by this package. */
 export const EXPECTED_CORE_DEP_RANGE = "^0.1.1";
+export const EXPECTED_CORE_VERSION = "0.1.1";
 export const EXPECTED_PEER_BLOCKNOTE = "^0.54.2";
 /** Required BlockNote peer packages locked to EXPECTED_PEER_BLOCKNOTE. */
 export const EXPECTED_PEER_BLOCKNOTE_PACKAGES = Object.freeze([
@@ -47,6 +47,31 @@ export const EXPECTED_OPTIONAL_PEER_BLOCKNOTE_PACKAGES = Object.freeze([
   "@blocknote/diagram-block",
   "@blocknote/code-block"
 ]);
+const EXPECTED_REPOSITORY = Object.freeze({
+  type: "git",
+  url: "git+https://github.com/hello-ai-company/open-editor.git",
+  directory: "packages/blocknote"
+});
+const EXPECTED_EXPORTS = Object.freeze({
+  ".": Object.freeze({ types: "./dist/index.d.ts", import: "./dist/index.js" }),
+  "./react": Object.freeze({ types: "./dist/react/index.d.ts", import: "./dist/react/index.js" }),
+  "./math": Object.freeze({ types: "./dist/math/index.d.ts", import: "./dist/math/index.js" }),
+  "./diagram": Object.freeze({ types: "./dist/diagram/index.d.ts", import: "./dist/diagram/index.js" }),
+  "./code": Object.freeze({ types: "./dist/code/index.d.ts", import: "./dist/code/index.js" }),
+  "./power.css": "./dist/power.css"
+});
+const EXPECTED_FILES = Object.freeze(["dist", "LICENSE", "README.md"]);
+const EXPECTED_PEER_META = Object.freeze({
+  "@blocknote/math-block": Object.freeze({ optional: true }),
+  "@blocknote/diagram-block": Object.freeze({ optional: true }),
+  "@blocknote/code-block": Object.freeze({ optional: true })
+});
+const EXPECTED_SCRIPTS = Object.freeze({
+  build: "tsc -p tsconfig.build.json && node ../../scripts/copy-blocknote-css.mjs",
+  typecheck: "npm run build -w @hello-ai-company/editor-core && tsc -p tsconfig.json --noEmit",
+  test: "vitest run",
+  "bench:smoke": "vitest run --config vitest.bench.config.ts"
+});
 
 export class ReleaseGuardError extends Error {
   constructor(message) {
@@ -72,7 +97,10 @@ export function validateIdentityAndInputs({
   inputVersion,
   confirmation,
   githubRef,
-  githubRepository
+  githubRepository,
+  reviewedCommit,
+  githubSha,
+  checkoutSha
 }) {
   if (githubRepository !== EXPECTED_REPO) {
     stop(`STOP — unexpected repository: ${githubRepository}`);
@@ -82,23 +110,38 @@ export function validateIdentityAndInputs({
       `STOP — main ref lock failed; github.ref must be ${EXPECTED_REF}, got ${githubRef}`
     );
   }
+  if (!/^[0-9a-f]{40}$/i.test(String(reviewedCommit ?? ""))
+    || String(reviewedCommit).toLowerCase() !== String(githubSha ?? "").toLowerCase()
+    || String(reviewedCommit).toLowerCase() !== String(checkoutSha ?? "").toLowerCase()) {
+    stop("STOP — reviewed_commit must equal the full workflow and checkout commit SHA");
+  }
   if (!pkg || typeof pkg !== "object") {
     stop("STOP — package.json missing or invalid");
   }
   if (pkg.name !== EXPECTED_NAME) {
     stop(`STOP — unexpected package name: ${pkg.name}`);
   }
+  if (pkg.version !== EXPECTED_VERSION) stop(`STOP — package version must be ${EXPECTED_VERSION}`);
   if (pkg.license !== EXPECTED_LICENSE) {
     stop(`STOP — unexpected license: ${pkg.license}`);
   }
   if (pkg.private === true) {
     stop("STOP — packages/blocknote must not set private:true");
   }
-  if (pkg.publishConfig?.registry !== EXPECTED_REGISTRY) {
-    stop("STOP — unexpected publishConfig.registry");
+  if (!isDeepStrictEqual(pkg.publishConfig, { registry: EXPECTED_REGISTRY, access: EXPECTED_ACCESS })) {
+    stop("STOP — publishConfig must be exactly public access on npmjs");
   }
-  if (pkg.publishConfig?.access !== EXPECTED_ACCESS) {
-    stop("STOP — unexpected publishConfig.access");
+  for (const [field, expected] of Object.entries({
+    repository: EXPECTED_REPOSITORY,
+    exports: EXPECTED_EXPORTS,
+    files: EXPECTED_FILES,
+    engines: { node: ">=20" },
+    scripts: EXPECTED_SCRIPTS,
+    type: "module",
+    main: "./dist/index.js",
+    types: "./dist/index.d.ts"
+  })) {
+    if (!isDeepStrictEqual(pkg[field], expected)) stop(`STOP — package ${field} metadata mismatch`);
   }
   for (const peerName of EXPECTED_PEER_BLOCKNOTE_PACKAGES) {
     if (pkg.peerDependencies?.[peerName] !== EXPECTED_PEER_BLOCKNOTE) {
@@ -107,12 +150,27 @@ export function validateIdentityAndInputs({
       );
     }
   }
+  for (const peerName of ["react", "react-dom"]) {
+    if (pkg.peerDependencies?.[peerName] !== "^18.0.0 || ^19.0.0") {
+      stop(`STOP — peer ${peerName} must be ^18.0.0 || ^19.0.0`);
+    }
+  }
   for (const peerName of EXPECTED_OPTIONAL_PEER_BLOCKNOTE_PACKAGES) {
     if (pkg.peerDependenciesMeta?.[peerName]?.optional !== true) {
       stop(
         `STOP — peerDependenciesMeta.${peerName}.optional must be true`
       );
     }
+  }
+  const expectedPeers = [...EXPECTED_PEER_BLOCKNOTE_PACKAGES, "react", "react-dom"].sort();
+  if (!isDeepStrictEqual(Object.keys(pkg.peerDependencies ?? {}).sort(), expectedPeers)) {
+    stop("STOP — peerDependencies contains missing or unexpected peers");
+  }
+  if (!isDeepStrictEqual(pkg.peerDependenciesMeta, EXPECTED_PEER_META)) {
+    stop("STOP — peerDependenciesMeta contains missing or unexpected entries");
+  }
+  if (Object.keys(pkg.optionalDependencies ?? {}).length || (pkg.bundledDependencies ?? pkg.bundleDependencies ?? []).length) {
+    stop("STOP — optional or bundled dependencies are not allowed");
   }
   const depKeys = Object.keys(pkg.dependencies ?? {});
   if (depKeys.length !== 1 || depKeys[0] !== EXPECTED_CORE_DEP) {
@@ -138,7 +196,7 @@ export function validateIdentityAndInputs({
     );
   }
 
-  return { name: pkg.name, version: pkg.version };
+  return { name: pkg.name, version: pkg.version, sourceCommit: String(reviewedCommit).toLowerCase() };
 }
 
 /**
@@ -240,10 +298,10 @@ export function assertCoreDependencyPublished(options = {}) {
         execFileSync: options.execFileSync
       });
     }
-    return assertCoreFloorPublishedForBlocknote(
-      versions,
-      EXPECTED_CORE_DEP_RANGE
-    );
+    if (!versions.includes(EXPECTED_CORE_VERSION)) {
+      stop(`STOP — required ${EXPECTED_CORE_DEP}@${EXPECTED_CORE_VERSION} is not published on npmjs`);
+    }
+    return [EXPECTED_CORE_VERSION];
   } catch (err) {
     // Surface probe failures as ReleaseGuardError for this module's API.
     if (err?.name === "CoreRegistryProbeError") {
@@ -283,12 +341,13 @@ export function sha256File(filePath) {
 export function packReleaseArtifact({
   root = process.cwd(),
   version,
+  sourceCommit,
   execFileSync: exec = execFileSync
 } = {}) {
   const outDir = join(root, "release-artifact-blocknote");
   mkdirSync(outDir, { recursive: true });
 
-  exec("npm", ["pack", "-w", EXPECTED_NAME, "--pack-destination", outDir], {
+  exec("npm", ["pack", "-w", EXPECTED_NAME, "--pack-destination", outDir, "--ignore-scripts"], {
     cwd: root,
     stdio: "inherit"
   });
@@ -297,17 +356,22 @@ export function packReleaseArtifact({
   const tarballPath = join(outDir, expectedName);
   let st;
   try {
-    st = statSync(tarballPath);
+    st = lstatSync(tarballPath);
   } catch {
     stop(`STOP — expected packed tarball missing: ${expectedName}`);
   }
-  if (!st.isFile() || st.size <= 0) {
+  if (!st.isFile() || st.isSymbolicLink() || st.size <= 0) {
     stop(`STOP — packed tarball invalid: ${expectedName}`);
   }
+  exec("node", ["scripts/inspect-blocknote-tarball.mjs", tarballPath], {
+    cwd: root,
+    stdio: "inherit"
+  });
 
   const digest = {
     name: EXPECTED_NAME,
     version,
+    sourceCommit,
     filename: expectedName,
     sha256: sha256File(tarballPath),
     size: st.size
@@ -326,7 +390,10 @@ export function packReleaseArtifact({
 export function verifyReleaseArtifact({
   artifactDir,
   expectedVersion,
-  expectedName = EXPECTED_NAME
+  expectedName = EXPECTED_NAME,
+  sourceCommit,
+  root = process.cwd(),
+  execFileSync: exec = execFileSync
 }) {
   const digestPath = join(artifactDir, "digest.json");
   let digest;
@@ -343,16 +410,21 @@ export function verifyReleaseArtifact({
       `STOP — digest version mismatch: ${digest.version} != ${expectedVersion}`
     );
   }
+  if (digest.sourceCommit !== sourceCommit) stop("STOP — release artifact commit mismatch");
   if (digest.filename !== tarballFilenameFor(expectedVersion)) {
     stop(`STOP — digest filename unexpected: ${digest.filename}`);
   }
   const tarballPath = join(artifactDir, digest.filename);
+  if (!isDeepStrictEqual(readdirSync(artifactDir).sort(), ["digest.json", digest.filename].sort())) {
+    stop("STOP — release artifact contains unexpected files");
+  }
   let st;
   try {
-    st = statSync(tarballPath);
+    st = lstatSync(tarballPath);
   } catch {
     stop(`STOP — artifact tarball missing: ${digest.filename}`);
   }
+  if (!st.isFile() || st.isSymbolicLink()) stop("STOP — release tarball is not a regular file");
   if (st.size !== digest.size) {
     stop(`STOP — artifact size mismatch: ${st.size} != ${digest.size}`);
   }
@@ -360,6 +432,10 @@ export function verifyReleaseArtifact({
   if (actual !== digest.sha256) {
     stop(`STOP — artifact SHA-256 mismatch: ${actual} != ${digest.sha256}`);
   }
+  exec("node", ["scripts/inspect-blocknote-tarball.mjs", tarballPath], {
+    cwd: root,
+    stdio: "inherit"
+  });
   return { digest, tarballPath: resolve(tarballPath) };
 }
 
@@ -377,8 +453,11 @@ function main(argv) {
     pkg,
     inputVersion: process.env.INPUT_VERSION,
     confirmation: process.env.INPUT_CONFIRMATION,
-    githubRef: process.env.GITHUB_REF,
-    githubRepository: process.env.GITHUB_REPOSITORY
+    githubRef: process.env.RELEASE_WORKFLOW_REF,
+    githubRepository: process.env.RELEASE_WORKFLOW_REPOSITORY,
+    reviewedCommit: process.env.INPUT_REVIEWED_COMMIT,
+    githubSha: process.env.RELEASE_WORKFLOW_SHA,
+    checkoutSha: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim()
   };
 
   if (cmd === "validate") {
@@ -393,18 +472,19 @@ function main(argv) {
   }
 
   if (cmd === "pack") {
-    validatePublicBlocknoteRelease(env);
-    const digest = packReleaseArtifact({ root, version: pkg.version });
+    const result = validatePublicBlocknoteRelease(env);
+    const digest = packReleaseArtifact({ root, version: pkg.version, sourceCommit: result.sourceCommit });
     console.log("Packed blocknote release artifact:", digest);
     return;
   }
 
   if (cmd === "verify-artifact") {
     const artifactDir = argv[3] ?? join(root, "release-artifact-blocknote");
-    validatePublicBlocknoteRelease(env);
+    const result = validatePublicBlocknoteRelease(env);
     const { digest, tarballPath } = verifyReleaseArtifact({
       artifactDir,
-      expectedVersion: pkg.version
+      expectedVersion: pkg.version,
+      sourceCommit: result.sourceCommit
     });
     console.log("Artifact verified:", digest.filename, digest.sha256);
     console.log(`TARBALL_PATH=${tarballPath}`);

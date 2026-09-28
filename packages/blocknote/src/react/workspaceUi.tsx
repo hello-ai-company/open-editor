@@ -22,6 +22,7 @@ import {
 } from "react";
 import type { RelationIndex } from "../workspace/relationIndex.js";
 import { createPageSearchEngine } from "../workspace/pageSearch.js";
+import { useDialogFocusTrap } from "./useDialogFocusTrap.js";
 
 export type WorkspacePagePickerMode = "mention" | "card" | "generic";
 
@@ -87,6 +88,8 @@ export function WorkspacePagePicker(
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocusTrap(props.open, dialogRef);
 
   const debounceMs = props.debounceMs ?? 150;
   const excludeKey = (props.excludeIds ?? []).join("\0");
@@ -181,8 +184,6 @@ export function WorkspacePagePicker(
       resultsLength: results.length
     });
     if (next.action === "cancel") {
-      event.preventDefault();
-      pick(null);
       return;
     }
     if (next.action === "select") {
@@ -209,10 +210,18 @@ export function WorkspacePagePicker(
 
   return (
     <div
+      ref={dialogRef}
       className="oe-page-picker"
       role="dialog"
       aria-modal="true"
       aria-label={heading}
+      tabIndex={-1}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          pick(null);
+        }
+      }}
     >
       <p className="oe-page-picker__heading">{heading}</p>
       <input
@@ -253,6 +262,7 @@ export function WorkspacePagePicker(
               type="button"
               id={`${listboxId}-${page.id}`}
               role="option"
+              tabIndex={-1}
               aria-selected={index === highlight}
               className={
                 index === highlight

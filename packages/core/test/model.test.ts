@@ -74,4 +74,24 @@ describe("editorCore model", () => {
     expect(() => createEditorDocument(blocks, 1.5)).toThrow(/positive integer 1/);
     expect(() => createEditorDocument(blocks, 2)).toThrow(/positive integer 1/);
   });
+
+  it("rejects cyclic and over-limit document values without recursive walking", () => {
+    const cyclicBlock: { id: string; type: string; children?: unknown[] } = { id: "cycle", type: "group" };
+    cyclicBlock.children = [cyclicBlock];
+    const cyclicJson: Record<string, unknown> = {};
+    cyclicJson.self = cyclicJson;
+    expect(isEditorBlock(cyclicBlock)).toBe(false);
+    expect(isJsonValue(cyclicJson)).toBe(false);
+    expect(() => createEditorDocument([cyclicBlock as unknown as { id: string; type: string }])).toThrow(/supported size limits/);
+
+    let deepBlock: { id: string; type: string; children?: unknown[] } = { id: "leaf", type: "paragraph" };
+    for (let depth = 0; depth < 140; depth += 1) {
+      deepBlock = { id: `parent-${depth}`, type: "group", children: [deepBlock] };
+    }
+    expect(isEditorBlock(deepBlock)).toBe(false);
+
+    const tooManyBlocks = Array.from({ length: 20_001 }, (_, index) => ({ id: `b-${index}`, type: "paragraph" }));
+    expect(isEditorDocument({ schemaVersion: 1, blocks: tooManyBlocks })).toBe(false);
+    expect(() => createEditorDocument(tooManyBlocks)).toThrow(/supported size limits/);
+  });
 });

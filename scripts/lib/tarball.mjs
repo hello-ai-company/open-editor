@@ -12,11 +12,9 @@ export const TARBALL_PREFIX = "hello-ai-company-editor-core-";
 
 export function findTarball(root) {
   const directories = [root, join(root, "packages/core")];
+  const expected = `${TARBALL_PREFIX}${AUTHORIZED_VERSION}.tgz`;
   for (const directory of directories) {
-    const match = readdirSync(directory).find(
-      (name) => name.startsWith(TARBALL_PREFIX) && name.endsWith(".tgz")
-    );
-    if (match) return join(directory, match);
+    if (readdirSync(directory).includes(expected)) return join(directory, expected);
   }
   return undefined;
 }
@@ -24,6 +22,13 @@ export function findTarball(root) {
 export function listTarballFiles(tarball) {
   const listing = execFileSync("tar", ["-tzf", tarball], { encoding: "utf8" });
   return listing.split("\n").filter(Boolean);
+}
+
+export function assertNoTarballLinks(tarball) {
+  const listing = execFileSync("tar", ["-tvzf", tarball], { encoding: "utf8" });
+  if (listing.split("\n").some((line) => /^[lh]/.test(line))) {
+    throw new Error("Tarball must not contain symbolic links or hard links");
+  }
 }
 
 export function readTarballFile(tarball, entry) {

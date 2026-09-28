@@ -19,6 +19,7 @@ import {
 } from "../dictionary.js";
 import { useOpenEditorBlockChanges } from "./powerUi.js";
 import type { BatchPolicy } from "../bridge/batchedSink.js";
+import { useDialogFocusTrap } from "./useDialogFocusTrap.js";
 
 type EditorLike = {
   onChange: (
@@ -171,7 +172,8 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const previousFocus = useRef<HTMLElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  useDialogFocusTrap(props.open, dialogRef);
   const [revision, setRevision] = useState(() => props.index.getRevision());
 
   useEffect(() => {
@@ -186,13 +188,11 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
 
   useEffect(() => {
     if (!props.open) return;
-    previousFocus.current = document.activeElement as HTMLElement | null;
     setQuery("");
     setActiveIndex(0);
     const id = requestAnimationFrame(() => inputRef.current?.focus());
     return () => {
       cancelAnimationFrame(id);
-      previousFocus.current?.focus?.();
     };
   }, [props.open]);
 
@@ -211,10 +211,7 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
   if (!props.open) return null;
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      props.onOpenChange(false);
-    } else if (event.key === "ArrowDown") {
+    if (event.key === "ArrowDown") {
       event.preventDefault();
       setActiveIndex((i) => Math.min(i + 1, Math.max(results.length - 1, 0)));
     } else if (event.key === "ArrowUp") {
@@ -236,10 +233,18 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
       }}
     >
       <div
+        ref={dialogRef}
         className="oe-quick-nav"
         role="dialog"
         aria-modal="true"
         aria-label={dict.quickNavTitle}
+        tabIndex={-1}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            props.onOpenChange(false);
+          }
+        }}
       >
         <input
           ref={inputRef}
@@ -247,7 +252,9 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
           role="combobox"
           aria-expanded="true"
           aria-controls="oe-quick-nav-list"
+          aria-activedescendant={results[activeIndex] ? `oe-quick-nav-option-${activeIndex}` : undefined}
           aria-autocomplete="list"
+          aria-label={dict.quickNavPlaceholder}
           placeholder={dict.quickNavPlaceholder}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -265,6 +272,8 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
                   type="button"
                   className="oe-quick-nav__item"
                   role="option"
+                  tabIndex={-1}
+                  id={`oe-quick-nav-option-${index}`}
                   aria-selected={index === activeIndex}
                   data-active={index === activeIndex ? "true" : "false"}
                   onMouseEnter={() => setActiveIndex(index)}

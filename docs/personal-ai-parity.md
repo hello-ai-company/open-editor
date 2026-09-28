@@ -81,9 +81,9 @@ OpenEditor remains host-neutral (no Supabase / auth / product stores).
 
 | Line | OpenEditor `editor-blocknote` | Personal AI host today |
 | --- | --- | --- |
-| `@blocknote/*` | **`^0.54.2`** (matrix-verified) | `^0.52.1` (incompatible peers) |
+| `@blocknote/*` | **`^0.54.2`** (matrix-verified) | **`^0.54.2`** (current consumer line) |
 
-Upgrade Personal AI BlockNote before mounting `editor-blocknote`. Details: [blocknote-compat.md](./blocknote-compat.md), [personal-ai-integration-contract.md](./personal-ai-integration-contract.md).
+The peer ranges match. Details: [blocknote-compat.md](./blocknote-compat.md), [personal-ai-integration-contract.md](./personal-ai-integration-contract.md).
 
 ## Deliberately deferred
 

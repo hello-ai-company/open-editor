@@ -1,25 +1,26 @@
-# Production-safe manual OIDC publish path for @hello-ai-company/editor-blocknote@0.1.0
-# (first public publish of the BlockNote power layer).
+# Production-safe manual OIDC publish path for @hello-ai-company/editor-blocknote@0.1.1
+# (R3.1 hardening of the reviewed BlockNote candidate release).
 #
 # HARD RULES:
 # - workflow_dispatch ONLY (never push / pull_request / release / schedule)
 # - Never use NPM_TOKEN / NODE_AUTH_TOKEN / long-lived npm credentials
 # - Do not rename this workflow file (Trusted Publisher binds to filename)
 # - Do not auto-cancel an in-progress release
-# - Publish only after editor-core meeting ^0.1.1 is already on npmjs
+# - Publish only after exact editor-core@0.1.1 is already on npmjs
 # - Do not claim npm Trusted Publisher is configured from this file alone
 #
-# Architecture (mirrors publish-public-core.yml):
+# Architecture:
 #   prepare (contents:read; no Environment; no id-token)
-#     → npm ci + verify + release guards + isolated-blocknote + pack once
+#     → reviewed SHA + npm ci --ignore-scripts + verify + release guards + isolated-blocknote + pack once
 #     → SHA-256 digest → upload artifact
 #   → human Environment approval (public-npmjs)
 #   → publish (contents:read + id-token:write)
-#     → download artifact + SHA-256 match
+#     → download artifact + exact-file/SHA-256 match
 #     → identity/ref/input/registry TOCTOU recheck (NO npm ci / verify / build)
 #     → npm publish <tarball.tgz> (tokenless OIDC; --ignore-scripts)
+#     → bounded post-publish name/version/license/tarball/integrity proof
 #
-# OWNER ACTION before first dispatch:
+# OWNER ACTION before dispatch:
 #   Configure npm Trusted Publisher for this package →
 #     GitHub Actions / hello-ai-company/open-editor /
 #     publish-public-blocknote.yml / Environment public-npmjs
@@ -35,8 +36,12 @@ on:
         description: "Exact package version to publish (must match packages/blocknote/package.json)"
         required: true
         type: string
+      reviewed_commit:
+        description: "Exact reviewed main commit SHA (must equal the workflow dispatch SHA)"
+        required: true
+        type: string
       confirmation:
-        description: 'Type exactly: PUBLISH @hello-ai-company/editor-blocknote@0.1.0'
+        description: 'Type exactly: PUBLISH @hello-ai-company/editor-blocknote@0.1.1'
         required: true
         type: string
 
@@ -50,26 +55,40 @@ permissions:
 jobs:
   prepare:
     name: prepare
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && inputs.reviewed_commit == github.sha
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      npm_config_ignore_scripts: true
     permissions:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ inputs.reviewed_commit }}
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
       - name: Guarantee Trusted Publishing–capable npm
-        run: npm install -g npm@^11
+        run: |
+          curl --fail --silent --show-error --location https://registry.npmjs.org/npm/-/npm-11.20.0.tgz --output /tmp/npm-11.20.0.tgz
+          node -e '
+            const { createHash } = require("node:crypto");
+            const { readFileSync } = require("node:fs");
+            const actual = createHash("sha512").update(readFileSync(process.argv[1])).digest("base64");
+            if (actual !== "dF3EDFwbYN+N5RUip+ZYDe0NeURK5BgqKOcvT1iNtUYhTMTl0FwWhBuXrS7KtXyduqyTMS5aaQaregnHDAxNgw==") {
+              console.error("STOP — npm tarball integrity mismatch");
+              process.exit(1);
+            }
+          ' /tmp/npm-11.20.0.tgz
+          npm install --global --ignore-scripts --no-audit --no-fund /tmp/npm-11.20.0.tgz
 
       - name: Show toolchain
         run: |
@@ -90,8 +109,8 @@ jobs:
             console.log("npm version OK for Trusted Publishing:", v);
           '
 
-      - name: Install
-        run: npm ci
+      - name: Install without lifecycle scripts
+        run: npm ci --ignore-scripts
 
       - name: Verify
         run: npm run verify
@@ -106,12 +125,14 @@ jobs:
         env:
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_CONFIRMATION: ${{ inputs.confirmation }}
-          GITHUB_REF: ${{ github.ref }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+          INPUT_REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          RELEASE_WORKFLOW_REF: ${{ github.ref }}
+          RELEASE_WORKFLOW_REPOSITORY: ${{ github.repository }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
         run: node scripts/release/validate-public-blocknote-release.mjs pack
 
       - name: Upload release artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: public-blocknote-release-artifact
           path: |
@@ -123,7 +144,7 @@ jobs:
   publish:
     name: publish
     needs: prepare
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && inputs.reviewed_commit == github.sha
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: public-npmjs
@@ -134,19 +155,31 @@ jobs:
       # Checkout is for package.json + shared guard script only.
       # Do NOT npm ci / verify / build under id-token.
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ inputs.reviewed_commit }}
           persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
       - name: Guarantee Trusted Publishing–capable npm
-        run: npm install -g npm@^11
+        run: |
+          curl --fail --silent --show-error --location https://registry.npmjs.org/npm/-/npm-11.20.0.tgz --output /tmp/npm-11.20.0.tgz
+          node -e '
+            const { createHash } = require("node:crypto");
+            const { readFileSync } = require("node:fs");
+            const actual = createHash("sha512").update(readFileSync(process.argv[1])).digest("base64");
+            if (actual !== "dF3EDFwbYN+N5RUip+ZYDe0NeURK5BgqKOcvT1iNtUYhTMTl0FwWhBuXrS7KtXyduqyTMS5aaQaregnHDAxNgw==") {
+              console.error("STOP — npm tarball integrity mismatch");
+              process.exit(1);
+            }
+          ' /tmp/npm-11.20.0.tgz
+          npm install --global --ignore-scripts --no-audit --no-fund /tmp/npm-11.20.0.tgz
 
       - name: Show toolchain
         run: |
@@ -168,7 +201,7 @@ jobs:
           '
 
       - name: Download release artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
         with:
           name: public-blocknote-release-artifact
           path: release-artifact-blocknote
@@ -178,8 +211,10 @@ jobs:
         env:
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_CONFIRMATION: ${{ inputs.confirmation }}
-          GITHUB_REF: ${{ github.ref }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+          INPUT_REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          RELEASE_WORKFLOW_REF: ${{ github.ref }}
+          RELEASE_WORKFLOW_REPOSITORY: ${{ github.repository }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
         run: |
           node scripts/release/validate-public-blocknote-release.mjs verify-artifact release-artifact-blocknote | tee /tmp/artifact-verify.log
           TARBALL_PATH=$(grep '^TARBALL_PATH=' /tmp/artifact-verify.log | cut -d= -f2-)
@@ -202,3 +237,6 @@ jobs:
           --access public
           --registry=https://registry.npmjs.org
           --ignore-scripts
+
+      - name: Verify npm registry identity and tarball integrity
+        run: node scripts/release/verify-public-package-published.mjs blocknote "${{ steps.artifact.outputs.tarball }}"

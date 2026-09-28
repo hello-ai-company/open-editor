@@ -1,6 +1,6 @@
 # OpenEditor
 
-OpenEditor is a **portable document layer** for host-neutral editors — not another rich-text editor.
+OpenEditor is a reusable editor platform built around a small portable document core. BlockNote is one editing adapter; host-specific AI, agent, canvas, and publishing behavior stays outside the core.
 
 The public package is [`@hello-ai-company/editor-core`](./packages/core). It is a small TypeScript core: a versioned document model, JSON serialization, and optional provider **types**. Host UI, React, BlockNote, and other adapters are out of scope for this package.
 
@@ -11,10 +11,10 @@ The public package is [`@hello-ai-company/editor-core`](./packages/core). It is 
 | Repository | **PUBLIC** — https://github.com/hello-ai-company/open-editor |
 | Package (published) | `@hello-ai-company/editor-core@0.1.0` + `@0.1.1` on npmjs (**immutable**) |
 | Package (workspace) | `@hello-ai-company/editor-core@0.1.1` (matches published line) |
-| Adapter | `@hello-ai-company/editor-blocknote@0.1.0` — in-repo, **unpublished** (depends on core `^0.1.1`) |
+| Adapter | `@hello-ai-company/editor-blocknote@0.1.0` — published on npm (depends on core `^0.1.1`) |
 | License | MIT — Copyright (c) 2026 Yuki Shibata |
 | Registry | https://registry.npmjs.org (`publishConfig.access`: public) |
-| Publish sequence | core `0.1.1` LIVE → land `publish-public-blocknote.yml` + ChatGPT review + owner TP config → publish blocknote → Personal AI integration |
+| Release candidates | `editor-blocknote@0.1.1`, `editor-ai@0.1.0`, `editor-canvas@0.1.0`, and `editor-publish@0.1.0` are not published |
 | Runtime dependencies (core) | none |
 
 ## Install
@@ -57,19 +57,27 @@ Public shape: **Small Core + Adapters + Docs + Examples**.
 | Layer | What it is | line |
 | --- | --- | --- |
 | **Small Core** | `@hello-ai-company/editor-core` — document model, JSON, optional provider types | `0.1.1` published (`0.1.0` immutable) |
-| **Adapters** | `@hello-ai-company/editor-blocknote` — BlockNote power layer (lossless adapter, commands, incremental bridge) | **in-repo, unpublished** `0.1.0` (depends on core `^0.1.1`) |
+| **Editing adapter** | `@hello-ai-company/editor-blocknote` — BlockNote power layer, commands, and incremental bridge | `0.1.0` published; `0.1.1` candidate; BlockNote peers `^0.54.2` |
+| **AI contracts** | `@hello-ai-company/editor-ai` — agent events, validated suggestions, provenance results, and explicit learning decisions | `0.1.0` candidate; unpublished |
+| **Canvas** | `@hello-ai-company/editor-canvas` — responsive layout specs, React inspector, Magic Layout grouping, and slide references | `0.1.0` candidate; unpublished |
+| **Publishing** | `@hello-ai-company/editor-publish` — safe static HTML, Markdown, DOCX, print HTML, and public knowledge projection | `0.1.0` candidate; unpublished |
 | **Docs** | Architecture, public API, contributing, security | this repository |
 | **Examples** | `examples/blocknote-power` | demo / Quick Start |
 
-See [docs/architecture.md](./docs/architecture.md), [docs/public-api.md](./docs/public-api.md), [docs/providers.md](./docs/providers.md), [docs/versioning.md](./docs/versioning.md), and [docs/security-boundary.md](./docs/security-boundary.md).
+See [docs/architecture.md](./docs/architecture.md), [docs/AI_INTEGRATION.md](./docs/AI_INTEGRATION.md), [docs/AGENT_INTEGRATION.md](./docs/AGENT_INTEGRATION.md), [docs/CANVAS.md](./docs/CANVAS.md), [docs/PUBLISHING.md](./docs/PUBLISHING.md), [docs/PLUGIN_API.md](./docs/PLUGIN_API.md), [docs/SECURITY.md](./docs/SECURITY.md), and [docs/MIGRATION.md](./docs/MIGRATION.md).
 
 ## Roadmap
 
-v0.1.0 is an early 0.x line:
+The published 0.x core and BlockNote lines remain stable at their current versions. The R3 source adds opt-in AI, Canvas, and publishing packages:
 
 - **Stable:** document model, JSON serialization, `schemaVersion` `1`, runtime helpers, document types
 - **Experimental:** optional provider type seams
-- **Later:** adapter packages, more docs and examples
+- **Experimental and unpublished:** AI proposal contracts, the React Canvas editor, presentation primitives, and safe export/site renderers
+- **Host-owned:** agent policy and run state, suggestion review and persistence, Canvas save/load, mode navigation, hosting, and public-page Q&A
+
+## R3 integration state
+
+The companion Personal-AI draft PR mounts Document, Canvas, Present, and Site in the note workspace; it adds server-backed Canvas revisions, structured agent proposals with human review, accepted-change provenance, history, comments, and explicit preference learning. Browser checks verified Canvas persistence, historical column save/reload, PDF output, and Site widths. The full product loop remains partial: the configured agent provider is a stub, multi-slide/fullscreen and Ask This Page browser flows remain unverified, and the candidate packages are unpublished. Personal-AI hosted registry installation therefore remains blocked. No package publication or PR merge is part of this change.
 
 This repository will not turn the core into a hosted editor, Cloud/Enterprise SKU, or paid plugin. Using, modifying, forking, self-hosting, and commercially using the core is free under MIT. Optional sponsorship may be offered later to help sustain maintenance; it will not unlock exclusive core functionality. There is no `.github/FUNDING.yml` yet.
 
@@ -80,7 +88,7 @@ npm ci
 npm run verify
 ```
 
-`verify` runs typecheck, tests, build, pack, tarball inspect, isolated consumer, security scan, and API contract.
+`verify` runs typecheck, tests, build, pack, exact tarball inspection, isolated consumers against the live core release, security scan, API contract, and release guards. The separate `public-release-preflight` checks Node 20 and 22 and performs publish dry runs; it never publishes. See [the release runbook](./docs/public-release-runbook.md) for the post-merge owner sequence.
 
 Dry-run publish only (does **not** publish):
 
