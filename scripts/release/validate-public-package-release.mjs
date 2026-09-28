@@ -94,8 +94,11 @@ function satisfiesCaret(version, range) {
   return actualMinor === 0 && actualPatch === patch;
 }
 
-export function validateRegistryState(config, { exec = execFileSync } = {}) {
+export function validateRegistryState(config, { exec = execFileSync, requirePackageAbsent = false } = {}) {
   const candidateVersions = fetchRegistryVersions(config.name, exec);
+  if (requirePackageAbsent && candidateVersions !== null) {
+    stop(`STOP — first publication requires a new npm package, but ${config.name} already exists`);
+  }
   if (candidateVersions?.includes(config.version)) {
     stop(`STOP — immutable version already exists: ${config.name}@${config.version}`);
   }
