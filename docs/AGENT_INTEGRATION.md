@@ -2,10 +2,10 @@
 
 `@hello-ai-company/editor-ai` defines provider-neutral `AgentAdapter`, descriptor, request, run, status, and event contracts. An adapter starts and cancels host-owned runs; it does not own credentials, tools, policy, persistence, or UI. Suggestion event payloads remain `unknown` until validated.
 
-Every request context item is marked `trust: "untrusted"`. Adapters must keep task instructions separate from document/context text. Agent execution does not imply permission to mutate a document or run an external action.
+Every request context item is marked `trust: "untrusted"`. Adapters keep task instructions separate from a bounded document snapshot and revision. Agent execution does not imply permission to mutate a document or run an external action.
 
 ## Personal AI
 
-Personal AI implements its bridge outside OpenEditor. It routes explicit instructions through `instructSecretary` and the Work Intake path. It does not create `AgentTask` directly or call execution APIs from the editor. The current Work Intake endpoint has no separate untrusted-context field, so the adapter rejects requests containing document context rather than embedding note text in the instruction.
+Personal AI implements its bridge outside OpenEditor. It routes explicit instructions and a separate, bounded `EditorAgentContext` through Secretary Work Intake. The server checks the document identity, persisted block-ID set, and server-owned privacy classification; it does not claim the browser snapshot's contents match stored block contents. The proposal carries the declared base revision and snapshot, and acceptance compares the full base document before using the host's server revision/CAS save path. The server does not accept browser-generated edit operations. The governed flow is Secretary → specialist → Reviewer → proposal builder → `SuggestionGroup`. The browser validates the group, base revision, provenance, and operation bounds, then waits for human review before calling `acceptSuggestionGroup` and the host's canonical note save path. No editor tool execution is exposed.
 
-This is an intake bridge: it reports the created task/goal identifier, but does not yet stream specialist results into OpenEditor suggestions, expose cancellation from the editor, or implement the full researcher → reviewer → policy → accepted-suggestion golden flow.
+The adapter can resume and cancel the governed task and emits a proposal only after Personal AI's review path completes. The local browser run reported the configured provider as `stub`; it did not produce or fabricate an agent task or proposal. The exact agent-review golden flow and prompt-injection browser E2E remain unverified.

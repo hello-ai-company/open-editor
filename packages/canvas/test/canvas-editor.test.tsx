@@ -92,6 +92,22 @@ function changeInput(container: HTMLElement, label: string, value: string): void
 }
 
 describe("CanvasEditor", () => {
+  it("keeps inspector labels unique when multiple editors are mounted", () => {
+    const view = mount(createElement("div", null,
+      createElement(CanvasEditor, { document: documentModel, spec: spec() }),
+      createElement(CanvasEditor, { document: documentModel, spec: spec() })
+    ));
+    try {
+      const sections = Array.from(view.container.querySelectorAll(".oe-canvas__section[aria-labelledby]"));
+      const ids = sections.map((section) => section.getAttribute("aria-labelledby"));
+      expect(sections.every((section) => section.querySelector("h3")?.id === section.getAttribute("aria-labelledby"))).toBe(true);
+      expect(ids.every(Boolean)).toBe(true);
+      expect(new Set(ids).size).toBe(ids.length);
+    } finally {
+      view.unmount();
+    }
+  });
+
   it("renders nested layout and semantic child content as escaped text with unsafe media blocked", () => {
     const view = mount(createElement(CanvasEditor, { document: documentModel, spec: spec() }));
     try {
@@ -101,6 +117,24 @@ describe("CanvasEditor", () => {
       expect(view.container.querySelector("img")).toBeNull();
       expect(view.container.textContent).toContain("Image unavailable");
       expect(view.container.querySelectorAll("[data-canvas-node-id]").length).toBe(6);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it("renders host text stored in canonical EditorBlock props", () => {
+    const hostDocument = createEditorDocument([
+      { id: "host-paragraph", type: "paragraph", props: { text: "Research brief from Personal AI" } }
+    ]);
+    const hostSpec: CanvasLayoutSpec = {
+      ...spec(),
+      root: { id: "host-root", type: "stack", direction: "vertical", children: [
+        { id: "host-paragraph-ref", type: "text", blockId: "host-paragraph" }
+      ] }
+    };
+    const view = mount(createElement(CanvasEditor, { document: hostDocument, spec: hostSpec }));
+    try {
+      expect(view.container.textContent).toContain("Research brief from Personal AI");
     } finally {
       view.unmount();
     }

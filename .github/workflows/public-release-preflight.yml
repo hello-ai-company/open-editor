@@ -131,6 +131,15 @@ jobs:
             }
           '
 
+      - name: Validate new public package identities and dependency DAG
+        run: node scripts/release/validate-public-package-manifests.mjs
+
+      - name: npm publish dry-run only (new packages)
+        run: |
+          npm publish -w @hello-ai-company/editor-ai --access public --registry=https://registry.npmjs.org --dry-run --ignore-scripts
+          npm publish -w @hello-ai-company/editor-canvas --access public --registry=https://registry.npmjs.org --dry-run --ignore-scripts
+          npm publish -w @hello-ai-company/editor-publish --access public --registry=https://registry.npmjs.org --dry-run --ignore-scripts
+
       - name: npm publish dry-run only
         run: |
           npm publish -w @hello-ai-company/editor-core --access public --registry=https://registry.npmjs.org --dry-run

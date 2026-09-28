@@ -3,9 +3,12 @@ import { createEditorDocument, type EditorBlock } from "@hello-ai-company/editor
 import {
   CANVAS_THEME_PRESETS,
   DEFAULT_CANVAS_BREAKPOINTS,
+  createMagicLayoutSpec,
+  flattenCanvasNodes,
   type CanvasLayoutSpec
 } from "@hello-ai-company/editor-canvas";
 import {
+  getPublicKnowledgeContext,
   renderOpenEditorMarkdown,
   renderOpenEditorPresentation,
   renderOpenEditorSite
@@ -16,6 +19,58 @@ function document(blocks: EditorBlock[]) {
 }
 
 describe("Canvas site projection", () => {
+  it("projects canonical Personal-AI props.text blocks into Site and Present", () => {
+    const doc = document([
+      { id: "title", type: "heading", props: { text: "R3 project" } },
+      { id: "brief", type: "paragraph", props: { text: "A canonical host document" } }
+    ]);
+    const spec = createMagicLayoutSpec(doc, "presentation");
+
+    expect(renderOpenEditorSite(doc, { canvasSpec: spec })).toContain("A canonical host document");
+    expect(renderOpenEditorPresentation(doc, { canvasSpec: spec })).toContain("A canonical host document");
+    expect(renderOpenEditorMarkdown(doc)).toContain("A canonical host document");
+  });
+
+  it("does not repeat the document title when Canvas renders it at a promoted heading level", () => {
+    const doc = document([
+      { id: "title", type: "heading", props: { text: "R3 project" } },
+      { id: "brief", type: "paragraph", props: { text: "A canonical host document" } }
+    ]);
+    const html = renderOpenEditorSite(doc, { canvasSpec: createMagicLayoutSpec(doc, "landing-page") });
+    expect(html).not.toContain('class="oe-site__title"');
+    expect(html).toMatch(/<h[2-6]>R3 project<\/h[2-6]>/);
+  });
+
+  it("keeps a separate site title when it differs from the Canvas heading", () => {
+    const doc = document([{ id: "title", type: "heading", props: { text: "Document title" } }]);
+    const html = renderOpenEditorSite(doc, {
+      title: "Site title",
+      canvasSpec: createMagicLayoutSpec(doc, "landing-page")
+    });
+
+    expect(html).toContain('<h1 class="oe-site__title">Site title</h1>');
+    expect(html).toMatch(/<h[2-6]>Document title<\/h[2-6]>/);
+  });
+
+  it("keeps Canvas-hidden public blocks out of page knowledge context", () => {
+    const doc = document([
+      { id: "visible", type: "paragraph", props: { text: "Visible page text" } },
+      { id: "hidden", type: "paragraph", props: { text: "Hidden page text" } }
+    ]);
+    const spec = createMagicLayoutSpec(doc, "landing-page");
+    const hiddenNode = flattenCanvasNodes(spec.root).find((node) => "blockId" in node && node.blockId === "hidden");
+    expect(hiddenNode).toBeTruthy();
+
+    const context = getPublicKnowledgeContext(doc, {
+      canvasSpec: spec,
+      canvasRenderState: { hiddenNodeIds: [hiddenNode!.id] }
+    });
+
+    expect(context.trust).toBe("untrusted");
+    expect(context.text).toContain("Visible page text");
+    expect(context.text).not.toContain("Hidden page text");
+  });
+
   it("preserves native columns as responsive transparent containers", () => {
     const html = renderOpenEditorSite(document([{
       id: "columns",

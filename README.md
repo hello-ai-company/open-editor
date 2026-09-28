@@ -58,9 +58,9 @@ Public shape: **Small Core + Adapters + Docs + Examples**.
 | --- | --- | --- |
 | **Small Core** | `@hello-ai-company/editor-core` — document model, JSON, optional provider types | `0.1.1` published (`0.1.0` immutable) |
 | **Editing adapter** | `@hello-ai-company/editor-blocknote` — BlockNote power layer, commands, and incremental bridge | `0.1.0` published; BlockNote peers `^0.54.2` |
-| **AI contracts** | `@hello-ai-company/editor-ai` — agent events, validated suggestions, provenance results, and explicit learning decisions | experimental, in-repo |
-| **Canvas model** | `@hello-ai-company/editor-canvas` — responsive layout specs, Magic Layout grouping, and derived slide references | experimental, in-repo |
-| **Publishing** | `@hello-ai-company/editor-publish` — safe static HTML and public knowledge projection | experimental, in-repo |
+| **AI contracts** | `@hello-ai-company/editor-ai` — agent events, validated suggestions, provenance results, and explicit learning decisions | `0.1.0` candidate; unpublished |
+| **Canvas** | `@hello-ai-company/editor-canvas` — responsive layout specs, React inspector, Magic Layout grouping, and slide references | `0.1.0` candidate; unpublished |
+| **Publishing** | `@hello-ai-company/editor-publish` — safe static HTML, Markdown, DOCX, print HTML, and public knowledge projection | `0.1.0` candidate; unpublished |
 | **Docs** | Architecture, public API, contributing, security | this repository |
 | **Examples** | `examples/blocknote-power` | demo / Quick Start |
 
@@ -68,11 +68,16 @@ See [docs/architecture.md](./docs/architecture.md), [docs/AI_INTEGRATION.md](./d
 
 ## Roadmap
 
-v0.1.0 is an early 0.x line:
+The published 0.x core and BlockNote lines remain stable at their current versions. The R3 source adds opt-in AI, Canvas, and publishing packages:
 
 - **Stable:** document model, JSON serialization, `schemaVersion` `1`, runtime helpers, document types
 - **Experimental:** optional provider type seams
-- **Experimental:** AI suggestion contracts, responsive canvas specs, and static public-page rendering; these packages do not include a full interactive canvas or host UI
+- **Experimental and unpublished:** AI proposal contracts, the React Canvas editor, presentation primitives, and safe export/site renderers
+- **Host-owned:** agent policy and run state, suggestion review and persistence, Canvas save/load, mode navigation, hosting, and public-page Q&A
+
+## R3 integration state
+
+The companion Personal-AI draft PR mounts Document, Canvas, Present, and Site in the note workspace; it adds server-backed Canvas revisions, structured agent proposals with human review, accepted-change provenance, history, comments, and explicit preference learning. These source changes remain under review. The new packages are not published, so Personal-AI cannot yet install them from the registry or complete its hosted CI/browser golden flow. No package publication or PR merge is part of this change.
 
 This repository will not turn the core into a hosted editor, Cloud/Enterprise SKU, or paid plugin. Using, modifying, forking, self-hosting, and commercially using the core is free under MIT. Optional sponsorship may be offered later to help sustain maintenance; it will not unlock exclusive core functionality. There is no `.github/FUNDING.yml` yet.
 

@@ -6,12 +6,16 @@ The renderer accepts a fixed semantic block allowlist, omits hidden/private/inte
 
 `getPublicKnowledgeContext` returns `trust: "untrusted"`; keep published text separate from trusted model instructions because public content can contain prompt injection.
 
-## R2 package release order
+## R3 package release state
 
-Do not publish as part of this PR. After review, use this order: verify `@hello-ai-company/editor-core@0.1.1` is on npm (confirmed); publish `@hello-ai-company/editor-blocknote@0.1.1`; publish `@hello-ai-company/editor-ai@0.1.0`; publish `@hello-ai-company/editor-canvas@0.1.0`; then publish `@hello-ai-company/editor-publish@0.1.0`. Each package has a public npm `publishConfig`; `editor-publish` depends on `editor-canvas`, so it must come last. The blocknote workflow remains manual, main-branch-only, and gated by the public-npmjs Environment.
+No package is published by this PR. The source has separate manual, main-only, exact-version and reviewed-SHA gated workflows for `editor-blocknote@0.1.1`, `editor-ai@0.1.0`, `editor-canvas@0.1.0`, and `editor-publish@0.1.0`. They require the `public-npmjs` Environment, exact confirmation, OIDC Trusted Publisher, public npm registry/access, MIT metadata, exact dependency checks, tarball inspection, lifecycle-script allowlists, and a registry absence recheck before publish. They do not accept PR refs or use an npm token. Actions are pinned to immutable commit SHAs; OIDC jobs install npm 11.20.0 from an integrity-pinned tarball. The shared preflight validates all candidate manifests, dependency order, tarball identity, and isolated consumers.
 
-After these releases, update Personal-AI to install the reviewed `editor-blocknote`, `editor-ai`, `editor-canvas`, and `editor-publish` versions, refresh its lockfile, and rerun the exact-package contract and host integration checks. The current Personal-AI integration remains on the previously published BlockNote package.
+The dependency order is `editor-blocknote@0.1.1`, `editor-ai@0.1.0`, `editor-canvas@0.1.0`, then `editor-publish@0.1.0`; the last package requires the exact Canvas version to be live first. `editor-core@0.1.1` is live. Registry checks on 2026-09-28 found the three new package targets and BlockNote 0.1.1 absent; BlockNote 0.1.0 remains live. No release workflow was dispatched and no publish authorization was given.
+
+Before any owner-authorized dispatch, verify that the GitHub `public-npmjs` Environment has the intended reviewers and npm Trusted Publisher is configured for the exact workflow filename/environment pair. Those account settings are not inspectable from this source diff.
+
+After the OpenEditor changes are reviewed and merged, publish through the guarded workflows in the order above. Then update Personal-AI's registry dependencies and lockfile, run the exact-package contract and host integration checks, and complete browser verification. Do not merge either draft PR as a shortcut for publication.
 
 ## Known projection limits
 
-HTML, Markdown, DOCX, and PDF print HTML share one internal allowlisted Export IR. `renderOpenEditorMarkdown(document)` is lossy: inline marks, arbitrary hyperlinks, and unknown blocks are omitted. `renderOpenEditorDocx(document)` creates a clean-room DOCX; `renderOpenEditorPdfPrintHtml(document)` returns deterministic A4 HTML for a host browser's Save as PDF flow, not PDF bytes. Review exports before publication. Navigation, hosting, visitor analytics, Ask This Page UI, CSP headers, and deployment remain host responsibilities.
+HTML, Markdown, DOCX, and PDF print HTML share one internal allowlisted Export IR. `renderOpenEditorMarkdown(document)` is lossy: inline marks, arbitrary hyperlinks, and unknown blocks are omitted. `renderOpenEditorDocx(document)` creates a clean-room DOCX; `renderOpenEditorPdfPrintHtml(document)` returns deterministic A4 HTML for a host browser's Save as PDF flow, not PDF bytes. Review exports before publication. Navigation, hosting, visitor analytics, CSP headers, and deployment remain host responsibilities; Ask This Page uses a separate server-owned public projection in Personal AI.

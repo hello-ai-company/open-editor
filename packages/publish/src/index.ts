@@ -135,7 +135,12 @@ export function renderOpenEditorSite(
   const articleClass = canvas ? "oe-site__article oe-site__article--canvas" : "oe-site__article";
   const articleStyle = canvas ? ` style="--oe-site-max-width:${canvas.maxWidth}px"` : "";
   const content = canvas?.html ?? renderNodes(nodes);
-  return `<!doctype html><html lang="${escapeHtml(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${metadata.join("")}<style>${SITE_CSS}${canvas?.css ?? ""}</style></head><body><main class="oe-site"><article class="${articleClass}"${articleStyle}><header class="oe-site__header"><h1 class="oe-site__title">${escapeHtml(title)}</h1></header><div class="oe-site__content">${content}</div></article></main></body></html>`;
+  const titleIsInCanvas = canvas?.html
+    ? [...canvas.html.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1\s*>/gi)]
+        .some((heading) => heading[2]?.replace(/<[^>]+>/g, "") === escapeHtml(title))
+    : false;
+  const titleHeader = titleIsInCanvas ? "" : `<header class="oe-site__header"><h1 class="oe-site__title">${escapeHtml(title)}</h1></header>`;
+  return `<!doctype html><html lang="${escapeHtml(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${metadata.join("")}<style>${SITE_CSS}${canvas?.css ?? ""}</style></head><body><main class="oe-site"><article class="${articleClass}"${articleStyle}>${titleHeader}<div class="oe-site__content">${content}</div></article></main></body></html>`;
 }
 
 /** Render a keyboard-accessible, static presentation player with no document-provided script. */
@@ -165,9 +170,28 @@ export function renderOpenEditorPresentation(
 /** Return only visible, allowlisted document text for a public-page Q&A adapter. */
 export function getPublicKnowledgeContext(
   document: EditorDocument,
-  options: Pick<OpenEditorSiteOptions, "title" | "description"> = {}
+  options: Pick<OpenEditorSiteOptions, "title" | "description" | "canvasSpec" | "canvasRenderState"> = {}
 ): PublicKnowledgeContext {
-  return knowledgeFromNodes(projectExportIR(document), options);
+  const nodes = projectExportIR(document);
+  if (!options.canvasSpec) return knowledgeFromNodes(nodes, options);
+  const issues = validateCanvasLayoutSpec(options.canvasSpec, document).filter(({ code }) => code !== "MISSING_BLOCK_REFERENCE");
+  if (issues.length > 0) throw new CanvasLayoutValidationError(issues);
+  const state = normalizeCanvasRenderState(options.canvasRenderState, options.canvasSpec);
+  const publicBlocks = new Map<string, ExportNode>();
+  const pending = [...nodes];
+  while (pending.length > 0) {
+    const block = pending.pop();
+    if (!block) continue;
+    if (block.id) publicBlocks.set(block.id, block);
+    pending.push(...block.children);
+  }
+  const references = collectCanvasBlockReferences(options.canvasSpec.root);
+  const visibleReferences = canvasKnowledgeReferences(options.canvasSpec.root, state.hiddenNodeIds);
+  const visibleNodes = visibleReferences.flatMap((blockId) => {
+    const block = publicBlocks.get(blockId);
+    return block ? [withoutNestedCanvasReferences(block, blockId, references)] : [];
+  });
+  return knowledgeFromNodes(visibleNodes, options);
 }
 
 /** Export visible, allowlisted document content as Markdown without emitting raw HTML or links. */
@@ -306,9 +330,10 @@ function projectList(blocks: readonly EditorBlock[], depth: number): ExportNode[
 function projectBlock(block: EditorBlock, depth: number): ExportNode | null {
   const props = block.props ?? {};
   const children = projectList(block.children ?? [], depth + 1);
-  const content = block.type === "codeBlock"
+  const inlineContent = block.type === "codeBlock"
     ? plainInlineText(block.content)
     : inlineText(block.content);
+  const content = inlineContent || stringProp(props.text);
 
   if (block.type === "columnList" || block.type === "column") {
     return {
@@ -768,6 +793,32 @@ function collectCanvasBlockReferences(root: CanvasLayoutNode): Set<string> {
     }
   }
   return references;
+}
+
+function canvasKnowledgeReferences(node: CanvasLayoutNode, hiddenNodeIds: Set<string>): string[] {
+  if (hiddenNodeIds.has(node.id)) return [];
+  if (node.type === "absolute") {
+    return node.items.filter(({ element }) => !hiddenNodeIds.has(element.id)).map(({ element }) => element.blockId);
+  }
+  if (node.type === "columns") return node.columns.flatMap((column) => column.flatMap((child) => canvasKnowledgeReferences(child, hiddenNodeIds)));
+  if (node.type === "stack" || node.type === "grid") {
+    return node.children.flatMap((child) => canvasKnowledgeReferences(child, hiddenNodeIds));
+  }
+  if (node.type === "section" || node.type === "frame") {
+    const childReferences = collectCanvasBlockReferencesFromNodes(node.children);
+    const anchor = node.blockId && !childReferences.has(node.blockId) ? [node.blockId] : [];
+    return [...anchor, ...node.children.flatMap((child) => canvasKnowledgeReferences(child, hiddenNodeIds))];
+  }
+  return isCanvasBlockElement(node) ? [node.blockId] : [];
+}
+
+function withoutNestedCanvasReferences(node: ExportNode, rootBlockId: string, references: Set<string>): ExportNode {
+  return {
+    ...node,
+    children: node.children
+      .filter((child) => !child.id || child.id === rootBlockId || !references.has(child.id))
+      .map((child) => withoutNestedCanvasReferences(child, rootBlockId, references))
+  };
 }
 
 function isCanvasBlockElement(node: CanvasLayoutNode): node is CanvasBlockElementRef {

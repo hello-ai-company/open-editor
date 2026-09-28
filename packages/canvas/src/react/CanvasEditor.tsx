@@ -1,4 +1,4 @@
-import { createElement, useEffect, useMemo, useState, type CSSProperties, type MouseEvent, type ReactElement } from "react";
+import { createElement, useEffect, useId, useMemo, useState, type CSSProperties, type MouseEvent, type ReactElement } from "react";
 import type { EditorBlock, EditorDocument } from "@hello-ai-company/editor-core";
 import {
   CANVAS_THEME_PRESETS,
@@ -233,7 +233,7 @@ function safeImageSource(value: unknown): string | undefined {
 }
 
 function contentForBlock(block: EditorBlock, references: ReadonlySet<string>): ReactElement {
-  const text = extractText(block.content);
+  const text = extractText(block.content) || extractText(block.props?.text);
   const type = block.type.toLowerCase();
   let main: ReactElement;
   if (type === "divider" || type === "horizontalrule") {
@@ -340,14 +340,15 @@ const CANVAS_CSS = `
 .oe-canvas__actions button:disabled{cursor:not-allowed;opacity:.48}
 .oe-canvas__alignments{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .oe-canvas__alignments button[aria-pressed=true]{border-color:var(--oe-canvas-accent);background:#eff5f0;color:#294e35}
-.oe-canvas__layers{display:grid;max-height:250px;gap:3px;overflow:auto;padding:0;margin:0;list-style:none}
+.oe-canvas__layers{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;max-height:250px;gap:3px;overflow:auto;padding:0;margin:0;list-style:none}
+.oe-canvas__layers li{min-width:0}
 .oe-canvas__layers button{display:block;width:100%;min-height:36px;border:0;border-radius:7px;background:transparent;padding:6px 8px;text-align:left;color:#455149;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .oe-canvas__layers button:hover{background:#f4f6f2}.oe-canvas__layers button[aria-pressed=true]{background:#edf4ee;color:#234a31;font-weight:600}
 .oe-canvas__notice{margin:0;border-radius:8px;background:#fff8e8;color:#664616;padding:10px;font-size:12px}
 .oe-canvas__error{border:1px solid #d9b8b8;border-radius:10px;background:#fffafa;color:#6c2727;padding:14px}
 @media(max-width:760px){.oe-canvas__header{align-items:flex-start;flex-direction:column}.oe-canvas__workspace{grid-template-columns:minmax(0,1fr)}.oe-canvas__stage{padding:14px}.oe-canvas__inspector{border-left:0;border-top:1px solid var(--oe-canvas-line)}.oe-canvas__layers{max-height:180px}}
 @media(max-width:420px){.oe-canvas__actions{grid-template-columns:repeat(2,minmax(0,1fr))}.oe-canvas__surface{padding:20px 16px}}
-@media(hover:none){.oe-canvas__actions button,.oe-canvas__alignments button,.oe-canvas__preview-size select,.oe-canvas__field input,.oe-canvas__field select{min-height:44px}}
+@media(hover:none){.oe-canvas__actions button,.oe-canvas__alignments button,.oe-canvas__layers button,.oe-canvas__preview-size select,.oe-canvas__field input,.oe-canvas__field select{min-height:44px}}
 @media(prefers-reduced-motion:reduce){.oe-canvas__node{transition:none}}
 `;
 
@@ -384,6 +385,7 @@ function normalizeViewState(
 }
 
 export function CanvasEditor(props: CanvasEditorProps): ReactElement {
+  const headingId = useId().replaceAll(":", "");
   const [internalSpec, setInternalSpec] = useState(props.spec);
   const [internalView, setInternalView] = useState(() => defaultViewState(props.spec));
   const spec = props.onLayoutChange ? props.spec : internalSpec;
@@ -513,8 +515,8 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
       </section>
       <aside className="oe-canvas__inspector" aria-label="Canvas inspector">
         {validationIssues.length > 0 ? <p className="oe-canvas__notice" role="status">{validationIssues.filter(({ code }) => code === "MISSING_BLOCK_REFERENCE").length} layout reference(s) point to content that is no longer available.</p> : null}
-        <section className="oe-canvas__section" aria-labelledby="oe-canvas-theme-heading">
-          <h3 id="oe-canvas-theme-heading">Theme</h3>
+        <section className="oe-canvas__section" aria-labelledby={`${headingId}-theme-heading`}>
+          <h3 id={`${headingId}-theme-heading`}>Theme</h3>
           <label className="oe-canvas__field">Canvas theme
             <select aria-label="Canvas theme" value={presetValue} onChange={(event) => {
               const selectedTheme = event.currentTarget.value as CanvasThemePresetName;
@@ -526,8 +528,8 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
             </select>
           </label>
         </section>
-        <section className="oe-canvas__section" aria-labelledby="oe-canvas-selection-heading">
-          <h3 id="oe-canvas-selection-heading">Selected layout</h3>
+        <section className="oe-canvas__section" aria-labelledby={`${headingId}-selection-heading`}>
+          <h3 id={`${headingId}-selection-heading`}>Selected layout</h3>
           <p className="oe-canvas__selected">{nodeLabel(selectedNode)}</p>
           <div className="oe-canvas__actions">
             <button type="button" onClick={() => { const next = reorderCanvasNode(renderSpec, selectedNode.id, -1); if (next) updateSpec(next); }} disabled={isLocked || isRoot}>Move up</button>
@@ -547,14 +549,14 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
             </select>
           </label>
         </section>
-        <section className="oe-canvas__section" aria-labelledby="oe-canvas-alignment-heading">
-          <h3 id="oe-canvas-alignment-heading">Alignment</h3>
+        <section className="oe-canvas__section" aria-labelledby={`${headingId}-alignment-heading`}>
+          <h3 id={`${headingId}-alignment-heading`}>Alignment</h3>
           <div className="oe-canvas__alignments">
             {(["left", "center", "right", "stretch"] as const).map((alignment) => <button type="button" key={alignment} aria-label={`Align ${alignment}`} aria-pressed={(view.alignmentByNodeId[selectedNode.id] ?? "left") === alignment} disabled={isLocked} onClick={() => updateView({ alignmentByNodeId: { ...view.alignmentByNodeId, [selectedNode.id]: alignment } })}>{alignment === "left" ? "Left" : alignment === "center" ? "Center" : alignment === "right" ? "Right" : "Fill"}</button>)}
           </div>
         </section>
-        <section className="oe-canvas__section" aria-labelledby="oe-canvas-spacing-heading">
-          <h3 id="oe-canvas-spacing-heading">Spacing</h3>
+        <section className="oe-canvas__section" aria-labelledby={`${headingId}-spacing-heading`}>
+          <h3 id={`${headingId}-spacing-heading`}>Spacing</h3>
           <label className="oe-canvas__field">Gap · {view.breakpoint}
             <input type="number" aria-label={`Gap ${view.breakpoint}`} min="0" max="256" step="4" value={resolvedGap} disabled={isLocked || !gapNode} onChange={(event) => {
               const next = setCanvasNodeGap(renderSpec, gapNode?.id ?? "", view.breakpoint, Number(event.currentTarget.value));
@@ -562,8 +564,8 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
             }} />
           </label>
         </section>
-        <section className="oe-canvas__section" aria-labelledby="oe-canvas-layers-heading">
-          <h3 id="oe-canvas-layers-heading">Layers</h3>
+        <section className="oe-canvas__section" aria-labelledby={`${headingId}-layers-heading`}>
+          <h3 id={`${headingId}-layers-heading`}>Layers</h3>
           <ul className="oe-canvas__layers">
             {layerItems.map(({ node, depth }) => <li key={node.id}><button type="button" aria-pressed={selectedId === node.id} aria-label={`Select ${nodeLabel(node)}${hidden.has(node.id) ? ", hidden" : ""}${locked.has(node.id) ? ", locked" : ""}`} onClick={() => updateView({ selectedNodeId: node.id })} style={{ paddingLeft: `${8 + depth * 14}px` }}>{nodeLabel(node)}{hidden.has(node.id) ? " · hidden" : ""}{locked.has(node.id) ? " · locked" : ""}</button></li>)}
           </ul>

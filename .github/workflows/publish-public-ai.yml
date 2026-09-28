@@ -1,0 +1,191 @@
+# Manual tokenless OIDC release for @hello-ai-company/editor-ai@0.1.0.
+# Configure npm Trusted Publisher separately for this exact workflow filename
+# and the public-npmjs GitHub Environment before any authorized dispatch.
+# No NPM token. Prepare builds and packs once without lifecycle scripts; publish
+# downloads and verifies that immutable artifact, then rechecks npm immediately.
+name: publish-public-ai
+
+on:
+  workflow_dispatch:
+    inputs:
+      reviewed_commit:
+        description: "Exact reviewed main commit SHA (must equal the workflow dispatch SHA)"
+        required: true
+        type: string
+      version:
+        description: "Exact candidate version"
+        required: true
+        type: string
+      confirmation:
+        description: 'Type exactly: PUBLISH @hello-ai-company/editor-ai@0.1.0'
+        required: true
+        type: string
+
+concurrency:
+  group: npm-ai-public-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: prepare
+    if: github.ref == 'refs/heads/main' && inputs.reviewed_commit == github.sha
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      npm_config_ignore_scripts: true
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact reviewed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.reviewed_commit }}
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install pinned OIDC-capable npm
+        run: |
+          curl --fail --silent --show-error --location https://registry.npmjs.org/npm/-/npm-11.20.0.tgz --output /tmp/npm-11.20.0.tgz
+          node -e '
+            const { createHash } = require("node:crypto");
+            const { readFileSync } = require("node:fs");
+            const actual = createHash("sha512").update(readFileSync(process.argv[1])).digest("base64");
+            if (actual !== "dF3EDFwbYN+N5RUip+ZYDe0NeURK5BgqKOcvT1iNtUYhTMTl0FwWhBuXrS7KtXyduqyTMS5aaQaregnHDAxNgw==") {
+              console.error("STOP — npm tarball integrity mismatch");
+              process.exit(1);
+            }
+          ' /tmp/npm-11.20.0.tgz
+          npm install --global --ignore-scripts --no-audit --no-fund /tmp/npm-11.20.0.tgz
+
+      - name: Check toolchain
+        run: |
+          node -v
+          npm -v
+          node -e '
+            const { execSync } = require("child_process");
+            const [major, minor, patch] = execSync("npm -v", { encoding: "utf8" }).trim().split(".").map(Number);
+            if (!(major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1))))) {
+              console.error("STOP — npm >= 11.5.1 required for Trusted Publishing");
+              process.exit(1);
+            }
+          '
+
+      - name: Install without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Verify workspace
+        run: npm run verify
+
+      - name: Pack exact candidate once and recheck registry
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CONFIRMATION: ${{ inputs.confirmation }}
+          INPUT_REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          RELEASE_WORKFLOW_REF: ${{ github.ref }}
+          RELEASE_WORKFLOW_REPOSITORY: ${{ github.repository }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
+        run: node scripts/release/validate-public-package-release.mjs ai pack
+
+      - name: Upload immutable release artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: public-ai-release-artifact
+          path: |
+            release-artifact-ai/*.tgz
+            release-artifact-ai/digest.json
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: publish
+    needs: prepare
+    if: github.ref == 'refs/heads/main' && inputs.reviewed_commit == github.sha
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: public-npmjs
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout exact reviewed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.reviewed_commit }}
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install pinned OIDC-capable npm
+        run: |
+          curl --fail --silent --show-error --location https://registry.npmjs.org/npm/-/npm-11.20.0.tgz --output /tmp/npm-11.20.0.tgz
+          node -e '
+            const { createHash } = require("node:crypto");
+            const { readFileSync } = require("node:fs");
+            const actual = createHash("sha512").update(readFileSync(process.argv[1])).digest("base64");
+            if (actual !== "dF3EDFwbYN+N5RUip+ZYDe0NeURK5BgqKOcvT1iNtUYhTMTl0FwWhBuXrS7KtXyduqyTMS5aaQaregnHDAxNgw==") {
+              console.error("STOP — npm tarball integrity mismatch");
+              process.exit(1);
+            }
+          ' /tmp/npm-11.20.0.tgz
+          npm install --global --ignore-scripts --no-audit --no-fund /tmp/npm-11.20.0.tgz
+
+      - name: Check toolchain
+        run: |
+          node -v
+          npm -v
+          node -e '
+            const { execSync } = require("child_process");
+            const [major, minor, patch] = execSync("npm -v", { encoding: "utf8" }).trim().split(".").map(Number);
+            if (!(major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1))))) {
+              console.error("STOP — npm >= 11.5.1 required for Trusted Publishing");
+              process.exit(1);
+            }
+          '
+
+      - name: Download immutable release artifact
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
+        with:
+          name: public-ai-release-artifact
+          path: release-artifact-ai
+
+      # This performs the final candidate + dependency registry check, confirms
+      # exact main SHA, validates the artifact digest, and inspects tarball contents.
+      - name: TOCTOU registry / commit / artifact recheck
+        id: artifact
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CONFIRMATION: ${{ inputs.confirmation }}
+          INPUT_REVIEWED_COMMIT: ${{ inputs.reviewed_commit }}
+          RELEASE_WORKFLOW_REF: ${{ github.ref }}
+          RELEASE_WORKFLOW_REPOSITORY: ${{ github.repository }}
+          RELEASE_WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          node scripts/release/validate-public-package-release.mjs ai verify-artifact release-artifact-ai | tee /tmp/artifact-verify.log
+          TARBALL_PATH=$(grep '^TARBALL_PATH=' /tmp/artifact-verify.log | cut -d= -f2-)
+          if [ -z "$TARBALL_PATH" ] || [ ! -f "$TARBALL_PATH" ]; then
+            echo "STOP — verified tarball path missing"
+            exit 1
+          fi
+          echo "tarball=$TARBALL_PATH" >> "$GITHUB_OUTPUT"
+
+      # OIDC Trusted Publishing only. No checkout build, npm ci, or lifecycle scripts.
+      - name: Publish prepared tarball to npmjs
+        run: >
+          npm publish "${{ steps.artifact.outputs.tarball }}"
+          --access public
+          --registry=https://registry.npmjs.org
+          --ignore-scripts

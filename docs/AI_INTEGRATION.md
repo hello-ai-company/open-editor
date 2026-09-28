@@ -26,4 +26,4 @@ The host owns suggestion display, persistence, retries, and provenance storage. 
 
 ## Status
 
-The package is experimental and in-repo; it is not published. The current Personal AI text provider produces a draft that the user explicitly applies, but it is not yet wired to `editor-ai` suggestion groups or provenance storage.
+The package is experimental and in-repo; it is not published. The companion Personal-AI draft PR now connects the reviewed agent result to a parsed `SuggestionGroup`, explicit accept/reject UI, stale-revision checks, canonical note persistence, accepted-change history, and an opt-in preference action. The proposal remains untrusted until parsed and checked against the exact document revision. The host flow is still awaiting registry releases and final browser proof.
