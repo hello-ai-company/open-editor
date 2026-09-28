@@ -34,6 +34,11 @@ for (const [key, name] of cases) {
       assert.match(publishJob, /--access public/);
     });
 
+    it("documents interactive bootstrap before a later OIDC release", () => {
+      assert.match(yaml, /interactive 2FA bootstrap/);
+      assert.match(yaml, /later version is reviewed/);
+    });
+
     it("prepares an immutable inspected artifact without publish credentials", () => {
       assert.match(yaml, /npm run verify/);
       assert.match(yaml, /npm ci --ignore-scripts/);

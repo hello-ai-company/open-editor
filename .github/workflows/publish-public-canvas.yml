@@ -1,6 +1,6 @@
-# Manual tokenless OIDC release for @hello-ai-company/editor-canvas@0.1.0.
-# Configure npm Trusted Publisher separately for this exact workflow filename
-# and the public-npmjs GitHub Environment before any authorized dispatch.
+# New-package 0.1.0 first publication uses the interactive 2FA bootstrap in
+# docs/public-release-runbook.md. This OIDC workflow cannot bootstrap a package;
+# use it only after a later version is reviewed and Trusted Publisher is bound.
 # No NPM token. Prepare builds and packs once without lifecycle scripts; publish
 # downloads and verifies that immutable artifact, then rechecks npm immediately.
 name: publish-public-canvas

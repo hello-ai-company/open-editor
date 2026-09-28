@@ -31,3 +31,6 @@ npm-debug.log*
 .cache/
 release-artifact/
 release-artifact-blocknote/
+release-artifact-ai/
+release-artifact-canvas/
+release-artifact-publish/

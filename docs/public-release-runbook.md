@@ -1,46 +1,94 @@
 # Public package release runbook
 
-**Canonical owner procedure for the four reviewed package candidates.** This is documentation only. Do not run these steps as part of PR #25 review; publication and merge remain separately authorized actions.
+Canonical owner procedure for the reviewed npm package candidates. This runbook does not authorize a release. Do not dispatch a publish workflow or run the interactive publish step without separate owner authorization.
 
-## Current registry state
+## Release paths
 
-Read-only npmjs checks on 2026-09-28 found:
+`@hello-ai-company/editor-blocknote@0.1.1` is an update to an existing npm package because `editor-blocknote@0.1.0` is already live. Configure its Trusted Publisher before release, then publish 0.1.1 through `.github/workflows/publish-public-blocknote.yml` using GitHub Actions OIDC.
 
-- Live: `@hello-ai-company/editor-core@0.1.1` and `@hello-ai-company/editor-blocknote@0.1.0`.
-- Absent: `@hello-ai-company/editor-blocknote@0.1.1`, `@hello-ai-company/editor-ai@0.1.0`, `@hello-ai-company/editor-canvas@0.1.0`, and `@hello-ai-company/editor-publish@0.1.0`.
-- No package was published by this task. Do not publish a candidate until the exact PR source has been reviewed and separately authorized.
+`editor-ai@0.1.0`, `editor-canvas@0.1.0`, and `editor-publish@0.1.0` are new npm packages. npm requires the package to exist before a Trusted Publisher can be configured, and staged publishing also requires an existing package. Their first publication therefore uses one interactive maintainer 2FA bootstrap; after registry verification, configure Trusted Publisher and use OIDC for future versions. See npm's [Trusted Publisher requirements](https://docs.npmjs.com/trusted-publishers/), [`npm trust` command](https://docs.npmjs.com/cli/v11/commands/npm-trust/), and [staged publishing requirements](https://docs.npmjs.com/staged-publishing/).
 
-Each candidate uses a manual `workflow_dispatch` workflow on `main`, requires the full reviewed commit SHA and exact confirmation, builds and packs in a no-OIDC prepare job, verifies the SHA-256-bound artifact in a minimal OIDC job, rechecks target absence and exact dependencies immediately before publish, publishes that tarball without lifecycle scripts, then verifies npm registry identity, license, tarball URL, and SHA-512 integrity with bounded retries. No npm token is used. Canvas and Publish remain unpublished until their own steps below complete.
+Do not add an npm token fallback to any workflow. The three OIDC workflows remain fail-closed. Once a candidate 0.1.0 has been bootstrapped, its immutable-version guard must reject another attempt to publish 0.1.0; bump and review a later candidate for workflow publication.
 
-## Owner sequence
+## Release order
 
-1. **Merge reviewed OpenEditor PR #25.** Review the exact PR head and retain the merged result; do not infer that the PR head SHA will equal the eventual release SHA.
-2. **Wait for hosted CI and public-release-preflight on `main`.** Require both Node 20 and Node 22 jobs to pass on the resulting main commit.
-3. **Record the exact post-merge `main` SHA.** Use the SHA checked out by those successful main workflows. All later dispatches must use this full SHA as `reviewed_commit`, with branch set to `main`.
-4. **Configure and verify the GitHub `public-npmjs` Environment.** Confirm required reviewers and permitted `main` ref. Keep the environment approval as a separate human gate.
-5. **Configure npm Trusted Publisher for BlockNote.** Bind the package to repository `hello-ai-company/open-editor`, workflow filename `.github/workflows/publish-public-blocknote.yml`, and Environment `public-npmjs`. Verify direct `npm publish` is allowed. The repository cannot prove these account settings.
-6. **Separately authorize and dispatch BlockNote 0.1.1.** Select `main`, supply `reviewed_commit=<recorded post-merge main SHA>`, `version=0.1.1`, and confirmation exactly `PUBLISH @hello-ai-company/editor-blocknote@0.1.1`.
-7. **Verify BlockNote in npmjs.** Require the workflow’s post-publish proof to pass and independently confirm exact name, version, MIT license, canonical tarball URL, and matching integrity. Stop on any ambiguity.
-8. **Configure and verify npm Trusted Publisher for AI.** Bind `@hello-ai-company/editor-ai` to `.github/workflows/publish-public-ai.yml` and Environment `public-npmjs`; verify direct `npm publish` is allowed.
-9. **Separately authorize and dispatch AI 0.1.0.** Use the same recorded post-merge main SHA, `version=0.1.0`, and confirmation exactly `PUBLISH @hello-ai-company/editor-ai@0.1.0`.
-10. **Verify AI in npmjs.** Require exact identity, MIT license, canonical tarball URL, and matching integrity.
-11. **Configure and verify npm Trusted Publisher for Canvas.** Bind `@hello-ai-company/editor-canvas` to `.github/workflows/publish-public-canvas.yml` and Environment `public-npmjs`; verify direct `npm publish` is allowed. Confirm registry version `0.1.0` is absent and `editor-core@0.1.1` is live.
-12. **Separately authorize and dispatch Canvas 0.1.0.** Use the recorded post-merge main SHA, `version=0.1.0`, and confirmation exactly `PUBLISH @hello-ai-company/editor-canvas@0.1.0`.
-13. **Configure/verify Publish Trusted Publisher, then authorize and dispatch Publish 0.1.0.** Bind `@hello-ai-company/editor-publish` to `.github/workflows/publish-public-publish.yml` and Environment `public-npmjs`; verify direct `npm publish` is allowed. Before dispatch, require exact `editor-canvas@0.1.0`, `editor-core@0.1.1`, and `docx` release-compatible dependency availability. Select `main`, use the recorded post-merge SHA, `version=0.1.0`, and confirmation exactly `PUBLISH @hello-ai-company/editor-publish@0.1.0`.
-14. **Verify Publish in npmjs.** Require the workflow’s post-publish proof and independently confirm exact name, version, MIT license, canonical tarball URL, and matching integrity.
+1. `@hello-ai-company/editor-blocknote@0.1.1` — existing package; OIDC Trusted Publisher workflow.
+2. `@hello-ai-company/editor-ai@0.1.0` — new package; one-time interactive 2FA bootstrap.
+3. `@hello-ai-company/editor-canvas@0.1.0` — new package; one-time interactive 2FA bootstrap.
+4. `@hello-ai-company/editor-publish@0.1.0` — new package; one-time interactive 2FA bootstrap, only after Canvas 0.1.0 is live and independently verified.
 
-For every dispatch, stop if the target version is already present, a dependency check is ambiguous, the SHA differs from `main`, or any workflow gate fails. Candidate versions are immutable; never retry by overwriting a version. The publish workflow itself will fail closed and perform the registry checks again immediately before and after publication.
+Core 0.1.1 is a required live dependency. Publish also requires exact Canvas 0.1.0 and a live `docx` version satisfying the package manifest. Registry ambiguity is a stop condition.
 
-## Release dependency order
+## Before any release
 
-```text
-editor-core@0.1.1 (live)
-├── editor-blocknote@0.1.1
-├── editor-ai@0.1.0
-└── editor-canvas@0.1.0
-    └── editor-publish@0.1.0
+1. Review and merge the release tooling through its normal approval path. Do not use a PR-head SHA as the release SHA.
+2. Wait for hosted `ci` and `public-release-preflight` to pass on the resulting `main` commit.
+3. Record that exact full `main` SHA. For an OIDC workflow dispatch, select `main`, enter that SHA and the exact confirmation string, and pass the `public-npmjs` Environment review.
+4. Check that the target package/version is still absent where required, and all release dependencies are live. Stop on any ambiguity or workflow failure.
+
+Each OIDC workflow independently checks the full reviewed SHA, package name/version, exact confirmation, public npmjs registry, immutable version absence, dependency availability, lifecycle-script settings, tarball inventory and digest, and post-publish registry identity/integrity. The prepare job has no OIDC token; only the minimal publish job receives `id-token: write`. Do not bypass those workflow checks.
+
+## BlockNote 0.1.1 — OIDC update
+
+Because `@hello-ai-company/editor-blocknote@0.1.0` already exists, configure the package's npm Trusted Publisher before dispatch:
+
+- GitHub organization: `hello-ai-company`
+- Repository: `open-editor`
+- Workflow filename: `publish-public-blocknote.yml`
+- GitHub Environment: `public-npmjs`
+- Allowed action: `npm publish`
+
+Then, only after separate publication authorization and successful preflight, dispatch `.github/workflows/publish-public-blocknote.yml` from `main` with the recorded main SHA, version `0.1.1`, and confirmation `PUBLISH @hello-ai-company/editor-blocknote@0.1.1`. Require the workflow's post-publish verification to pass.
+
+## New packages — one-time first publication
+
+The local preparer accepts only `ai`, `canvas`, or `publish`. First synchronize local `main`; the preparer also fetches `origin/main` itself and rejects any SHA mismatch:
+
+```sh
+git switch main
+git fetch origin
+git pull --ff-only origin main
+node scripts/release/prepare-first-public-release.mjs ai
 ```
 
-BlockNote and AI may be released independently after core. Canvas also requires exact core `0.1.1`. Publish must wait until exact Canvas `0.1.0` is live. The package manifests keep compatible semver ranges; release guards require the exact dependency versions for this first release train.
+Run only the command for the next package in the release order; use `canvas` after AI and `publish` after Canvas is verified live. The preparer runs `npm ci --ignore-scripts`, the full `npm run verify`, checks the exact reviewed package manifest and current main SHA, requires the entire target package object to be absent, verifies exact release dependencies on npmjs, rechecks those registry facts immediately before packing, packs the selected workspace once with lifecycle scripts disabled, runs the existing tarball inspector, records `release-artifact-<key>/digest.json`, and prints the source SHA, exact tarball path, and SHA-256. It stops there and never publishes. It refuses a dirty/stale/non-main checkout, an existing artifact directory, a package that already exists, a missing dependency, or an ambiguous registry response.
 
-Personal-AI remains separate. Its registry install is expected to fail until these packages are legitimately published. Do not replace that failure with file, GitHub, copied-source, alias, or temporary-package dependencies.
+Review the printed SHA, tarball path, digest, and inspection result. For the first publication, authenticate interactively as a package maintainer and complete npm's requested 2FA; do not create or use a long-lived automation token. Publish only the exact printed tarball (replace the path with the exact output):
+
+```sh
+npm publish "<EXACT_TARBALL_PATH>" --access public --registry=https://registry.npmjs.org --ignore-scripts
+```
+
+Scoped public-package publishing and its 2FA requirements are documented by npm [here](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/). Do not substitute a directory, wildcard, rebuilt tarball, or another version. This manual command is an owner action and is never run by the preparer.
+
+Immediately verify the published tarball against npm's registry metadata using the same exact local file:
+
+```sh
+node scripts/release/verify-public-package-published.mjs ai "<EXACT_TARBALL_PATH>"
+```
+
+Replace `ai` with `canvas` or `publish` as appropriate. The verifier has bounded retries and proves package name, version, MIT license, canonical `dist.tarball`, `dist.integrity`, and equality between registry integrity and the local tarball bytes. Stop if the verifier fails or cannot prove the result.
+
+After a new package is verified live, configure its npm Settings → Trusted Publisher binding:
+
+| Package | GitHub organization | Repository | Workflow filename | Environment | Allowed action |
+| --- | --- | --- | --- | --- | --- |
+| `@hello-ai-company/editor-ai` | `hello-ai-company` | `open-editor` | `publish-public-ai.yml` | `public-npmjs` | `npm publish` |
+| `@hello-ai-company/editor-canvas` | `hello-ai-company` | `open-editor` | `publish-public-canvas.yml` | `public-npmjs` | `npm publish` |
+| `@hello-ai-company/editor-publish` | `hello-ai-company` | `open-editor` | `publish-public-publish.yml` | `public-npmjs` | `npm publish` |
+
+Then consider enabling npm Publishing Access → **Require two-factor authentication and disallow tokens** after confirming the Trusted Publisher works; see npm's [2FA publishing guidance](https://docs.npmjs.com/requiring-2fa-for-package-publishing-and-settings-modification/). All later releases use the package's OIDC workflow, never a token.
+
+Do not bootstrap Publish until `editor-canvas@0.1.0` has passed the post-publish verifier. The preparer checks Canvas 0.1.0, Core 0.1.1, and `docx` before creating a Publish tarball.
+
+## GitHub Environment approval
+
+As of this correction review, the `public-npmjs` Environment permits self-review (`prevent_self_review=false`); independent approval is not currently enforced. Do not change repository governance as part of this release correction. A solo maintainer may need self-review to proceed. Where multiple maintainers are available, prefer Prevent self-review and an independent reviewer before release.
+
+## Current registry snapshot
+
+Read-only checks on 2026-09-28 found Core 0.1.1 and BlockNote 0.1.0 live. BlockNote 0.1.1, AI 0.1.0, Canvas 0.1.0, and Publish 0.1.0 were absent. This is a dated snapshot; repeat the registry checks immediately before any owner-authorized release. No package was published by this correction.
+
+## Personal-AI dependency
+
+Personal-AI must use normal registry dependencies after the packages are released. Its install failure while these versions are unpublished is expected. Do not replace registry dependencies with file, GitHub, copied-source, alias, or temporary-package dependencies.
