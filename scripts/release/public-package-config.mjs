@@ -1,9 +1,30 @@
+import { isDeepStrictEqual } from "node:util";
+
+const repository = (directory) => Object.freeze({
+  type: "git",
+  url: "git+https://github.com/hello-ai-company/open-editor.git",
+  directory
+});
+const files = Object.freeze(["dist", "LICENSE", "README.md"]);
+const engines = Object.freeze({ node: ">=20" });
+const indexExports = Object.freeze({
+  ".": Object.freeze({ types: "./dist/index.d.ts", import: "./dist/index.js" })
+});
+
 export const PUBLIC_PACKAGES = Object.freeze({
   ai: Object.freeze({
     directory: "packages/ai",
     name: "@hello-ai-company/editor-ai",
     version: "0.1.0",
     copyright: "Copyright (c) 2026 Hello AI Company",
+    repository: repository("packages/ai"),
+    exports: indexExports,
+    files,
+    engines,
+    exactRegistryDependencies: Object.freeze({ "@hello-ai-company/editor-core": "0.1.1" }),
+    type: "module",
+    main: "./dist/index.js",
+    types: "./dist/index.d.ts",
     dependencies: Object.freeze({}),
     peerDependencies: Object.freeze({
       "@hello-ai-company/editor-core": "^0.1.1"
@@ -20,6 +41,18 @@ export const PUBLIC_PACKAGES = Object.freeze({
     name: "@hello-ai-company/editor-canvas",
     version: "0.1.0",
     copyright: "Copyright (c) 2026 Yuki Shibata",
+    repository: repository("packages/canvas"),
+    exports: Object.freeze({
+      ...indexExports,
+      "./react": Object.freeze({ types: "./dist/react/index.d.ts", import: "./dist/react/index.js" })
+    }),
+    files,
+    engines,
+    exactRegistryDependencies: Object.freeze({ "@hello-ai-company/editor-core": "0.1.1" }),
+    type: "module",
+    main: "./dist/index.js",
+    types: "./dist/index.d.ts",
+    sideEffects: false,
     dependencies: Object.freeze({
       "@hello-ai-company/editor-core": "^0.1.1"
     }),
@@ -38,13 +71,21 @@ export const PUBLIC_PACKAGES = Object.freeze({
     name: "@hello-ai-company/editor-publish",
     version: "0.1.0",
     copyright: "Copyright (c) 2026 Yuki Shibata",
+    repository: repository("packages/publish"),
+    exports: indexExports,
+    files,
+    engines,
+    type: "module",
+    main: "./dist/index.js",
+    types: "./dist/index.d.ts",
     dependencies: Object.freeze({
       "@hello-ai-company/editor-canvas": "^0.1.0",
       "@hello-ai-company/editor-core": "^0.1.1",
       docx: "^9.7.2"
     }),
     exactRegistryDependencies: Object.freeze({
-      "@hello-ai-company/editor-canvas": "0.1.0"
+      "@hello-ai-company/editor-canvas": "0.1.0",
+      "@hello-ai-company/editor-core": "0.1.1"
     }),
     peerDependencies: Object.freeze({}),
     scripts: Object.freeze({
@@ -83,8 +124,14 @@ export function validatePackageManifest(pkg, config) {
   if (pkg.version !== config.version) throw new Error(`package version must be ${config.version}`);
   if (pkg.license !== "MIT") throw new Error("package license must be MIT");
   if (pkg.private === true) throw new Error("package must not set private:true");
-  if (pkg.publishConfig?.registry !== RELEASE_REGISTRY) throw new Error("publishConfig.registry must be npmjs");
-  if (pkg.publishConfig?.access !== "public") throw new Error("publishConfig.access must be public");
+  for (const field of ["repository", "exports", "files", "engines", "type", "main", "types", "sideEffects"]) {
+    if (!isDeepStrictEqual(pkg[field], config[field])) {
+      throw new Error(`${field} must exactly match the reviewed metadata for ${config.name}`);
+    }
+  }
+  if (!isDeepStrictEqual(pkg.publishConfig, { registry: RELEASE_REGISTRY, access: "public" })) {
+    throw new Error("publishConfig must be exactly public access on npmjs");
+  }
   if (!sameEntries(pkg.dependencies, config.dependencies)) {
     throw new Error(`dependencies must exactly match ${JSON.stringify(config.dependencies)}`);
   }

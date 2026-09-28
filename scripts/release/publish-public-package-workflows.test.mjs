@@ -51,6 +51,7 @@ for (const [key, name] of cases) {
       assert.match(publishJob, /TOCTOU registry \/ commit \/ artifact recheck/);
       assert.match(publishJob, /npm publish "\$\{\{ steps\.artifact\.outputs\.tarball \}\}"/);
       assert.doesNotMatch(publishActive, /npm ci|npm run verify|npm run build|npm pack/);
+      assert.match(publishJob, new RegExp(`verify-public-package-published\\.mjs ${key} `));
     });
 
     it("has no token secrets and cannot auto-cancel another release", () => {

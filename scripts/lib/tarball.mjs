@@ -24,6 +24,13 @@ export function listTarballFiles(tarball) {
   return listing.split("\n").filter(Boolean);
 }
 
+export function assertNoTarballLinks(tarball) {
+  const listing = execFileSync("tar", ["-tvzf", tarball], { encoding: "utf8" });
+  if (listing.split("\n").some((line) => /^[lh]/.test(line))) {
+    throw new Error("Tarball must not contain symbolic links or hard links");
+  }
+}
+
 export function readTarballFile(tarball, entry) {
   return execFileSync("tar", ["-xOf", tarball, entry], { encoding: "utf8" });
 }

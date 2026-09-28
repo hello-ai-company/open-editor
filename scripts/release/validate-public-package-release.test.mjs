@@ -31,6 +31,14 @@ function fixture(key) {
       name: config.name,
       version: config.version,
       license: "MIT",
+      repository: config.repository,
+      exports: config.exports,
+      files: config.files,
+      engines: config.engines,
+      type: config.type,
+      main: config.main,
+      types: config.types,
+      sideEffects: config.sideEffects,
       publishConfig: { registry: "https://registry.npmjs.org", access: "public" },
       dependencies: { ...config.dependencies },
       peerDependencies: { ...config.peerDependencies },
@@ -105,6 +113,22 @@ describe("public package release guards", () => {
         ...input.pkg,
         scripts: { ...input.pkg.scripts, [lifecycle]: "node payload.js" }
       }, packageConfig("ai")), new RegExp(`lifecycle script ${lifecycle}`));
+    }
+  });
+
+  it("rejects modified public repository, exports, files, or engine metadata", () => {
+    const input = fixture("canvas");
+    for (const change of [
+      { repository: { ...input.pkg.repository, directory: "packages/other" } },
+      { exports: { ".": "./dist/unsafe.js" } },
+      { files: ["dist", "README.md"] },
+      { engines: { node: ">=18" } },
+      { publishConfig: { ...input.pkg.publishConfig, tag: "latest" } }
+    ]) {
+      assert.throws(
+        () => validatePackageManifest({ ...input.pkg, ...change }, packageConfig("canvas")),
+        /metadata for @hello-ai-company\/editor-canvas|publishConfig must be exactly/
+      );
     }
   });
 

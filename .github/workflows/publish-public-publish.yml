@@ -189,3 +189,6 @@ jobs:
           --access public
           --registry=https://registry.npmjs.org
           --ignore-scripts
+
+      - name: Verify npm registry identity and tarball integrity
+        run: node scripts/release/verify-public-package-published.mjs publish "${{ steps.artifact.outputs.tarball }}"

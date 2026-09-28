@@ -15,9 +15,9 @@ function run(command, args, cwd = root) {
   execFileSync(command, args, { cwd, stdio: "inherit" });
 }
 
-function packageFile(name) {
+function candidateFile(name) {
   const key = name.endsWith("editor-ai") ? "ai" : name.endsWith("editor-canvas") ? "canvas" : "publish";
-  const packageVersion = name.endsWith("editor-core") ? version : packageConfig(key).version;
+  const packageVersion = packageConfig(key).version;
   const filename = `${name.replace(/^@/, "").replaceAll("/", "-")}-${packageVersion}.tgz`;
   return `file:${join(tarballDir, filename)}`;
 }
@@ -66,28 +66,25 @@ function typeSource(key) {
 }
 
 try {
-  const tarballs = [
-    { key: "core", name: "@hello-ai-company/editor-core", version },
-    ...["ai", "canvas", "publish"].map((key) => ({ key, ...packageConfig(key) }))
-  ];
+  const tarballs = ["ai", "canvas", "publish"].map((key) => ({ key, ...packageConfig(key) }));
   for (const item of tarballs) {
     const filename = `${item.name.replace(/^@/, "").replaceAll("/", "-")}-${item.version}.tgz`;
     run("npm", ["pack", "-w", item.name, "--pack-destination", tarballDir, "--ignore-scripts"]);
     const path = join(tarballDir, filename);
     if (!existsSync(path)) throw new Error(`npm pack did not create ${filename}`);
-    if (item.key !== "core") run(process.execPath, [join(root, "scripts/inspect-public-tarballs.mjs"), item.key, path]);
+    run(process.execPath, [join(root, "scripts/inspect-public-tarballs.mjs"), item.key, path]);
   }
 
   for (const key of ["ai", "canvas", "publish"]) {
     const dir = join(work, `consumer-${key}`);
     const common = {
-      "@hello-ai-company/editor-core": packageFile("@hello-ai-company/editor-core")
+      "@hello-ai-company/editor-core": "0.1.1"
     };
     const dependencies = key === "ai"
-      ? { ...common, "@hello-ai-company/editor-ai": packageFile("@hello-ai-company/editor-ai") }
+      ? { ...common, "@hello-ai-company/editor-ai": candidateFile("@hello-ai-company/editor-ai") }
       : key === "canvas"
-        ? { ...common, "@hello-ai-company/editor-canvas": packageFile("@hello-ai-company/editor-canvas"), react: "19.1.0", "react-dom": "19.1.0" }
-        : { ...common, "@hello-ai-company/editor-canvas": packageFile("@hello-ai-company/editor-canvas"), "@hello-ai-company/editor-publish": packageFile("@hello-ai-company/editor-publish"), react: "19.1.0", "react-dom": "19.1.0" };
+        ? { ...common, "@hello-ai-company/editor-canvas": candidateFile("@hello-ai-company/editor-canvas"), react: "19.1.0", "react-dom": "19.1.0" }
+        : { ...common, "@hello-ai-company/editor-canvas": candidateFile("@hello-ai-company/editor-canvas"), "@hello-ai-company/editor-publish": candidateFile("@hello-ai-company/editor-publish"), react: "19.1.0", "react-dom": "19.1.0" };
     // Each consumer lives outside the monorepo and installs the actual tarballs.
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name: `isolated-${key}-consumer`, private: true, type: "module", dependencies }, null, 2));
@@ -106,7 +103,12 @@ try {
     const lock = JSON.parse(readFileSync(join(dir, "package-lock.json"), "utf8"));
     for (const name of Object.keys(dependencies).filter((entry) => entry.startsWith("@hello-ai-company/"))) {
       const resolved = lock.packages?.[`node_modules/${name}`]?.resolved ?? "";
-      if (!resolved.includes(".tgz") || resolved.includes("workspace:")) throw new Error(`${key}: ${name} did not resolve from a tarball (${resolved || "missing"})`);
+      if (name.endsWith("editor-core")) {
+        const expected = "https://registry.npmjs.org/@hello-ai-company/editor-core/-/editor-core-0.1.1.tgz";
+        if (resolved !== expected) throw new Error(`${key}: editor-core did not resolve from the exact registry release (${resolved || "missing"})`);
+      } else if (!resolved.startsWith("file:") || !resolved.endsWith(".tgz")) {
+        throw new Error(`${key}: ${name} did not resolve from its candidate tarball (${resolved || "missing"})`);
+      }
     }
     run("npx", ["tsc", "--noEmit", "-p", "tsconfig.json"], dir);
     run(process.execPath, ["smoke.mjs"], dir);

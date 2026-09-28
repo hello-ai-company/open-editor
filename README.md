@@ -14,7 +14,7 @@ The public package is [`@hello-ai-company/editor-core`](./packages/core). It is 
 | Adapter | `@hello-ai-company/editor-blocknote@0.1.0` — published on npm (depends on core `^0.1.1`) |
 | License | MIT — Copyright (c) 2026 Yuki Shibata |
 | Registry | https://registry.npmjs.org (`publishConfig.access`: public) |
-| New packages | `editor-ai`, `editor-canvas`, and `editor-publish` are in-repo experimental packages and are not published |
+| Release candidates | `editor-blocknote@0.1.1`, `editor-ai@0.1.0`, `editor-canvas@0.1.0`, and `editor-publish@0.1.0` are not published |
 | Runtime dependencies (core) | none |
 
 ## Install
@@ -57,7 +57,7 @@ Public shape: **Small Core + Adapters + Docs + Examples**.
 | Layer | What it is | line |
 | --- | --- | --- |
 | **Small Core** | `@hello-ai-company/editor-core` — document model, JSON, optional provider types | `0.1.1` published (`0.1.0` immutable) |
-| **Editing adapter** | `@hello-ai-company/editor-blocknote` — BlockNote power layer, commands, and incremental bridge | `0.1.0` published; BlockNote peers `^0.54.2` |
+| **Editing adapter** | `@hello-ai-company/editor-blocknote` — BlockNote power layer, commands, and incremental bridge | `0.1.0` published; `0.1.1` candidate; BlockNote peers `^0.54.2` |
 | **AI contracts** | `@hello-ai-company/editor-ai` — agent events, validated suggestions, provenance results, and explicit learning decisions | `0.1.0` candidate; unpublished |
 | **Canvas** | `@hello-ai-company/editor-canvas` — responsive layout specs, React inspector, Magic Layout grouping, and slide references | `0.1.0` candidate; unpublished |
 | **Publishing** | `@hello-ai-company/editor-publish` — safe static HTML, Markdown, DOCX, print HTML, and public knowledge projection | `0.1.0` candidate; unpublished |
@@ -88,7 +88,7 @@ npm ci
 npm run verify
 ```
 
-`verify` runs typecheck, tests, build, pack, tarball inspect, isolated consumer, security scan, and API contract.
+`verify` runs typecheck, tests, build, pack, exact tarball inspection, isolated consumers against the live core release, security scan, API contract, and release guards. The separate `public-release-preflight` checks Node 20 and 22 and performs publish dry runs; it never publishes. See [the release runbook](./docs/public-release-runbook.md) for the post-merge owner sequence.
 
 Dry-run publish only (does **not** publish):
 

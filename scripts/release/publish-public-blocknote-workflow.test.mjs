@@ -44,14 +44,17 @@ describe("publish-public-blocknote.yml regression", () => {
     assert.match(yaml, /cancel-in-progress:\s*false/);
   });
 
-  it("main-ref lock on prepare and publish jobs", () => {
+  it("main-ref and exact reviewed commit lock on prepare and publish jobs", () => {
     const prepareBlock = yaml.slice(
       yaml.indexOf("prepare:"),
       yaml.indexOf("publish:")
     );
     const publishBlock = yaml.slice(yaml.indexOf("\n  publish:"));
-    assert.match(prepareBlock, /if:\s*github\.ref == 'refs\/heads\/main'/);
-    assert.match(publishBlock, /if:\s*github\.ref == 'refs\/heads\/main'/);
+    assert.match(prepareBlock, /if:\s*github\.ref == 'refs\/heads\/main' && inputs\.reviewed_commit == github\.sha/);
+    assert.match(publishBlock, /if:\s*github\.ref == 'refs\/heads\/main' && inputs\.reviewed_commit == github\.sha/);
+    assert.match(yaml, /reviewed_commit:/);
+    assert.match(yaml, /RELEASE_WORKFLOW_SHA: \$\{\{ github\.sha \}\}/);
+    assert.match(yaml, /ref: \$\{\{ inputs\.reviewed_commit \}\}/);
   });
 
   it("permissions: prepare has no id-token; publish has id-token:write", () => {
@@ -71,10 +74,12 @@ describe("publish-public-blocknote.yml regression", () => {
     assert.doesNotMatch(yaml, /environment:\s*(?!public-npmjs)\S+/);
   });
 
-  it("uses Node 24 and npm >= 11.5.1 gate", () => {
+  it("uses Node 24 and integrity-pinned npm >= 11.5.1", () => {
     assert.match(yaml, /node-version:\s*24/);
     assert.match(yaml, /npm >= 11\.5\.1/);
-    assert.match(yaml, /npm install -g npm@\^11/);
+    assert.match(yaml, /npm-11\.20\.0\.tgz/);
+    assert.match(yaml, /dF3EDFwbYN\+N5RUip\+ZYDe0NeURK5BgqKOcvT1iNtUYhTMTl0FwWhBuXrS7KtXyduqyTMS5aaQaregnHDAxNgw==/);
+    assert.doesNotMatch(yaml, /npm@\^|npm@latest/);
   });
 
   it("prepare runs verify, release-guards, isolated-blocknote, then pack", () => {
@@ -85,6 +90,8 @@ describe("publish-public-blocknote.yml regression", () => {
       yaml,
       /validate-public-blocknote-release\.mjs pack/
     );
+    assert.match(yaml, /npm ci --ignore-scripts/);
+    assert.match(yaml, /npm_config_ignore_scripts:\s*true/);
   });
 
   it("immutable artifact model: upload then download + verify-artifact", () => {
@@ -114,6 +121,15 @@ describe("publish-public-blocknote.yml regression", () => {
     assert.match(yaml, /--access public/);
     assert.match(yaml, /--registry=https:\/\/registry\.npmjs\.org/);
     assert.match(yaml, /--ignore-scripts/);
+    assert.match(yaml, /verify-public-package-published\.mjs blocknote/);
+  });
+
+  it("pins every Action to a reviewed SHA", () => {
+    const active = yaml.split("\n").filter((line) => !/^\s*#/.test(line)).join("\n");
+    assert.doesNotMatch(active, /uses:\s*[^\s@]+@v\d/);
+    for (const action of ["checkout", "setup-node", "upload-artifact", "download-artifact"]) {
+      assert.match(active, new RegExp(`uses:\\s*actions/${action}@[0-9a-f]{40}`));
+    }
   });
 
   it("documents TRUSTED PUBLISHER: OWNER CONFIGURATION REQUIRED", () => {

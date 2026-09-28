@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readdirSync } from "node:fs";
+import { isDeepStrictEqual } from "node:util";
 import {
   hasPrivateAbsolutePath,
   leakagePatterns
 } from "./lib/leakage-patterns.mjs";
-import { listTarballFiles, readTarballFile } from "./lib/tarball.mjs";
+import { assertNoTarballLinks, listTarballFiles, readTarballFile } from "./lib/tarball.mjs";
+import { assertExactTarballFiles, expectedTarballFiles } from "./release/expected-tarball-files.mjs";
 
 /** editor-blocknote may legally mention @blocknote / react peers; still ban product leakage + XL. */
 const blocknoteAllowedLeakage = new Set(["@blocknote", "react import"]);
@@ -46,7 +48,7 @@ function findBlocknoteTarball() {
   return undefined;
 }
 
-const tarball = findBlocknoteTarball();
+const tarball = process.argv[2] ? resolve(process.argv[2]) : findBlocknoteTarball();
 if (!tarball) {
   console.error(
     "No @hello-ai-company/editor-blocknote tarball found. Run npm pack -w @hello-ai-company/editor-blocknote first."
@@ -55,17 +57,12 @@ if (!tarball) {
 }
 
 const files = listTarballFiles(tarball);
+assertNoTarballLinks(tarball);
 console.log(
   `Tarball ${tarball} contents:\n${files.map((file) => `  ${file}`).join("\n")}`
 );
 
-const allowedExact = new Set([
-  "package/package.json",
-  "package/LICENSE",
-  "package/README.md"
-]);
-const allowedDistFile =
-  /^package\/dist\/(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.(js|d\.ts|js\.map|d\.ts\.map|css)$/;
+assertExactTarballFiles(files, expectedTarballFiles(join(root, "packages/blocknote"), { css: true }));
 const denylist = [
   { name: "src tree", pattern: /(^|\/)src(\/|$)/ },
   { name: "test tree", pattern: /(^|\/)tests?(\/|$)/ },
@@ -75,26 +72,6 @@ const denylist = [
   { name: "tsconfig", pattern: /(^|\/)tsconfig[^/]*$/ },
   { name: "source TypeScript", pattern: /\.tsx?$/ }
 ];
-
-function isAllowedEntry(file) {
-  if (allowedExact.has(file)) return true;
-  if (
-    file === "package" ||
-    file === "package/" ||
-    file === "package/dist" ||
-    file === "package/dist/" ||
-    /^package\/dist\/(?:[A-Za-z0-9._-]+\/)*$/.test(file)
-  ) {
-    return true;
-  }
-  return allowedDistFile.test(file);
-}
-
-const unexpected = files.filter((file) => !isAllowedEntry(file));
-if (unexpected.length > 0) {
-  console.error("Unexpected tarball entries (allowlist failed):\n", unexpected.join("\n"));
-  process.exit(1);
-}
 
 const denied = [];
 for (const file of files) {
@@ -155,6 +132,57 @@ if (packedPackage.license !== AUTHORIZED_LICENSE) {
   );
   process.exit(1);
 }
+const expectedRepository = {
+  type: "git",
+  url: "git+https://github.com/hello-ai-company/open-editor.git",
+  directory: "packages/blocknote"
+};
+const expectedExports = {
+  ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+  "./react": { types: "./dist/react/index.d.ts", import: "./dist/react/index.js" },
+  "./math": { types: "./dist/math/index.d.ts", import: "./dist/math/index.js" },
+  "./diagram": { types: "./dist/diagram/index.d.ts", import: "./dist/diagram/index.js" },
+  "./code": { types: "./dist/code/index.d.ts", import: "./dist/code/index.js" },
+  "./power.css": "./dist/power.css"
+};
+const expectedPeers = {
+  "@blocknote/core": "^0.54.2",
+  "@blocknote/react": "^0.54.2",
+  "@blocknote/math-block": "^0.54.2",
+  "@blocknote/diagram-block": "^0.54.2",
+  "@blocknote/code-block": "^0.54.2",
+  react: "^18.0.0 || ^19.0.0",
+  "react-dom": "^18.0.0 || ^19.0.0"
+};
+const expectedPeerMeta = {
+  "@blocknote/math-block": { optional: true },
+  "@blocknote/diagram-block": { optional: true },
+  "@blocknote/code-block": { optional: true }
+};
+const expectedScripts = {
+  build: "tsc -p tsconfig.build.json && node ../../scripts/copy-blocknote-css.mjs",
+  typecheck: "npm run build -w @hello-ai-company/editor-core && tsc -p tsconfig.json --noEmit",
+  test: "vitest run",
+  "bench:smoke": "vitest run --config vitest.bench.config.ts"
+};
+for (const [field, expected] of Object.entries({
+  repository: expectedRepository,
+  exports: expectedExports,
+  files: ["dist", "LICENSE", "README.md"],
+  publishConfig: { registry: AUTHORIZED_REGISTRY, access: AUTHORIZED_ACCESS },
+  engines: { node: ">=20" },
+  peerDependencies: expectedPeers,
+  peerDependenciesMeta: expectedPeerMeta,
+  scripts: expectedScripts,
+  type: "module",
+  main: "./dist/index.js",
+  types: "./dist/index.d.ts"
+})) {
+  if (!isDeepStrictEqual(packedPackage[field], expected)) {
+    console.error(`Tarball package.json ${field} metadata mismatch.`);
+    process.exit(1);
+  }
+}
 if (packedPackage.private === true) {
   console.error("Tarball package must remain publishable (private must not be true).");
   process.exit(1);
@@ -190,6 +218,11 @@ for (const section of ["dependencies", "peerDependencies", "optionalDependencies
       process.exit(1);
     }
   }
+}
+if (Object.keys(packedPackage.optionalDependencies ?? {}).length > 0
+  || (packedPackage.bundledDependencies ?? packedPackage.bundleDependencies ?? []).length > 0) {
+  console.error("Tarball must not include optional or bundled dependencies.");
+  process.exit(1);
 }
 
 const packedLicense = readTarballFile(tarball, "package/LICENSE");

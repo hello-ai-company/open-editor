@@ -1,19 +1,9 @@
 /**
- * Registry-realistic editor-blocknote consumer gate (R3 fail-closed adaptive).
+ * Registry-realistic editor-blocknote consumer gate for candidate 0.1.1.
  *
  * STATIC: editor-blocknote package.json depends on editor-core === ^0.1.1 floor.
- * POSITIVE PRE-PUBLISH: core 0.1.1 candidate tarball + blocknote candidate
- *   → ordinary `npm install` (no --legacy-peer-deps / --force) + smoke PASS
- * REGISTRY (adaptive, fail-closed versions list):
- *   Probe `npm view @hello-ai-company/editor-core versions --json` (never
- *   `npm view pkg@0.1.1 version` exit codes — network/DNS/5xx must FAIL).
- *   - Fail closed on command/empty/invalid JSON/shape/missing anchor 0.1.0
- *   - If 0.1.1 absent → PRE-PUBLISH: candidate tarball tests only
- *   - If 0.1.1 present → POST-PUBLISH: blocknote candidate + registry core
- *     MUST PASS; installed core satisfies ^0.1.1 (0.1.x patch >= 1)
- *
- * Do not claim GREEN based only on workspace `file:` packs that skip the
- * published-registry floor.
+ * Candidate BlockNote tarball consumers install the exact live core@0.1.1
+ * from npmjs. Registry failures and version ambiguity fail closed.
  */
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -25,15 +15,13 @@ import {
   CORE_DEP_RANGE,
   CORE_PKG,
   CoreRegistryProbeError,
-  probeCoreCandidatePublication,
-  satisfiesCaretZeroOneOne
+  probeCoreCandidatePublication
 } from "./lib/core-registry-probe.mjs";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const CORE_VERSION = CORE_CANDIDATE_VERSION;
 const BN_VERSION = "0.1.1";
 const CORE_FLOOR = CORE_DEP_RANGE;
-const CORE_TGZ_NAME = `hello-ai-company-editor-core-${CORE_VERSION}.tgz`;
 const BN_TGZ_NAME = `hello-ai-company-editor-blocknote-${BN_VERSION}.tgz`;
 const BN_PKG = "@hello-ai-company/editor-blocknote";
 
@@ -52,20 +40,17 @@ function run(command, args, cwd, { allowFail = false } = {}) {
 }
 
 function npmInstallRelease(dir) {
-  // Release consumer path: ordinary install only.
-  return run("npm", ["install", "--omit=dev"], dir, { allowFail: true });
+  return run("npm", ["install", "--omit=dev", "--ignore-scripts"], dir, { allowFail: true });
 }
 
 run("npm", ["run", "build", "-w", "@hello-ai-company/editor-core"], root);
 run("npm", ["run", "build", "-w", "@hello-ai-company/editor-blocknote"], root);
-run("npm", ["pack", "-w", "@hello-ai-company/editor-core", "--pack-destination", root], root);
 run(
   "npm",
-  ["pack", "-w", "@hello-ai-company/editor-blocknote", "--pack-destination", root],
+  ["pack", "-w", "@hello-ai-company/editor-blocknote", "--pack-destination", root, "--ignore-scripts"],
   root
 );
 
-const coreTgz = join(root, CORE_TGZ_NAME);
 const bnTgz = join(root, BN_TGZ_NAME);
 
 function writeSmokeFiles(dir) {
@@ -194,7 +179,7 @@ function smokeBasePositive(dir) {
         private: true,
         type: "module",
         dependencies: {
-          "@hello-ai-company/editor-core": `file:${coreTgz}`,
+          "@hello-ai-company/editor-core": CORE_VERSION,
           "@hello-ai-company/editor-blocknote": `file:${bnTgz}`,
           "@blocknote/core": "0.54.2",
           "@blocknote/react": "0.54.2",
@@ -328,7 +313,7 @@ void runtimeAll;
 
   const tscInstall = run(
     "npm",
-    ["install", "--no-save", "typescript@5.8.3", "@types/react@19"],
+    ["install", "--no-save", "--ignore-scripts", "typescript@5.8.3", "@types/react@19"],
     dir,
     { allowFail: true }
   );
@@ -341,7 +326,7 @@ void runtimeAll;
     process.exit(tscInstall.status ?? 1);
   }
   run("npx", ["tsc", "-p", "tsconfig.json"], dir);
-  console.log("CASE positive (core 0.1.1 candidate tarball + blocknote candidate): PASS");
+  console.log("CASE positive (registry core 0.1.1 + blocknote candidate tarball): PASS");
   console.log("isolated-blocknote-consumer media-api-compat (tsc --strict): ok");
 }
 
@@ -354,7 +339,7 @@ function smokeOptional(dir, feature, peerPkg) {
         private: true,
         type: "module",
         dependencies: {
-          "@hello-ai-company/editor-core": `file:${coreTgz}`,
+          "@hello-ai-company/editor-core": CORE_VERSION,
           "@hello-ai-company/editor-blocknote": `file:${bnTgz}`,
           "@blocknote/core": "0.54.2",
           "@blocknote/react": "0.54.2",
@@ -448,10 +433,9 @@ function readInstalledCoreVersion(dir) {
 }
 
 /**
- * REGISTRY GATE (adaptive, fail-closed).
+ * REGISTRY GATE (exact, fail-closed).
  * Uses versions-list probe; never treats network failure as "unpublished".
- * After core@0.1.1 is published, nested resolution can succeed even if a host
- * once pinned top-level 0.1.0 — so never assert "top-level 0.1.0 must FAIL forever".
+ * Candidate BlockNote installs against the exact published core package.
  */
 function assertAdaptiveRegistryGate() {
   let probe;
@@ -465,13 +449,9 @@ function assertAdaptiveRegistryGate() {
     throw err;
   }
 
-  if (probe.state === "unpublished_candidate") {
-    console.log(
-      `CASE registry adaptive PRE-PUBLISH: core@${CORE_VERSION} absent from ` +
-        `versions list (anchor 0.1.0 present) — candidate tarball tests only; ` +
-        `blocknote-only registry resolution unavailable is EXPECTED`
-    );
-    return;
+  if (probe.state !== "published_candidate") {
+    console.error(`FAIL — required registry dependency ${CORE_PKG}@${CORE_VERSION} is absent`);
+    process.exit(1);
   }
 
   const dir = mkdtempSync(join(tmpdir(), "oe-bn-consumer-reg-"));
@@ -509,15 +489,21 @@ function assertAdaptiveRegistryGate() {
     }
 
     const installed = readInstalledCoreVersion(dir);
-    if (!installed || !satisfiesCaretZeroOneOne(installed)) {
+    if (installed !== CORE_VERSION) {
       console.error(
-        `FAIL — REGISTRY GATE: installed ${CORE_PKG}@${installed ?? "(missing)"} ` +
-          `does not satisfy ${CORE_FLOOR} (require major===0 && minor===1 && patch>=1)`
+        `FAIL — REGISTRY GATE: installed ${CORE_PKG}@${installed ?? "(missing)"}; exact version ${CORE_VERSION} is required`
       );
       process.exit(1);
     }
+    const lock = JSON.parse(readFileSync(join(dir, "package-lock.json"), "utf8"));
+    const resolved = lock.packages?.[`node_modules/${CORE_PKG}`]?.resolved;
+    const expected = `https://registry.npmjs.org/@hello-ai-company/editor-core/-/editor-core-${CORE_VERSION}.tgz`;
+    if (resolved !== expected) {
+      console.error(`FAIL — REGISTRY GATE: ${CORE_PKG} resolved to ${resolved ?? "(missing)"}, expected ${expected}`);
+      process.exit(1);
+    }
     console.log(
-      `CASE registry adaptive POST-PUBLISH (core@${CORE_VERSION} on registry + blocknote candidate): ` +
+      `CASE registry POST-PUBLISH (core@${CORE_VERSION} on registry + blocknote candidate): ` +
         `PASS (installed ${CORE_PKG}@${installed})`
     );
   } finally {
@@ -543,11 +529,11 @@ try {
   }
   assertAdaptiveRegistryGate();
   console.log(
-    "verify:isolated-blocknote PASS (static floor + positive pre-publish + fail-closed adaptive registry)"
+    "verify:isolated-blocknote PASS (static floor + candidate tarballs against exact registry core 0.1.1)"
   );
 } finally {
   rmSync(dir, { recursive: true, force: true });
-  for (const name of [CORE_TGZ_NAME, BN_TGZ_NAME]) {
+  for (const name of [BN_TGZ_NAME]) {
     try {
       rmSync(join(root, name), { force: true });
     } catch {

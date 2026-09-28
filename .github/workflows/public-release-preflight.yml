@@ -142,5 +142,5 @@ jobs:
 
       - name: npm publish dry-run only
         run: |
-          npm publish -w @hello-ai-company/editor-core --access public --registry=https://registry.npmjs.org --dry-run
-          npm publish -w @hello-ai-company/editor-blocknote --access public --registry=https://registry.npmjs.org --dry-run
+          npm publish -w @hello-ai-company/editor-core --access public --registry=https://registry.npmjs.org --dry-run --ignore-scripts
+          npm publish -w @hello-ai-company/editor-blocknote --access public --registry=https://registry.npmjs.org --dry-run --ignore-scripts
