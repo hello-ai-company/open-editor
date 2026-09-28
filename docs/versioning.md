@@ -25,7 +25,8 @@ Correct release sequence:
 5. Publish BlockNote `0.1.0` — **DONE** (npmjs LIVE, immutable). The R2 `0.1.1` candidate and post-review package sequence are in [PUBLISHING.md](./PUBLISHING.md).
 6. Personal AI baseline integration on published BlockNote `0.1.0` — **DONE**; R2 package consumption remains gated on review and release.
 
-This tree’s Draft PR for step 5 does **not** `npm publish`, tag, or Release.
+The OpenEditor draft PR adds guarded release paths for future candidates. It does
+not dispatch a workflow, publish a package, tag, or create a GitHub Release.
 
 The historical private GitHub Packages prerelease `0.0.0-phase3.e17b4b5` is **immutable** and must not be reused on npmjs.
 

@@ -77,7 +77,7 @@ The published 0.x core and BlockNote lines remain stable at their current versio
 
 ## R3 integration state
 
-The companion Personal-AI draft PR mounts Document, Canvas, Present, and Site in the note workspace; it adds server-backed Canvas revisions, structured agent proposals with human review, accepted-change provenance, history, comments, and explicit preference learning. These source changes remain under review. The new packages are not published, so Personal-AI cannot yet install them from the registry or complete its hosted CI/browser golden flow. No package publication or PR merge is part of this change.
+The companion Personal-AI draft PR mounts Document, Canvas, Present, and Site in the note workspace; it adds server-backed Canvas revisions, structured agent proposals with human review, accepted-change provenance, history, comments, and explicit preference learning. Browser checks verified Canvas persistence, historical column save/reload, PDF output, and Site widths. The full product loop remains partial: the configured agent provider is a stub, multi-slide/fullscreen and Ask This Page browser flows remain unverified, and the candidate packages are unpublished. Personal-AI hosted registry installation therefore remains blocked. No package publication or PR merge is part of this change.
 
 This repository will not turn the core into a hosted editor, Cloud/Enterprise SKU, or paid plugin. Using, modifying, forking, self-hosting, and commercially using the core is free under MIT. Optional sponsorship may be offered later to help sustain maintenance; it will not unlock exclusive core functionality. There is no `.github/FUNDING.yml` yet.
 

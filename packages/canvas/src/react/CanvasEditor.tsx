@@ -306,7 +306,7 @@ const CANVAS_CSS = `
 .oe-canvas__title{margin:0;font-size:20px;line-height:1.25;letter-spacing:-.02em}
 .oe-canvas__subtitle{margin:5px 0 0;color:var(--oe-canvas-muted);font-size:13px}
 .oe-canvas__preview-size,.oe-canvas__field{display:grid;gap:5px;color:var(--oe-canvas-muted);font-size:12px}
-.oe-canvas__preview-size select,.oe-canvas__field input,.oe-canvas__field select{min-height:40px;border:1px solid var(--oe-canvas-line);border-radius:9px;background:#fff;padding:7px 10px;color:var(--oe-canvas-ink)}
+.oe-canvas__preview-size select,.oe-canvas__field input,.oe-canvas__field select{min-height:44px;border:1px solid var(--oe-canvas-line);border-radius:9px;background:#fff;padding:7px 10px;color:var(--oe-canvas-ink)}
 .oe-canvas__workspace{display:grid;grid-template-columns:minmax(0,1fr) 292px;min-height:560px;border:1px solid var(--oe-canvas-line);border-top:0;border-radius:0 0 14px 14px;overflow:hidden;background:#f4f6f2}
 .oe-canvas__stage{min-width:0;overflow:auto;padding:24px;background:#f4f6f2}
 .oe-canvas__surface{width:100%;max-width:min(var(--oe-canvas-max-width),1120px);min-height:460px;margin:0 auto;padding:clamp(22px,4vw,60px);border-radius:var(--oe-canvas-radius);background:var(--oe-canvas-bg);color:var(--oe-canvas-text);font-family:var(--oe-canvas-body-font);font-size:calc(16px * var(--oe-canvas-body-scale));box-shadow:0 2px 12px rgb(25 35 27 / 5%)}
@@ -335,20 +335,19 @@ const CANVAS_CSS = `
 .oe-canvas__section{display:grid;gap:10px}.oe-canvas__section h3{margin:0;color:#29362c;font-size:13px;font-weight:650;letter-spacing:.01em}
 .oe-canvas__selected{margin:0;color:var(--oe-canvas-muted);font-size:12px;overflow-wrap:anywhere}
 .oe-canvas__actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.oe-canvas__actions button,.oe-canvas__alignments button{min-height:40px;border:1px solid var(--oe-canvas-line);border-radius:9px;background:#fff;padding:7px 9px;cursor:pointer}
+.oe-canvas__actions button,.oe-canvas__alignments button{min-height:44px;border:1px solid var(--oe-canvas-line);border-radius:9px;background:#fff;padding:7px 9px;cursor:pointer}
 .oe-canvas__actions button:hover:not(:disabled),.oe-canvas__alignments button:hover{background:#f5f7f4}
 .oe-canvas__actions button:disabled{cursor:not-allowed;opacity:.48}
 .oe-canvas__alignments{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .oe-canvas__alignments button[aria-pressed=true]{border-color:var(--oe-canvas-accent);background:#eff5f0;color:#294e35}
 .oe-canvas__layers{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;max-height:250px;gap:3px;overflow:auto;padding:0;margin:0;list-style:none}
 .oe-canvas__layers li{min-width:0}
-.oe-canvas__layers button{display:block;width:100%;min-height:36px;border:0;border-radius:7px;background:transparent;padding:6px 8px;text-align:left;color:#455149;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.oe-canvas__layers button{display:block;width:100%;min-height:44px;border:0;border-radius:7px;background:transparent;padding:6px 8px;text-align:left;color:#455149;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .oe-canvas__layers button:hover{background:#f4f6f2}.oe-canvas__layers button[aria-pressed=true]{background:#edf4ee;color:#234a31;font-weight:600}
 .oe-canvas__notice{margin:0;border-radius:8px;background:#fff8e8;color:#664616;padding:10px;font-size:12px}
 .oe-canvas__error{border:1px solid #d9b8b8;border-radius:10px;background:#fffafa;color:#6c2727;padding:14px}
 @media(max-width:760px){.oe-canvas__header{align-items:flex-start;flex-direction:column}.oe-canvas__workspace{grid-template-columns:minmax(0,1fr)}.oe-canvas__stage{padding:14px}.oe-canvas__inspector{border-left:0;border-top:1px solid var(--oe-canvas-line)}.oe-canvas__layers{max-height:180px}}
 @media(max-width:420px){.oe-canvas__actions{grid-template-columns:repeat(2,minmax(0,1fr))}.oe-canvas__surface{padding:20px 16px}}
-@media(hover:none){.oe-canvas__actions button,.oe-canvas__alignments button,.oe-canvas__layers button,.oe-canvas__preview-size select,.oe-canvas__field input,.oe-canvas__field select{min-height:44px}}
 @media(prefers-reduced-motion:reduce){.oe-canvas__node{transition:none}}
 `;
 

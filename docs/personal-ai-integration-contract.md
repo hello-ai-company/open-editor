@@ -1,6 +1,6 @@
 # Personal AI ↔ OpenEditor integration contract
 
-Current integration snapshot (2026-09-27). This document does **not** authorize a production editor switch, merge, or package publish.
+Current integration snapshot (2026-09-28). This document does **not** authorize a production editor switch, merge, or package publish.
 
 ## Packages
 
@@ -64,7 +64,9 @@ Rules:
 
 ## Agent bridge
 
-Personal AI sends explicit user-authored instructions through `instructSecretary` → Work Intake. It does not create `AgentTask` directly or execute tools from the editor. Since Work Intake has no separate untrusted-context field, the adapter rejects document context instead of putting note content in the instruction. Specialist results are not yet streamed into OpenEditor suggestions.
+Personal AI sends explicit user-authored instructions through `instructSecretary` → Work Intake. It does not create `AgentTask` directly or execute tools from the editor. A bounded `EditorAgentContext` carries the exact `EditorDocument` snapshot and declared revision separately from trusted instruction text; document, references, search material, and comments remain untrusted. Server-side proposal construction follows Secretary → specialist → Reviewer and validates a structured `SuggestionGroup`; the browser parses and bounds it, checks the base revision, and requires group-level human acceptance before canonical note persistence. Stale proposals fail closed. The current local provider is `stub`, so the mounted agent proposal/review golden flow and prompt-injection browser E2E remain unverified.
+
+The Personal-AI note workspace also mounts Canvas, Present, and Site. Browser evidence verifies Canvas persistence and Site viewport rendering, while the one-slide fixture did not verify slide stepping or fullscreen. Ask This Page is shown only for connected API-backed public notes and still needs a public-fixture browser check. The R3 product loop is partial until the provider, registry releases, and remaining browser gates are available.
 
 ## Publication / release guards (editor-blocknote)
 
@@ -83,6 +85,12 @@ Release-ready checklist:
 **TRUSTED PUBLISHER: OWNER CONFIGURATION REQUIRED** — bind npm Trusted Publisher to `publish-public-blocknote.yml` + Environment `public-npmjs` before first `workflow_dispatch`. Do not claim npm-side TP is configured from repo files alone.
 
 **Do not** `npm publish`, tag, or Release until ChatGPT review + owner authorization.
+
+R3 adds separate main-only manual OIDC workflows for `editor-ai@0.1.0`,
+`editor-canvas@0.1.0`, and `editor-publish@0.1.0`; the expanded preflight covers
+all three. They are fail-closed and were not dispatched. See
+[PUBLISHING.md](./PUBLISHING.md) for the release order, gates, registry state,
+and owner-side Trusted Publisher configuration requirement.
 
 ## Verification commands (OpenEditor)
 
