@@ -95,14 +95,77 @@ function changeInput(container: HTMLElement, label: string, value: string): void
   });
 }
 
-function dispatchDrag(target: HTMLElement, type: string, dataTransfer: DataTransfer, clientX = 0, clientY = 0): void {
+function dispatchPointer(target: HTMLElement, type: string, clientX: number, clientY: number, pointerId = 1, button = 0, pointerType = "mouse"): void {
   const event = new Event(type, { bubbles: true, cancelable: true });
   Object.defineProperties(event, {
-    dataTransfer: { value: dataTransfer },
+    pointerId: { value: pointerId },
+    pointerType: { value: pointerType },
+    isPrimary: { value: true },
+    button: { value: button },
     clientX: { value: clientX },
     clientY: { value: clientY }
   });
   act(() => target.dispatchEvent(event));
+}
+
+function setBounds(target: HTMLElement, left: number, top: number, width: number, height: number): void {
+  Object.defineProperty(target, "getBoundingClientRect", {
+    configurable: true,
+    value: () => ({ left, top, right: left + width, bottom: top + height, width, height, x: left, y: top, toJSON: () => ({}) } as DOMRect)
+  });
+}
+
+function mockPointerCapture(target: HTMLElement) {
+  let capturedPointer: number | null = null;
+  Object.defineProperties(target, {
+    setPointerCapture: { configurable: true, value: (pointerId: number) => { capturedPointer = pointerId; } },
+    hasPointerCapture: { configurable: true, value: (pointerId: number) => capturedPointer === pointerId },
+    releasePointerCapture: { configurable: true, value: (pointerId: number) => { if (capturedPointer === pointerId) capturedPointer = null; } }
+  });
+  return () => capturedPointer;
+}
+
+function positionedFixture(lockedNodeIds: string[] = []) {
+  const positionedSpec: CanvasLayoutSpec = {
+    template: "report",
+    breakpoints: { ...DEFAULT_CANVAS_BREAKPOINTS },
+    theme: "editorial",
+    root: {
+      id: "overlay-root",
+      type: "absolute",
+      items: [{
+        element: { id: "absolute-action", type: "button", blockId: "action" },
+        rect: { mobile: { x: 4, y: 4, width: 40, height: 20 } }
+      }]
+    }
+  };
+  const positionedDocument = createEditorDocument([
+    { id: "action", type: "button", content: [{ type: "text", text: "Open details" }] }
+  ]);
+  const viewState: CanvasEditorViewState = {
+    selectedNodeId: "absolute-action", hiddenNodeIds: [], lockedNodeIds, alignmentByNodeId: {}, breakpoint: "mobile"
+  };
+  const layoutChanges: CanvasLayoutSpec[] = [];
+  const render = (nextSpec: CanvasLayoutSpec) => createElement(CanvasEditor, {
+    document: positionedDocument,
+    spec: nextSpec,
+    viewState,
+    onLayoutChange: (next) => layoutChanges.push(next)
+  });
+  const view = mount(render(positionedSpec));
+  const item = view.container.querySelector<HTMLElement>(".oe-canvas__absolute-item");
+  const absolute = view.container.querySelector<HTMLElement>(".oe-canvas__absolute");
+  if (!item || !absolute) throw new Error("Missing positioned Canvas item");
+  setBounds(absolute, 100, 50, 200, 100);
+  setBounds(item, 108, 54, 80, 20);
+  const capturedPointer = mockPointerCapture(item);
+  return {
+    view,
+    item,
+    layoutChanges,
+    capturedPointer,
+    render
+  };
 }
 
 describe("CanvasEditor", () => {
@@ -321,57 +384,87 @@ describe("CanvasEditor", () => {
     }
   });
 
-  it("moves and resizes positioned Canvas items with pointer and inspector controls", () => {
-    const positionedSpec: CanvasLayoutSpec = {
-      template: "report",
-      breakpoints: { ...DEFAULT_CANVAS_BREAKPOINTS },
-      theme: "editorial",
-      root: {
-        id: "overlay-root",
-        type: "absolute",
-        items: [{
-          element: { id: "absolute-action", type: "button", blockId: "action" },
-          rect: { mobile: { x: 4, y: 4, width: 40, height: 20 } }
-        }]
-      }
-    };
-    const positionedDocument = createEditorDocument([
-      { id: "action", type: "button", content: [{ type: "text", text: "Open details" }] }
-    ]);
-    const viewState: CanvasEditorViewState = {
-      selectedNodeId: "absolute-action", hiddenNodeIds: [], lockedNodeIds: [], alignmentByNodeId: {}, breakpoint: "mobile"
-    };
-    const view = mount(createElement(CanvasEditor, { document: positionedDocument, spec: positionedSpec, viewState }));
+  it("moves positioned Canvas items with captured pointers and keeps inspector controls", () => {
+    const fixture = positionedFixture();
+    const { view, item, layoutChanges, capturedPointer, render } = fixture;
     try {
-      const item = view.container.querySelector<HTMLElement>(".oe-canvas__absolute-item");
-      const absolute = view.container.querySelector<HTMLElement>(".oe-canvas__absolute");
-      if (!item || !absolute) throw new Error("Missing positioned Canvas item");
-      expect(item.getAttribute("draggable")).toBe("true");
-      Object.defineProperty(absolute, "getBoundingClientRect", {
-        configurable: true,
-        value: () => ({ left: 100, top: 50, right: 300, bottom: 150, width: 200, height: 100, x: 100, y: 50, toJSON: () => ({}) })
-      });
-      Object.defineProperty(item, "getBoundingClientRect", {
-        configurable: true,
-        value: () => ({ left: 108, top: 54, right: 188, bottom: 74, width: 80, height: 20, x: 108, y: 54, toJSON: () => ({}) })
-      });
-      const dataTransfer = {
-        effectAllowed: "",
-        setData: () => undefined,
-        getData: () => "absolute-action"
-      } as unknown as DataTransfer;
-      dispatchDrag(item, "dragstart", dataTransfer, 148, 59);
-      dispatchDrag(absolute, "dragover", dataTransfer, 200, 100);
-      dispatchDrag(absolute, "drop", dataTransfer, 200, 100);
-      expect(view.container.querySelector(".oe-canvas__absolute-item")?.getAttribute("style")).toContain("left: 30%");
-      expect(view.container.querySelector(".oe-canvas__absolute-item")?.getAttribute("style")).toContain("top: 45%");
+      expect(item.hasAttribute("draggable")).toBe(false);
+      expect(item.getAttribute("data-draggable")).toBe("true");
+      dispatchPointer(item, "pointerdown", 148, 59, 7);
+      expect(capturedPointer()).toBe(7);
+      dispatchPointer(item, "pointermove", 200, 100, 7);
+      expect(item.style.left).toBe("30%");
+      expect(item.style.top).toBe("45%");
+      expect(layoutChanges).toHaveLength(0);
+      dispatchPointer(item, "pointerup", 200, 100, 7);
+      expect(layoutChanges).toHaveLength(1);
+      const movedSpec = layoutChanges[0]!;
+      expect(movedSpec.root.type === "absolute" && movedSpec.root.items[0]?.rect.mobile).toEqual({ x: 30, y: 45, width: 40, height: 20 });
+      expect(capturedPointer()).toBeNull();
+      view.rerender(render(movedSpec));
+      expect(item.style.left).toBe("30%");
 
       changeInput(view.container, "Position X mobile", "18");
+      expect(layoutChanges).toHaveLength(2);
+      view.rerender(render(layoutChanges.at(-1)!));
       changeInput(view.container, "Width mobile", "55");
-      expect(view.container.querySelector(".oe-canvas__absolute-item")?.getAttribute("style")).toContain("left: 18%");
-      expect(view.container.querySelector(".oe-canvas__absolute-item")?.getAttribute("style")).toContain("width: 55%");
+      const resizedSpec = layoutChanges.at(-1)!;
+      expect(resizedSpec.root.type === "absolute" && resizedSpec.root.items[0]?.rect.mobile).toEqual({ x: 18, y: 45, width: 55, height: 20 });
+      view.rerender(render(resizedSpec));
+      expect(item.style.left).toBe("18%");
+      expect(item.style.width).toBe("55%");
     } finally {
       view.unmount();
+    }
+  });
+
+  it("clamps pointer movement to the positioned item bounds", () => {
+    const fixture = positionedFixture();
+    try {
+      dispatchPointer(fixture.item, "pointerdown", 148, 59, 11, 0, "touch");
+      dispatchPointer(fixture.item, "pointermove", 500, 400, 11, 0, "touch");
+      expect(fixture.item.style.left).toBe("60%");
+      expect(fixture.item.style.top).toBe("80%");
+      dispatchPointer(fixture.item, "pointerup", 500, 400, 11, 0, "touch");
+      const rect = fixture.layoutChanges[0]?.root.type === "absolute" ? fixture.layoutChanges[0].root.items[0]?.rect.mobile : undefined;
+      expect(rect).toEqual({ x: 60, y: 80, width: 40, height: 20 });
+    } finally {
+      fixture.view.unmount();
+    }
+  });
+
+  it("blocks locked items and clears cancelled pointer drags", () => {
+    const locked = positionedFixture(["absolute-action"]);
+    try {
+      expect(locked.item.getAttribute("data-draggable")).toBeNull();
+      dispatchPointer(locked.item, "pointerdown", 148, 59, 12);
+      dispatchPointer(locked.item, "pointermove", 200, 100, 12);
+      dispatchPointer(locked.item, "pointerup", 200, 100, 12);
+      expect(locked.capturedPointer()).toBeNull();
+      expect(locked.layoutChanges).toHaveLength(0);
+      expect(locked.item.style.left).toBe("4%");
+    } finally {
+      locked.view.unmount();
+    }
+
+    const fixture = positionedFixture();
+    let mounted = true;
+    try {
+      dispatchPointer(fixture.item, "pointerdown", 148, 59, 13);
+      dispatchPointer(fixture.item, "pointermove", 200, 100, 13);
+      expect(fixture.item.style.left).toBe("30%");
+      dispatchPointer(fixture.item, "pointercancel", 200, 100, 13);
+      expect(fixture.item.style.left).toBe("4%");
+      expect(fixture.capturedPointer()).toBeNull();
+      expect(fixture.layoutChanges).toHaveLength(0);
+
+      dispatchPointer(fixture.item, "pointerdown", 148, 59, 14, 0, "pen");
+      expect(fixture.capturedPointer()).toBe(14);
+      fixture.view.unmount();
+      mounted = false;
+      expect(fixture.capturedPointer()).toBeNull();
+    } finally {
+      if (mounted) fixture.view.unmount();
     }
   });
 

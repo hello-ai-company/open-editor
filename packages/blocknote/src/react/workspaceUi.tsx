@@ -249,7 +249,6 @@ export function WorkspacePagePicker(
         }
         role="combobox"
         aria-expanded="true"
-        aria-busy={status === "loading"}
         onChange={(event) => setQuery(event.target.value)}
         onKeyDown={onKeyDown}
       />
@@ -268,7 +267,13 @@ export function WorkspacePagePicker(
           No pages found
         </p>
       ) : null}
-      <ul ref={listRef} className="oe-page-picker__list" role="listbox" id={listboxId}>
+      <ul
+        ref={listRef}
+        className="oe-page-picker__list"
+        role="listbox"
+        id={listboxId}
+        aria-busy={status === "loading"}
+      >
         {results.map((page, index) => (
           <li key={page.id} role="presentation">
             <button

@@ -18,6 +18,7 @@ import {
   fromBlockNote,
   getPowerSlashItems,
   PowerCommandPalette,
+  createDocumentOutline,
   toBlockNoteForSchema,
   useOpenEditorBlockChanges,
   usePowerCommandPaletteShortcut,
@@ -30,25 +31,17 @@ import {
   DocumentOutline,
   jumpToBlock,
   QuickNav,
-  useDocumentOutline,
   useQuickNavShortcut,
   WorkspacePagePicker
 } from "@hello-ai-company/editor-blocknote/react";
-import {
-  acceptSuggestionGroup,
-  parseSuggestionGroup,
-  rejectSuggestionGroup,
-  type SuggestionGroup
-} from "@hello-ai-company/editor-ai";
-import { CanvasEditor } from "@hello-ai-company/editor-canvas/react";
+import type { SuggestionGroup } from "@hello-ai-company/editor-ai";
+import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createMagicLayoutSpec } from "@hello-ai-company/editor-canvas";
-import { renderOpenEditorPresentation, renderOpenEditorSite } from "@hello-ai-company/editor-publish";
 import {
   createEditorDocument,
   serializeEditorDocument,
   type EditorDocument
 } from "@hello-ai-company/editor-core";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createDemoBacklinkProvider,
   createDemoDatabaseProvider,
@@ -56,6 +49,12 @@ import {
 } from "./demoProviders";
 import { sampleDocument } from "./sampleDocument";
 import type { EditorPageLink } from "@hello-ai-company/editor-core";
+
+const CanvasEditor = lazy(() =>
+  import("@hello-ai-company/editor-canvas/react").then(({ CanvasEditor }) => ({
+    default: CanvasEditor
+  }))
+);
 
 type DemoMode = "document" | "canvas" | "present" | "site";
 
@@ -66,6 +65,13 @@ type PendingDemoSuggestion = {
   suggestedText: string;
   generatedAt: string;
   stale?: boolean;
+};
+
+type PublishedPreview = {
+  mode: "present" | "site";
+  document: EditorDocument;
+  html?: string;
+  error?: string;
 };
 
 const DEMO_AI_SOURCE = "A focused workspace keeps the content clear and the tools close at hand.";
@@ -322,6 +328,7 @@ export function PowerDemoEditor() {
   const [previewDocument, setPreviewDocument] = useState<EditorDocument>(sampleDocument);
   const [canvasSpec, setCanvasSpec] = useState(() => createMagicLayoutSpec(sampleDocument, "report"));
   const [reviewSuggestion, setReviewSuggestion] = useState<PendingDemoSuggestion | null>(null);
+  const [publishedPreview, setPublishedPreview] = useState<PublishedPreview | null>(null);
   const [aiStatus, setAiStatus] = useState<string | null>(null);
   const [canReviewSelection, setCanReviewSelection] = useState(false);
   const selectionRef = useRef<{ blockId: string; text: string } | null>(null);
@@ -419,13 +426,16 @@ export function PowerDemoEditor() {
     if (mode === "document") {
       const currentDocument = fromBlockNote(editor.document as never);
       setPreviewDocument(currentDocument);
-      if (nextMode === "canvas") setCanvasSpec(createMagicLayoutSpec(currentDocument, "report"));
     }
     setMode(nextMode);
     setReviewSuggestion(null);
   }, [editor, mode]);
 
-  const createDemoSuggestion = useCallback(() => {
+  const resetCanvasLayout = useCallback(() => {
+    setCanvasSpec(createMagicLayoutSpec(previewDocument, "report"));
+  }, [previewDocument]);
+
+  const createDemoSuggestion = useCallback(async () => {
     const selection = selectionRef.current;
     if (!selection) return;
     if (selection.text !== DEMO_AI_SOURCE) {
@@ -434,6 +444,7 @@ export function PowerDemoEditor() {
     }
 
     try {
+      const { parseSuggestionGroup } = await import("@hello-ai-company/editor-ai");
       const currentDocument = fromBlockNote(editor.document as never);
       const originalBlock = currentDocument.blocks.find((block) => block.id === selection.blockId);
       if (!originalBlock || originalBlock.type !== "paragraph") return;
@@ -461,30 +472,36 @@ export function PowerDemoEditor() {
         generatedAt
       });
       setAiStatus(null);
-    setRelationsOpen(false);
-    setActionsOpen(false);
+      setRelationsOpen(false);
+      setActionsOpen(false);
     } catch (error) {
       setAiStatus(error instanceof Error ? error.message : "Could not prepare the demo suggestion.");
     }
   }, [editor]);
 
-  const decideDemoSuggestion = useCallback((accept: boolean) => {
+  const decideDemoSuggestion = useCallback(async (accept: boolean) => {
     const pending = reviewSuggestion;
     if (!pending) return;
     const decidedAt = new Date().toISOString();
 
     if (!accept) {
-      const rejection = rejectSuggestionGroup(pending.group, {
-        rejectedBy: "demo-user",
-        rejectedAt: decidedAt
-      });
-      setReviewSuggestion(null);
-      setAiStatus(`Rejected by ${rejection.rejectedBy} · the document was left unchanged.`);
+      try {
+        const { rejectSuggestionGroup } = await import("@hello-ai-company/editor-ai");
+        const rejection = rejectSuggestionGroup(pending.group, {
+          rejectedBy: "demo-user",
+          rejectedAt: decidedAt
+        });
+        setReviewSuggestion(null);
+        setAiStatus(`Rejected by ${rejection.rejectedBy} · the document was left unchanged.`);
+      } catch (error) {
+        setAiStatus(error instanceof Error ? error.message : "Could not reject the demo suggestion.");
+      }
       return;
     }
 
     if (pending.stale) return;
     try {
+      const { acceptSuggestionGroup } = await import("@hello-ai-company/editor-ai");
       const result = acceptSuggestionGroup(
         pending.group,
         fromBlockNote(editor.document as never),
@@ -525,14 +542,36 @@ export function PowerDemoEditor() {
     setJson(serializeEditorDocument(doc));
   }, [editor]);
 
-  const presentationHtml = useMemo(
-    () => renderOpenEditorPresentation(previewDocument, { title: "Workspace primitives" }),
-    [previewDocument]
-  );
-  const siteHtml = useMemo(
-    () => renderOpenEditorSite(previewDocument, { title: "Workspace primitives" }),
-    [previewDocument]
-  );
+  useEffect(() => {
+    if (mode !== "present" && mode !== "site") return;
+    let cancelled = false;
+    void import("@hello-ai-company/editor-publish")
+      .then(({ renderOpenEditorPresentation, renderOpenEditorSite }) => {
+        if (cancelled) return;
+        const html = mode === "present"
+          ? renderOpenEditorPresentation(previewDocument, { title: "Workspace primitives" })
+          : renderOpenEditorSite(previewDocument, { title: "Workspace primitives" });
+        setPublishedPreview({ mode, document: previewDocument, html });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setPublishedPreview({
+          mode,
+          document: previewDocument,
+          error: error instanceof Error ? error.message : "Could not load this preview."
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, previewDocument]);
+
+  const activePublishedPreview =
+    (mode === "present" || mode === "site") &&
+    publishedPreview?.mode === mode &&
+    publishedPreview.document === previewDocument
+      ? publishedPreview
+      : null;
 
   const themeAttr =
     theme === "system" ? undefined : theme === "dark" ? "dark" : "light";
@@ -669,7 +708,11 @@ export function PowerDemoEditor() {
 
       <div className={`demo-workspace${!focusMode && outlineOpen ? " demo-workspace--outline" : ""}${!focusMode && (reviewSuggestion || relationsOpen || actionsOpen) ? " demo-workspace--context" : ""}`}>
         {!focusMode && outlineOpen ? (
-          <OutlinePanel editor={editor} index={index} onClose={() => setOutlineOpen(false)} />
+          <OutlinePanel
+            editor={editor as never}
+            index={index}
+            onClose={() => setOutlineOpen(false)}
+          />
         ) : null}
 
         <main className="demo-editor">
@@ -727,27 +770,40 @@ export function PowerDemoEditor() {
             </BlockNoteView>
           ) : mode === "canvas" ? (
             <section className="demo-preview" aria-label="Canvas editor">
-              <CanvasEditor
-                document={previewDocument}
-                spec={canvasSpec}
-                onLayoutChange={setCanvasSpec}
-              />
+              <div role="group" aria-label="Canvas layout controls">
+                <button type="button" className="chip" onClick={resetCanvasLayout}>
+                  Reset to Magic Layout
+                </button>
+              </div>
+              <Suspense fallback={<p className="demo-feedback" role="status">Loading Canvas…</p>}>
+                <CanvasEditor
+                  document={previewDocument}
+                  spec={canvasSpec}
+                  onLayoutChange={setCanvasSpec}
+                />
+              </Suspense>
             </section>
-          ) : mode === "present" ? (
-            <iframe
-              className="demo-published-preview demo-published-preview--presentation"
-              title="Presentation preview"
-              srcDoc={presentationHtml}
-              sandbox="allow-scripts allow-presentation"
-              allow="fullscreen"
-            />
+          ) : activePublishedPreview?.html ? (
+            mode === "present" ? (
+              <iframe
+                className="demo-published-preview demo-published-preview--presentation"
+                title="Presentation preview"
+                srcDoc={activePublishedPreview.html}
+                sandbox="allow-scripts allow-presentation"
+                allow="fullscreen"
+              />
+            ) : (
+              <iframe
+                className="demo-published-preview"
+                title="Published site preview"
+                srcDoc={activePublishedPreview.html}
+                sandbox=""
+              />
+            )
           ) : (
-            <iframe
-              className="demo-published-preview"
-              title="Published site preview"
-              srcDoc={siteHtml}
-              sandbox=""
-            />
+            <p className="demo-feedback" role={activePublishedPreview?.error ? "alert" : "status"}>
+              {activePublishedPreview?.error ?? `Loading ${mode === "present" ? "presentation" : "site"} preview…`}
+            </p>
           )}
           {aiStatus ? <p className="demo-feedback" role="status">{aiStatus}</p> : null}
         </main>
@@ -870,6 +926,7 @@ export function PowerDemoEditor() {
           if (relationsOpenRef.current) setRelationRevision((revision) => revision + 1);
         }}
       />
+      <DocumentIndexBridge editor={editor as never} index={index} />
       {pagePickOpen ? (
         <div
           className="oe-overlay"
@@ -952,15 +1009,27 @@ function ReferencePicker(props: {
   onPick: (blockId: string) => void;
   onCancel: () => void;
 }) {
+  const id = useId();
+  const titleId = `${id}-title`;
+  const inputId = `${id}-input`;
+  const listboxId = `${id}-listbox`;
   const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
   const dialogRef = useRef<HTMLDialogElement | null>(null);
-  const revision = props.index.getRevision();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const revision = useSyncExternalStore(
+    props.index.subscribe,
+    props.index.getRevision,
+    props.index.getRevision
+  );
   const hits = useMemo(() => {
     void revision;
     return props.index
       .query({ query, preferHeadings: true, limit: 40 })
       .filter((entry) => !props.excludeIds.includes(entry.blockId));
   }, [props.index, props.excludeIds, query, revision]);
+  const selectedIndex = Math.min(activeIndex, Math.max(hits.length - 1, 0));
 
   useEffect(() => {
     if (!props.open) return;
@@ -970,12 +1039,23 @@ function ReferencePicker(props: {
       ? document.activeElement
       : null;
     dialog.showModal();
-    dialog.querySelector<HTMLInputElement>("input")?.focus();
+    setActiveIndex(0);
+    inputRef.current?.focus();
     return () => {
       if (dialog.open) dialog.close();
       if (previousFocus?.isConnected) previousFocus.focus();
     };
   }, [props.open]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query]);
+
+  useEffect(() => {
+    listRef.current
+      ?.querySelector<HTMLElement>('[aria-selected="true"]')
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedIndex, hits]);
 
   if (!props.open) return null;
 
@@ -984,7 +1064,7 @@ function ReferencePicker(props: {
       ref={dialogRef}
       className="oe-overlay"
       aria-modal="true"
-      aria-label="Insert block reference"
+      aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault();
         props.onCancel();
@@ -996,23 +1076,54 @@ function ReferencePicker(props: {
       <div
         className="oe-quick-nav"
       >
+        <h2 id={titleId} className="oe-page-picker__heading">Insert block reference</h2>
+        <label htmlFor={inputId}>Search blocks</label>
         <input
+          ref={inputRef}
+          id={inputId}
           className="oe-quick-nav__input"
-          autoFocus
           placeholder="Pick a block to reference…"
+          role="combobox"
+          aria-controls={listboxId}
+          aria-expanded="true"
+          aria-autocomplete="list"
+          aria-activedescendant={
+            hits[selectedIndex] ? `${listboxId}-option-${selectedIndex}` : undefined
+          }
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setActiveIndex(Math.min(selectedIndex + 1, Math.max(hits.length - 1, 0)));
+            } else if (event.key === "ArrowUp") {
+              event.preventDefault();
+              setActiveIndex(Math.max(selectedIndex - 1, 0));
+            } else if (event.key === "Enter") {
+              const hit = hits[selectedIndex];
+              if (hit) {
+                event.preventDefault();
+                props.onPick(hit.blockId);
+              }
+            }
+          }}
         />
-        <ul className="oe-quick-nav__list" role="listbox">
-          {hits.length === 0 ? (
-            <li className="oe-quick-nav__empty">No matching blocks</li>
-          ) : (
-            hits.map((entry) => (
+        {hits.length === 0 ? (
+          <p className="oe-quick-nav__empty" role="status">No matching blocks</p>
+        ) : null}
+        <ul ref={listRef} id={listboxId} className="oe-quick-nav__list" role="listbox">
+          {hits.map((entry, index) => (
               <li key={entry.blockId} role="presentation">
                 <button
                   type="button"
                   className="oe-quick-nav__item"
                   role="option"
+                  tabIndex={-1}
+                  id={`${listboxId}-option-${index}`}
+                  aria-selected={index === selectedIndex}
+                  data-active={index === selectedIndex ? "true" : "false"}
+                  onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => props.onPick(entry.blockId)}
                 >
                   <span className="oe-quick-nav__type">{entry.type}</span>
@@ -1021,8 +1132,7 @@ function ReferencePicker(props: {
                   </span>
                 </button>
               </li>
-            ))
-          )}
+          ))}
         </ul>
       </div>
     </dialog>
@@ -1030,16 +1140,23 @@ function ReferencePicker(props: {
 }
 
 function OutlinePanel(props: {
-  editor: Parameters<typeof useDocumentOutline>[0]["editor"];
+  editor: Parameters<typeof useOpenEditorBlockChanges>[0]["editor"];
   index: ReturnType<typeof createDocumentIndex>;
   onClose: () => void;
 }) {
-  const { nodes, jump } = useDocumentOutline({
-    editor: props.editor,
-    index: props.index,
-    seedFromDocument: true,
-    batch: { strategy: "raf" }
-  });
+  const revision = useSyncExternalStore(
+    props.index.subscribe,
+    props.index.getRevision,
+    props.index.getRevision
+  );
+  const nodes = useMemo(() => {
+    void revision;
+    return createDocumentOutline(props.index);
+  }, [props.index, revision]);
+  const jump = useCallback(
+    (blockId: string) => jumpToBlock(props.editor as never, blockId),
+    [props.editor]
+  );
   return (
     <aside id="demo-outline-panel" className="demo-outline" aria-label="Document outline">
       <div className="demo-panel-heading">
@@ -1049,6 +1166,21 @@ function OutlinePanel(props: {
       <DocumentOutline nodes={nodes} onJump={jump} />
     </aside>
   );
+}
+
+function DocumentIndexBridge(props: {
+  editor: Parameters<typeof useOpenEditorBlockChanges>[0]["editor"] & { document?: unknown };
+  index: ReturnType<typeof createDocumentIndex>;
+}) {
+  useOpenEditorBlockChanges({
+    editor: props.editor,
+    batch: { strategy: "raf" },
+    onBatch: (batch) => props.index.applyChanges(batch.changes)
+  });
+  useEffect(() => {
+    props.index.replaceFromBlocks(fromBlockNote(props.editor.document as never).blocks);
+  }, [props.editor, props.index]);
+  return null;
 }
 
 function DemoChangeObserver(props: {

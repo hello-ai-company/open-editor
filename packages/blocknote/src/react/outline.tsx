@@ -279,33 +279,32 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
         />
+        {results.length === 0 ? (
+          <p className="oe-quick-nav__empty" role="status">
+            {dict.quickNavEmpty}
+          </p>
+        ) : null}
         <ul ref={listRef} id={listboxId} className="oe-quick-nav__list" role="listbox">
-          {results.length === 0 ? (
-            <li className="oe-quick-nav__empty" role="presentation" aria-live="polite">
-              {dict.quickNavEmpty}
+          {results.map((entry, index) => (
+            <li key={entry.blockId} role="presentation">
+              <button
+                type="button"
+                className="oe-quick-nav__item"
+                role="option"
+                tabIndex={-1}
+                id={`${listboxId}-option-${index}`}
+                aria-selected={index === activeIndex}
+                data-active={index === activeIndex ? "true" : "false"}
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => select(entry.blockId)}
+              >
+                <span className="oe-quick-nav__type">{entry.type}</span>
+                <span className="oe-quick-nav__text">
+                  {entry.text.trim() || entry.blockId}
+                </span>
+              </button>
             </li>
-          ) : (
-            results.map((entry, index) => (
-              <li key={entry.blockId} role="presentation">
-                <button
-                  type="button"
-                  className="oe-quick-nav__item"
-                  role="option"
-                  tabIndex={-1}
-                  id={`${listboxId}-option-${index}`}
-                  aria-selected={index === activeIndex}
-                  data-active={index === activeIndex ? "true" : "false"}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onClick={() => select(entry.blockId)}
-                >
-                  <span className="oe-quick-nav__type">{entry.type}</span>
-                  <span className="oe-quick-nav__text">
-                    {entry.text.trim() || entry.blockId}
-                  </span>
-                </button>
-              </li>
-            ))
-          )}
+          ))}
         </ul>
       </div>
     </div>

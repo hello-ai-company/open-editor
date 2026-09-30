@@ -234,45 +234,44 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
             {error}
           </div>
         ) : null}
+        {items.length === 0 ? (
+          <p className="oe-command-palette__group" role="status">
+            {dict.commandPaletteEmpty}
+          </p>
+        ) : null}
         <ul ref={listRef} id={listboxId} className="oe-command-palette__list" role="listbox">
-          {items.length === 0 ? (
-            <li className="oe-command-palette__group" aria-live="polite">
-              {dict.commandPaletteEmpty}
-            </li>
-          ) : (
-            items.map((item, index) => {
-              const showGroup = item.group !== lastGroup;
-              lastGroup = item.group;
-              return (
-                <li key={item.id} role="presentation">
-                  {showGroup ? (
-                    <div className="oe-command-palette__group" role="presentation">
-                      {item.recent && index === 0 ? dict.recentCommands : item.group}
-                    </div>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="oe-command-palette__item"
-                    role="option"
-                    tabIndex={-1}
-                    id={`${listboxId}-option-${index}`}
-                    aria-selected={index === activeIndex}
-                    aria-disabled={item.disabledReason ? "true" : undefined}
-                    data-active={index === activeIndex ? "true" : "false"}
-                    disabled={Boolean(item.disabledReason)}
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onClick={() => void runItem(item)}
-                  >
-                    <span>
-                      {item.title}
-                      {item.disabledReason ? ` — ${item.disabledReason}` : ""}
-                    </span>
-                    {item.shortcut ? <kbd>{item.shortcut}</kbd> : null}
-                  </button>
-                </li>
-              );
-            })
-          )}
+          {items.map((item, index) => {
+            const showGroup = item.group !== lastGroup;
+            lastGroup = item.group;
+            return (
+              <li key={item.id} role="presentation">
+                {showGroup ? (
+                  <div className="oe-command-palette__group" role="presentation">
+                    {item.recent && index === 0 ? dict.recentCommands : item.group}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  className="oe-command-palette__item"
+                  role="option"
+                  tabIndex={-1}
+                  id={`${listboxId}-option-${index}`}
+                  aria-selected={index === activeIndex}
+                  aria-disabled={item.disabledReason ? "true" : undefined}
+                  data-active={index === activeIndex ? "true" : "false"}
+                  disabled={Boolean(item.disabledReason)}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => void runItem(item)}
+                >
+                  <span>
+                    {item.title}
+                    {item.disabledReason ? ` — ${item.disabledReason}` : ""}
+                  </span>
+                  {item.shortcut ? <kbd>{item.shortcut}</kbd> : null}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>

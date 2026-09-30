@@ -424,6 +424,7 @@ iframe:focus-visible {
 }
 
 @media (max-width: 760px) {
+  .demo-shell { overflow-x: clip; }
   .demo-top { gap: 0.3rem 0.7rem; padding: 0.65rem 0.75rem 0.5rem; }
   .demo-brand { gap: 0.45rem; }
   .demo-brand__mark { width: 1.7rem; height: 1.7rem; }

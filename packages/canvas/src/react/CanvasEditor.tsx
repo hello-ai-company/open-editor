@@ -1,10 +1,11 @@
-import { createElement, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type MouseEvent, type ReactElement } from "react";
+import { createElement, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactElement } from "react";
 import type { EditorBlock, EditorDocument } from "@hello-ai-company/editor-core";
 import {
   CANVAS_THEME_PRESETS,
   validateCanvasLayoutSpec,
   type CanvasBreakpoint,
   type CanvasBlockElementRef,
+  type CanvasRect,
   type CanvasLayoutNode,
   type CanvasLayoutSpec,
   type CanvasTheme,
@@ -42,6 +43,14 @@ export type CanvasEditorProps = {
 };
 
 type LayerItem = { node: CanvasLayoutNode; depth: number };
+type CanvasPointerDrag = {
+  nodeId: string;
+  pointerId: number;
+  originRect: CanvasRect;
+  rect: CanvasRect;
+  bounds: { left: number; top: number; width: number; height: number };
+  offset: { x: number; y: number };
+};
 
 const MAX_PREVIEW_TEXT = 4000;
 const EMPTY_CANVAS_SPEC: CanvasLayoutSpec = {
@@ -323,7 +332,7 @@ const CANVAS_CSS = `
 .oe-canvas__node:hover:not([data-selected=true]){border-color:var(--oe-canvas-accent)}
 .oe-canvas__node:focus-visible{outline:2px solid var(--oe-canvas-accent);outline-offset:2px;z-index:1}
 .oe-canvas__node[data-selected=true]{border-color:var(--oe-canvas-accent);background:rgb(73 118 92 / 4%)}
-.oe-canvas__absolute-item[draggable=true],.oe-canvas__absolute-item[draggable=true] .oe-canvas__node{cursor:grab}.oe-canvas__absolute-item[draggable=true]:active,.oe-canvas__absolute-item[draggable=true]:active .oe-canvas__node{cursor:grabbing}
+.oe-canvas__absolute-item[data-draggable=true]{cursor:grab;touch-action:none}.oe-canvas__absolute-item[data-draggable=true] .oe-canvas__node{cursor:grab}.oe-canvas__absolute-item[data-dragging=true],.oe-canvas__absolute-item[data-dragging=true] *{cursor:grabbing;user-select:none}
 .oe-canvas__node[data-hidden=true]{display:none}
 .oe-canvas__node[data-locked=true]::after{content:"Locked";position:absolute;top:4px;right:6px;border-radius:5px;background:#edf0ec;color:#536057;padding:1px 6px;font:11px/1.5 ui-sans-serif,system-ui,sans-serif}
 .oe-canvas__stack{display:flex;min-width:0}
@@ -392,10 +401,18 @@ function normalizeViewState(
 
 export function CanvasEditor(props: CanvasEditorProps): ReactElement {
   const headingId = useId().replaceAll(":", "");
-  const draggedNodeId = useRef<string | null>(null);
-  const dragOffset = useRef({ x: 0, y: 0 });
+  const pointerDragRef = useRef<CanvasPointerDrag | null>(null);
+  const pointerTargetRef = useRef<HTMLElement | null>(null);
+  const [pointerDrag, setPointerDrag] = useState<CanvasPointerDrag | null>(null);
   const [internalSpec, setInternalSpec] = useState(props.spec);
   const [internalView, setInternalView] = useState(() => defaultViewState(props.spec));
+  useEffect(() => () => {
+    const drag = pointerDragRef.current;
+    const target = pointerTargetRef.current;
+    pointerDragRef.current = null;
+    pointerTargetRef.current = null;
+    if (drag && target?.hasPointerCapture?.(drag.pointerId)) target.releasePointerCapture?.(drag.pointerId);
+  }, []);
   const spec = props.onLayoutChange ? props.spec : internalSpec;
   const validationIssues = useMemo(
     () => validateCanvasLayoutSpec(spec, props.document),
@@ -453,6 +470,75 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
     if (changedTheme) props.onThemeChange?.(next.theme, next);
   }
 
+  function clearPointerDrag(pointerId?: number): void {
+    const drag = pointerDragRef.current;
+    if (!drag || (pointerId !== undefined && drag.pointerId !== pointerId)) return;
+    const target = pointerTargetRef.current;
+    pointerDragRef.current = null;
+    pointerTargetRef.current = null;
+    setPointerDrag(null);
+    if (target?.hasPointerCapture?.(drag.pointerId)) target.releasePointerCapture?.(drag.pointerId);
+  }
+
+  function movePointerDrag(nodeId: string, event: PointerEvent<HTMLDivElement>): CanvasPointerDrag | null {
+    const drag = pointerDragRef.current;
+    if (!drag || drag.nodeId !== nodeId || drag.pointerId !== event.pointerId) return null;
+    if (locked.has(nodeId)) {
+      clearPointerDrag(event.pointerId);
+      return null;
+    }
+    const x = ((event.clientX - drag.bounds.left) / drag.bounds.width) * 100 - drag.offset.x;
+    const y = ((event.clientY - drag.bounds.top) / drag.bounds.height) * 100 - drag.offset.y;
+    const next = {
+      ...drag,
+      rect: {
+        ...drag.rect,
+        x: Math.min(100 - drag.rect.width, Math.max(0, x)),
+        y: Math.min(100 - drag.rect.height, Math.max(0, y))
+      }
+    };
+    event.preventDefault();
+    pointerDragRef.current = next;
+    setPointerDrag(next);
+    return next;
+  }
+
+  function startPointerDrag(nodeId: string, rect: CanvasRect, event: PointerEvent<HTMLDivElement>): void {
+    if (event.button !== 0 || event.isPrimary === false || locked.has(nodeId) || hidden.has(nodeId)) return;
+    const parentBounds = event.currentTarget.parentElement?.getBoundingClientRect();
+    if (!parentBounds?.width || !parentBounds.height) return;
+    const itemBounds = event.currentTarget.getBoundingClientRect();
+    const drag: CanvasPointerDrag = {
+      nodeId,
+      pointerId: event.pointerId,
+      originRect: rect,
+      rect,
+      bounds: { left: parentBounds.left, top: parentBounds.top, width: parentBounds.width, height: parentBounds.height },
+      offset: {
+        x: ((event.clientX - itemBounds.left) / parentBounds.width) * 100,
+        y: ((event.clientY - itemBounds.top) / parentBounds.height) * 100
+      }
+    };
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    pointerTargetRef.current = event.currentTarget;
+    pointerDragRef.current = drag;
+    setPointerDrag(drag);
+    updateView({ selectedNodeId: nodeId });
+  }
+
+  function endPointerDrag(nodeId: string, event: PointerEvent<HTMLDivElement>): void {
+    const active = pointerDragRef.current;
+    if (!active || active.nodeId !== nodeId || active.pointerId !== event.pointerId) return;
+    const completed = movePointerDrag(nodeId, event) ?? active;
+    clearPointerDrag(event.pointerId);
+    if (locked.has(nodeId)) return;
+    const { originRect, rect } = completed;
+    if (rect.x === originRect.x && rect.y === originRect.y) return;
+    const next = updateAbsoluteItemRect(renderSpec, nodeId, view.breakpoint, rect);
+    if (next) updateSpec(next);
+  }
+
   function handlePreviewKeyDown(nodeId: string, event: KeyboardEvent<HTMLElement>): void {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -480,7 +566,6 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
     if (hidden.has(node.id)) return null;
     const selected = node.id === selectedId;
     const lockedNode = locked.has(node.id);
-    const hasChildren = isContainer(node) || node.type === "absolute";
     const alignment = resolveAlignment(view.alignmentByNodeId[node.id]);
     const wrapperProps = {
       className: "oe-canvas__node",
@@ -491,7 +576,6 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
       "aria-level": depth,
       "aria-label": `Select ${nodeLabel(node)}${lockedNode ? ", locked" : ""}`,
       "aria-selected": selected,
-      "aria-expanded": hasChildren ? true : undefined,
       "aria-keyshortcuts": "Enter Space ArrowUp ArrowDown",
       tabIndex: selected ? 0 : -1,
       onClick: (event: MouseEvent<HTMLElement>) => {
@@ -522,34 +606,11 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
       return <div key={node.id} {...wrapperProps} style={alignment}><div className="oe-canvas__group" role="group" data-kind={node.type} style={node.type === "frame" ? { boxShadow: "0 5px 18px rgb(25 35 27 / 8%)" } : undefined}>{node.children.map((child) => renderNode(child, depth + 1))}</div></div>;
     }
     if (node.type === "absolute") {
-      return <div key={node.id} {...wrapperProps} style={alignment}><div className="oe-canvas__absolute" role="group" style={{ position: "relative", minHeight: 240 }} onDragOver={(event: DragEvent<HTMLDivElement>) => event.preventDefault()} onDrop={(event: DragEvent<HTMLDivElement>) => {
-        event.preventDefault();
-        const id = draggedNodeId.current ?? event.dataTransfer.getData("text/plain");
-        const item = findAbsoluteItem(renderSpec.root, id);
-        if (!item || !id || locked.has(id)) return;
-        const bounds = event.currentTarget.getBoundingClientRect();
-        if (!bounds.width || !bounds.height) return;
-        const rect = resolveResponsiveValue(item.rect, view.breakpoint) ?? item.rect.mobile;
-        const next = updateAbsoluteItemRect(renderSpec, id, view.breakpoint, {
-          ...rect,
-          x: ((event.clientX - bounds.left) / bounds.width) * 100 - dragOffset.current.x,
-          y: ((event.clientY - bounds.top) / bounds.height) * 100 - dragOffset.current.y
-        });
-        if (next) updateSpec(next);
-      }}>{node.items.map(({ element, rect }) => {
-        const activeRect = resolveResponsiveValue(rect, view.breakpoint) ?? rect.mobile;
-        return <div className="oe-canvas__absolute-item" role="group" key={element.id} draggable={!locked.has(element.id)} onDragStart={(event: DragEvent<HTMLDivElement>) => {
-          if (locked.has(element.id)) { event.preventDefault(); return; }
-          draggedNodeId.current = element.id;
-          const itemBounds = event.currentTarget.getBoundingClientRect();
-          const parentBounds = event.currentTarget.parentElement?.getBoundingClientRect();
-          dragOffset.current = parentBounds?.width && parentBounds.height
-            ? { x: ((event.clientX - itemBounds.left) / parentBounds.width) * 100, y: ((event.clientY - itemBounds.top) / parentBounds.height) * 100 }
-            : { x: 0, y: 0 };
-          event.dataTransfer.effectAllowed = "move";
-          event.dataTransfer.setData("text/plain", element.id);
-          updateView({ selectedNodeId: element.id });
-        }} onDragEnd={() => { draggedNodeId.current = null; dragOffset.current = { x: 0, y: 0 }; }} style={{ position: "absolute", left: `${activeRect.x}%`, top: `${activeRect.y}%`, width: `${activeRect.width}%`, height: `${activeRect.height}%` }}>{renderNode(element, depth + 1)}</div>;
+      return <div key={node.id} {...wrapperProps} style={alignment}><div className="oe-canvas__absolute" role="group" data-dragging={pointerDrag && node.items.some(({ element }) => element.id === pointerDrag.nodeId) ? "true" : undefined} style={{ position: "relative", minHeight: 240 }}>{node.items.map(({ element, rect }) => {
+        const sourceRect = resolveResponsiveValue(rect, view.breakpoint) ?? rect.mobile;
+        const activeRect = pointerDrag?.nodeId === element.id ? pointerDrag.rect : sourceRect;
+        const isDraggable = !locked.has(element.id) && !hidden.has(element.id);
+        return <div className="oe-canvas__absolute-item" role="group" key={element.id} data-draggable={isDraggable ? "true" : undefined} data-dragging={pointerDrag?.nodeId === element.id ? "true" : undefined} onPointerDown={(event) => startPointerDrag(element.id, sourceRect, event)} onPointerMove={(event) => movePointerDrag(element.id, event)} onPointerUp={(event) => endPointerDrag(element.id, event)} onPointerCancel={(event) => clearPointerDrag(event.pointerId)} onLostPointerCapture={(event) => clearPointerDrag(event.pointerId)} style={{ position: "absolute", left: `${activeRect.x}%`, top: `${activeRect.y}%`, width: `${activeRect.width}%`, height: `${activeRect.height}%` }}>{renderNode(element, depth + 1)}</div>;
       })}</div></div>;
     }
     if (!isBlockElement(node)) return null;

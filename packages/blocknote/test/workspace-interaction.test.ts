@@ -419,6 +419,40 @@ describe("WorkspacePagePicker keyboard helper", () => {
 });
 
 describe("PowerCommandPalette keyboard and listbox behavior", () => {
+  it("announces an empty result outside the listbox", async () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) =>
+      window.setTimeout(() => callback(0), 0)
+    );
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => window.clearTimeout(id));
+
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        createElement(PowerCommandPalette, {
+          open: true,
+          onOpenChange: vi.fn(),
+          registry: createCommandRegistry([]),
+          context: {} as never
+        })
+      );
+    });
+
+    const input = host.querySelector('input[role="combobox"]') as HTMLInputElement;
+    const listbox = host.querySelector('[role="listbox"]');
+    const status = host.querySelector('[role="status"]');
+    expect(document.getElementById(input.getAttribute("aria-controls")!)).toBe(listbox);
+    expect(listbox?.querySelector('[role="option"]')).toBeNull();
+    expect(listbox?.textContent).toBe("");
+    expect(status?.textContent).toBe("No matching commands");
+    expect(listbox?.contains(status)).toBe(false);
+    expect(input.hasAttribute("aria-activedescendant")).toBe(false);
+
+    await act(async () => root.unmount());
+    host.remove();
+  });
+
   it("connects its combobox to unique options and keeps disabled commands inert", async () => {
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) =>
       window.setTimeout(() => callback(0), 0)
@@ -564,6 +598,16 @@ describe("QuickNav and document outline accessibility", () => {
     expect(focus).toHaveBeenCalled();
     expect(onOpenChange).toHaveBeenCalledWith(false);
 
+    await act(async () => {
+      index.replaceFromBlocks([]);
+    });
+    const emptyListbox = host.querySelector('[role="listbox"]');
+    const emptyStatus = host.querySelector('[role="status"]');
+    expect(emptyListbox?.querySelector('[role="option"]')).toBeNull();
+    expect(emptyListbox?.textContent).toBe("");
+    expect(emptyStatus?.textContent).toBe("No matching blocks");
+    expect(emptyListbox?.contains(emptyStatus)).toBe(false);
+
     await act(async () => root.unmount());
     host.remove();
   });
@@ -637,11 +681,9 @@ describe("WorkspacePagePicker integration", () => {
       await new Promise((r) => setTimeout(r, 5));
     });
     expect(host.textContent).toContain("Searching");
-    expect(
-      (host.querySelector('input[role="combobox"]') as HTMLInputElement).getAttribute(
-        "aria-busy"
-      )
-    ).toBe("true");
+    expect(host.querySelector('[role="listbox"]')?.getAttribute("aria-busy")).toBe(
+      "true"
+    );
     expect(typeof resolvePages).toBe("function");
     await act(async () => {
       resolvePages([{ id: "a", title: "Alpha" }]);
@@ -673,6 +715,11 @@ describe("WorkspacePagePicker integration", () => {
       await new Promise((r) => setTimeout(r, 20));
     });
     expect(empty.host.textContent).toContain("No pages found");
+    const emptyListbox = empty.host.querySelector('[role="listbox"]');
+    const emptyStatus = empty.host.querySelector('[role="status"]');
+    expect(emptyListbox?.querySelector('[role="option"]')).toBeNull();
+    expect(emptyListbox?.contains(emptyStatus)).toBe(false);
+    expect(emptyListbox?.getAttribute("aria-busy")).toBe("false");
     await empty.cleanup();
 
     const err = await mountPicker({
