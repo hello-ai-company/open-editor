@@ -404,6 +404,74 @@ export type FilterValidationResult =
   | { ok: true; filter: DatabaseFilter }
   | { ok: false; error: string };
 
+const FILTER_OPERATORS: Readonly<Record<string, readonly string[]>> = {
+  text: ["contains", "equals", "notEquals", "isEmpty", "isNotEmpty"],
+  url: ["contains", "equals", "notEquals", "isEmpty", "isNotEmpty"],
+  number: ["equals", "gt", "gte", "lt", "lte", "isEmpty", "isNotEmpty"],
+  boolean: ["is", "isEmpty", "isNotEmpty"],
+  date: ["on", "before", "after", "isEmpty", "isNotEmpty"],
+  select: ["equals", "notEquals", "isEmpty", "isNotEmpty"],
+  status: ["equals", "notEquals", "isEmpty", "isNotEmpty"]
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+/** Structural runtime validation shared by saved-config and store boundaries. */
+export function parseDatabaseFilter(value: unknown): DatabaseFilter | null {
+  if (!isRecord(value) || Object.keys(value).some((key) =>
+    !["propertyId", "propertyType", "operator", "value"].includes(key)
+  )) return null;
+  if (
+    typeof value.propertyId !== "string" || !value.propertyId.trim() || value.propertyId.length > 256 ||
+    typeof value.propertyType !== "string" || !FILTER_OPERATORS[value.propertyType] ||
+    typeof value.operator !== "string" || !FILTER_OPERATORS[value.propertyType]!.includes(value.operator)
+  ) return null;
+
+  const emptyOperator = value.operator === "isEmpty" || value.operator === "isNotEmpty";
+  if (emptyOperator) {
+    if (Object.hasOwn(value, "value")) return null;
+    return {
+      propertyId: value.propertyId,
+      propertyType: value.propertyType as DatabaseFilter["propertyType"],
+      operator: value.operator
+    } as DatabaseFilter;
+  }
+
+  if (typeof value.value === "string" && value.value.length <= 500) {
+    if ((value.propertyType === "text" || value.propertyType === "url" || value.propertyType === "select" || value.propertyType === "status") &&
+      (value.operator === "contains" || value.operator === "equals" || value.operator === "notEquals")) {
+      return {
+        propertyId: value.propertyId,
+        propertyType: value.propertyType,
+        operator: value.operator,
+        value: value.value
+      } as DatabaseFilter;
+    }
+    if (value.propertyType === "date" &&
+      (value.operator === "on" || value.operator === "before" || value.operator === "after") &&
+      isIsoDateString(value.value)) {
+      return { propertyId: value.propertyId, propertyType: "date", operator: value.operator, value: value.value };
+    }
+  }
+  if (value.propertyType === "number" && typeof value.value === "number" && Number.isFinite(value.value) &&
+    ["equals", "gt", "gte", "lt", "lte"].includes(value.operator)) {
+    return {
+      propertyId: value.propertyId,
+      propertyType: "number",
+      operator: value.operator as "equals" | "gt" | "gte" | "lt" | "lte",
+      value: value.value
+    };
+  }
+  if (value.propertyType === "boolean" && value.operator === "is" && typeof value.value === "boolean") {
+    return { propertyId: value.propertyId, propertyType: "boolean", operator: "is", value: value.value };
+  }
+  return null;
+}
+
 export type PropertySortValidationResult =
   | { ok: true; sort: DatabasePropertySort }
   | { ok: false; error: string };
@@ -441,10 +509,12 @@ export function hostSupportsPropertySort(
  * Invalid filters must never reach DatabaseProvider.listRows.
  */
 export function validateDatabaseFilter(
-  filter: DatabaseFilter,
+  value: unknown,
   defs: readonly ResolvedPropertyDefinition[],
   caps: DatabaseQueryCapabilities | undefined | null
 ): FilterValidationResult {
+  const filter = parseDatabaseFilter(value);
+  if (!filter) return { ok: false, error: "Invalid filter shape or operator for property type" };
   if (!hostSupportsPropertyFilters(caps)) {
     return {
       ok: false,
@@ -497,7 +567,7 @@ export function validateDatabaseFilter(
 }
 
 export function validateDatabaseFilters(
-  filters: readonly DatabaseFilter[],
+  filters: readonly unknown[],
   defs: readonly ResolvedPropertyDefinition[],
   caps: DatabaseQueryCapabilities | undefined | null
 ):

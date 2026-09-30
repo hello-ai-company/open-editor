@@ -236,8 +236,10 @@ import type {
   DatabaseFeedRowMediaRequest,
   DatabaseMapLocation,
   DatabaseMapLocationRequest,
+  DatabaseRuntimeStore,
   DatabaseRowMedia,
   DatabaseRowMediaRequest,
+  DatabaseViewConfigHydrationState,
   DatabaseViewConfig,
   DatabaseViewConfigProvider,
   DatabaseViewRuntime
@@ -324,12 +326,17 @@ const runtimeWithSavedViews: DatabaseViewRuntime = {
   databaseViewConfig: savedViewProvider
 };
 
+declare const databaseRuntimeStore: DatabaseRuntimeStore;
+databaseRuntimeStore.setQueryState?.("tasks::chart", {});
+const hydrationState: DatabaseViewConfigHydrationState = "metadata-unavailable";
+
 void runtime;
 void runtimeGalleryTyped;
 void runtimeFeed;
 void runtimeMap;
 void runtimeAll;
 void runtimeWithSavedViews;
+void hydrationState;
 `
   );
 

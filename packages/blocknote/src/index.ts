@@ -241,6 +241,7 @@ export {
   type DatabaseViewConfig,
   type DatabaseViewConfigIdentity,
   type DatabaseViewConfigProvider,
+  type DatabaseViewConfigHydrationState,
   type DatabaseViewInitialQueryState,
   type DatabaseViewRendererContext,
   type DatabaseViewRendererMap,

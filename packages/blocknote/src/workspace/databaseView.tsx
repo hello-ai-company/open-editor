@@ -70,6 +70,9 @@ import {
   listDatabaseViewConfigIdentities,
   loadDatabaseViewHydration,
   patchDatabaseViewConfig,
+  persistDatabaseViewConfigIfAuthoritative,
+  registerDatabaseViewConfig,
+  type DatabaseViewConfigHydrationState,
   type DatabaseViewConfigIdentity,
   type DatabaseViewConfig
 } from "./databaseViewConfig.js";
@@ -152,6 +155,21 @@ function displayViewType(viewType: DatabaseViewType): string {
   return `${viewType[0]!.toUpperCase()}${viewType.slice(1)}`;
 }
 
+function hydrationWarning(state: DatabaseViewConfigHydrationState): string | null {
+  switch (state) {
+    case "config-load-failed":
+      return "Saved view settings could not be loaded. Changes are local until a retry succeeds.";
+    case "metadata-unavailable":
+      return "Saved property settings could not be validated. Changes will not overwrite them.";
+    case "invalid":
+      return "Saved view settings are invalid. Changes will not overwrite them.";
+    case "unavailable":
+      return "Saved view settings are unavailable from the host. Changes are local.";
+    default:
+      return null;
+  }
+}
+
 function collectDatabaseViewChoices(input: {
   databaseId: string;
   databaseViews?: EditorDatabase["views"];
@@ -204,13 +222,38 @@ export function DatabaseViewControls(props: {
   views: readonly DatabaseViewChoice[];
   canChange: boolean;
   onChange?: (selection: DatabaseViewPick) => void;
+  viewConfigProvider?: DatabaseViewRuntime["databaseViewConfig"];
 }): ReactElement {
   const [addViewOpen, setAddViewOpen] = useState(false);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const [registrationBusy, setRegistrationBusy] = useState(false);
+  const registrationBusyRef = useRef(false);
+  const pendingView = useRef<DatabaseViewPick | null>(null);
+  const addViewReasonId = useId();
   const currentKey = JSON.stringify([props.databaseId, props.viewId]);
   const selectedView = props.views.find(({ databaseId, viewId }) =>
     JSON.stringify([databaseId, viewId]) === currentKey
   );
   const databaseList = props.database ? [props.database] : [];
+  const canRegisterView = Boolean(props.onChange && props.viewConfigProvider?.save && props.viewConfigProvider?.list);
+
+  const registerPendingView = async (selection: DatabaseViewPick) => {
+    if (!props.viewConfigProvider?.save || !props.viewConfigProvider.list || registrationBusyRef.current) return;
+    registrationBusyRef.current = true;
+    setRegistrationBusy(true);
+    setRegistrationError(null);
+    try {
+      await registerDatabaseViewConfig(props.viewConfigProvider, createDefaultDatabaseViewConfig(selection));
+      pendingView.current = null;
+      setAddViewOpen(false);
+      props.onChange?.(selection);
+    } catch {
+      setRegistrationError("This view is not saved yet. Retry registration or cancel to discard it.");
+    } finally {
+      registrationBusyRef.current = false;
+      setRegistrationBusy(false);
+    }
+  };
 
   return (
     <div className="oe-database-view__view-controls" role="group" aria-label="Database views">
@@ -239,11 +282,24 @@ export function DatabaseViewControls(props: {
         type="button"
         className="oe-database-view__chip"
         aria-haspopup="dialog"
-        disabled={!props.canChange || !props.database}
-        onClick={() => setAddViewOpen(true)}
+        aria-describedby={addViewReasonId}
+        title={canRegisterView ? undefined : "The host must support saving and listing database views."}
+        disabled={!props.canChange || !props.database || !canRegisterView}
+        onClick={() => {
+          setRegistrationError(null);
+          pendingView.current = null;
+          setAddViewOpen(true);
+        }}
       >
         + View
       </button>
+      <span className="oe-sr-only" id={addViewReasonId}>
+        {canRegisterView
+          ? "Creates a view saved and discoverable by the host."
+          : !props.onChange
+            ? "View creation is unavailable because the editor cannot update this database block."
+            : "View creation is unavailable because the host cannot save and rediscover views."}
+      </span>
       <DatabaseViewPicker
         open={addViewOpen}
         databases={databaseList}
@@ -251,9 +307,20 @@ export function DatabaseViewControls(props: {
         initialViewType={isDatabaseViewType(props.viewType) ? props.viewType : "table"}
         allowExistingViews={false}
         title={`Add a view to ${props.title}`}
+        errorMessage={registrationError ?? undefined}
+        onRetry={registrationError && pendingView.current ? () => void registerPendingView(pendingView.current!) : undefined}
+        retryLabel="Retry registration"
+        saving={registrationBusy}
+        selectionLocked={Boolean(registrationError)}
         onPick={(selection) => {
-          setAddViewOpen(false);
-          if (selection) props.onChange?.(selection);
+          if (!selection) {
+            pendingView.current = null;
+            setRegistrationError(null);
+            setAddViewOpen(false);
+            return;
+          }
+          pendingView.current ??= selection;
+          void registerPendingView(pendingView.current);
         }}
       />
     </div>
@@ -602,6 +669,7 @@ function StoreBackedDatabaseView(props: {
     key: string;
     ready: boolean;
     config: DatabaseViewConfig;
+    state: DatabaseViewConfigHydrationState;
     warning: string | null;
   }>(() => ({
     key: "",
@@ -611,10 +679,14 @@ function StoreBackedDatabaseView(props: {
       viewId: viewId || "main",
       viewType: configType
     }),
+    state: "unavailable",
     warning: null
   }));
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadRetryCount, setLoadRetryCount] = useState(0);
+  const [loadRetrying, setLoadRetrying] = useState(false);
   const [configuredViews, setConfiguredViews] = useState<DatabaseViewConfigIdentity[]>([]);
+  const configRef = useRef(hydration.config);
   const activeHydrationKeyRef = useRef(hydrationKey);
   activeHydrationKeyRef.current = hydrationKey;
   const writer = useMemo(
@@ -635,48 +707,64 @@ function StoreBackedDatabaseView(props: {
       viewType: configType
     }).then((loaded) => {
       if (!current) return;
-      const config = loaded.config;
+      const priorIsReady = hydration.key === hydrationKey && hydration.ready;
+      let state = loaded.state;
+      let config = loaded.config;
       if (databaseId) {
-        store.ensureView(viewKey, databaseId, {
-          query: config.query,
-          sortBy: config.sortBy,
-          direction: config.direction,
-          filters: config.filters,
-          propertySort: config.propertySort
-        });
+        if (priorIsReady && (state === "ready" || state === "missing")) {
+          try {
+            if (!store.setQueryState) throw new Error("Store cannot replace hydrated query state");
+            store.setQueryState(viewKey, config, loaded.databaseMetadata);
+          } catch {
+            state = "metadata-unavailable";
+            config = configRef.current;
+          }
+        } else if (!priorIsReady) {
+          store.ensureView(viewKey, databaseId, config);
+        } else {
+          config = configRef.current;
+        }
       }
       // Register generated view identities for the host picker, but never replace
       // an existing config (or a config hidden by a transient load failure).
-      if (loaded.missing && runtime.databaseViewConfig?.save) {
-        void writer.save(config).then(() =>
+      if (state === "missing" && loaded.missing && runtime.databaseViewConfig?.save) {
+        void persistDatabaseViewConfigIfAuthoritative(state, writer, config).then(() =>
           listDatabaseViewConfigIdentities(runtime.databaseViewConfig, databaseId).then((views) => {
             if (current) setConfiguredViews(views);
           })
         );
       }
+      configRef.current = config;
       setHydration({
         key: hydrationKey,
         ready: true,
         config,
-        warning: loaded.warnings.length ? "Some saved view settings could not be restored." : null
+        state,
+        warning: hydrationWarning(state)
       });
     }).catch(() => {
       if (!current) return;
-      const config = createDefaultDatabaseViewConfig({
+      const fallback = createDefaultDatabaseViewConfig({
         databaseId,
         viewId: viewId || "main",
         viewType: configType
       });
-      if (databaseId) store.ensureView(viewKey, databaseId, config);
+      const priorIsReady = hydration.key === hydrationKey && hydration.ready;
+      const config = priorIsReady ? configRef.current : fallback;
+      if (databaseId && !priorIsReady) store.ensureView(viewKey, databaseId, config);
+      if (!priorIsReady) configRef.current = config;
       setHydration({
         key: hydrationKey,
         ready: true,
         config,
-        warning: "Saved view could not be loaded; defaults were used."
+        state: "config-load-failed",
+        warning: hydrationWarning("config-load-failed")
       });
+    }).finally(() => {
+      if (current && loadRetryCount > 0) setLoadRetrying(false);
     });
     return () => { current = false; };
-  }, [configType, databaseId, hydrationKey, runtime.database, runtime.databaseViewConfig, store, viewId, viewKey, writer]);
+  }, [configType, databaseId, hydrationKey, loadRetryCount, runtime.database, runtime.databaseViewConfig, store, viewId, viewKey, writer]);
 
   useEffect(() => {
     let current = true;
@@ -687,13 +775,12 @@ function StoreBackedDatabaseView(props: {
   }, [databaseId, runtime.databaseViewConfig, viewId]);
 
   const readyHydration = hydration.key === hydrationKey && hydration.ready;
-  const configRef = useRef(hydration.config);
   if (readyHydration) configRef.current = hydration.config;
   const updateConfig = (patch: Parameters<typeof patchDatabaseViewConfig>[1]) => {
     const next = patchDatabaseViewConfig(configRef.current, patch);
     configRef.current = next;
     setHydration((current) => current.key === hydrationKey ? { ...current, config: next } : current);
-    void writer.save(next);
+    void persistDatabaseViewConfigIfAuthoritative(hydration.state, writer, next);
   };
 
   const snap = useSyncExternalStore(
@@ -730,6 +817,12 @@ function StoreBackedDatabaseView(props: {
       viewConfig={hydration.config}
       onViewConfigChange={updateConfig}
       configWarning={hydration.warning}
+      canRetryConfigLoad={Boolean(runtime.databaseViewConfig?.load && hydration.state !== "ready" && hydration.state !== "missing")}
+      configLoadRetrying={loadRetrying}
+      onRetryConfigLoad={() => {
+        setLoadRetrying(true);
+        setLoadRetryCount((count) => count + 1);
+      }}
       configSaveError={saveError}
       onRetryConfigSave={() => void writer.retry().then(() =>
         listDatabaseViewConfigIdentities(runtime.databaseViewConfig, databaseId).then(setConfiguredViews)
@@ -754,6 +847,9 @@ export function SharedDatabaseViewShell(props: {
   viewConfig?: DatabaseViewConfig;
   onViewConfigChange?: (patch: Parameters<typeof patchDatabaseViewConfig>[1]) => void;
   configWarning?: string | null;
+  canRetryConfigLoad?: boolean;
+  configLoadRetrying?: boolean;
+  onRetryConfigLoad?: () => void;
   configSaveError?: string | null;
   onRetryConfigSave?: () => void;
   database?: EditorDatabase | null;
@@ -1632,12 +1728,18 @@ export function SharedDatabaseViewShell(props: {
           })}
           canChange={props.canChangeViews ?? false}
           onChange={props.onViewChange}
+          viewConfigProvider={runtime.databaseViewConfig}
         />
       </header>
 
       {props.configWarning ? (
         <p className="oe-database-view__notice" role="status">
           {props.configWarning}
+          {props.canRetryConfigLoad && props.onRetryConfigLoad ? (
+            <button type="button" className="oe-database-view__chip" disabled={props.configLoadRetrying} onClick={props.onRetryConfigLoad}>
+              {props.configLoadRetrying ? "Retrying…" : "Retry load"}
+            </button>
+          ) : null}
         </p>
       ) : null}
       {props.configSaveError ? (
@@ -2074,6 +2176,7 @@ function LegacyDatabaseView(props: {
           })}
           canChange={props.canChangeViews}
           onChange={props.onViewChange}
+          viewConfigProvider={runtime.databaseViewConfig}
         />
       </header>
       {!runtime.database?.listRows ? (

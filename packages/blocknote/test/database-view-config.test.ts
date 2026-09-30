@@ -7,6 +7,8 @@ import {
   listDatabaseViewConfigIdentities,
   loadDatabaseViewHydration,
   patchDatabaseViewConfig,
+  persistDatabaseViewConfigIfAuthoritative,
+  registerDatabaseViewConfig,
   validateDatabaseViewConfig,
   type DatabaseViewConfigProvider,
   type DatabaseViewConfig
@@ -15,6 +17,7 @@ import {
   createDatabaseRuntimeStore,
   databaseViewInstanceKey
 } from "../src/workspace/databaseRuntimeStore.js";
+import { resolveDatabasePropertyDefinitions, validateDatabaseFilters } from "../src/workspace/databaseProperty.js";
 
 const metadata: EditorDatabase = {
   id: "db-1",
@@ -137,6 +140,62 @@ describe("DatabaseViewConfig validation", () => {
     expect(result.warnings).toContain("Saved filters were invalid and were cleared");
   });
 
+  it("enforces the property/operator matrix for untrusted filters", () => {
+    const definitions = resolveDatabasePropertyDefinitions({
+      legacySchema: {},
+      definitions: [
+        { id: "text", name: "Text", type: "text" },
+        { id: "url", name: "URL", type: "url" },
+        { id: "number", name: "Number", type: "number" },
+        { id: "boolean", name: "Boolean", type: "boolean" },
+        { id: "date", name: "Date", type: "date" },
+        { id: "select", name: "Select", type: "select", options: [{ value: "x" }] },
+        { id: "status", name: "Status", type: "status", options: [{ value: "done" }] }
+      ]
+    });
+    const invalid = [
+      { propertyId: "status", propertyType: "status", operator: "contains", value: "done" },
+      { propertyId: "select", propertyType: "select", operator: "contains", value: "x" },
+      { propertyId: "number", propertyType: "number", operator: "contains", value: "4" },
+      { propertyId: "boolean", propertyType: "boolean", operator: "equals", value: true },
+      { propertyId: "date", propertyType: "date", operator: "gt", value: "2026-01-01" },
+      { propertyId: "text", propertyType: "text", operator: "before", value: "today" }
+    ];
+    for (const filter of invalid) {
+      expect(validateDatabaseFilters([filter], definitions, metadata.queryCapabilities).ok).toBe(false);
+    }
+    const valid = [
+      { propertyId: "text", propertyType: "text", operator: "contains", value: "term" },
+      { propertyId: "url", propertyType: "url", operator: "equals", value: "https://example.test" },
+      { propertyId: "number", propertyType: "number", operator: "gte", value: 4 },
+      { propertyId: "boolean", propertyType: "boolean", operator: "is", value: true },
+      { propertyId: "date", propertyType: "date", operator: "on", value: "2026-01-01" },
+      { propertyId: "select", propertyType: "select", operator: "notEquals", value: "x" },
+      { propertyId: "status", propertyType: "status", operator: "equals", value: "done" },
+      { propertyId: "status", propertyType: "status", operator: "isEmpty" }
+    ];
+    expect(validateDatabaseFilters(valid, definitions, metadata.queryCapabilities)).toMatchObject({ ok: true, filters: valid });
+  });
+
+  it("never sends an invalid initial host filter to listRows", async () => {
+    const listRows = vi.fn(async (_databaseId: string, _options?: { filters?: readonly unknown[] }): Promise<DatabaseRowsPage> => ({
+      databaseId: "db-1", rows: [], items: [], schema: {}, config: {},
+      pagination: { limit: 20, nextCursor: null, hasMore: false, total: 0 }
+    }));
+    const store = createDatabaseRuntimeStore({
+      provider: { getDatabase: async () => metadata, listRows }
+    });
+    const viewKey = databaseViewInstanceKey("block", "db-1", "work");
+    store.ensureView(viewKey, "db-1", {
+      filters: [{ propertyId: "status", propertyType: "status", operator: "contains", value: "done" } as never]
+    });
+    await vi.waitFor(() => expect(listRows).toHaveBeenCalled());
+    expect(listRows.mock.calls[0]?.[1]?.filters).toBeUndefined();
+    expect(() => store.setFilters(viewKey, [
+      { propertyId: "status", propertyType: "status", operator: "contains", value: "done" }
+    ])).toThrow(/Invalid filter|operator/);
+  });
+
   it("validates config identities and de-duplicates saved view IDs", async () => {
     const provider = {
       list: async () => [
@@ -149,6 +208,32 @@ describe("DatabaseViewConfig validation", () => {
     await expect(listDatabaseViewConfigIdentities(provider, "db-1")).resolves.toEqual([
       { databaseId: "db-1", viewId: "work", viewType: "calendar" }
     ]);
+  });
+
+  it("registers a new view only after the host can rediscover its durable identity", async () => {
+    const configs = new Map<string, DatabaseViewConfig>();
+    const key = (databaseId: string, viewId: string) => JSON.stringify([databaseId, viewId]);
+    const provider: DatabaseViewConfigProvider = {
+      async list(databaseId) {
+        return [...configs.values()]
+          .filter((config) => config.databaseId === databaseId)
+          .map(({ databaseId: id, viewId, viewType }) => ({ databaseId: id, viewId, viewType }));
+      },
+      async save(config) { configs.set(key(config.databaseId, config.viewId), config); }
+    };
+    const chart = createDefaultDatabaseViewConfig({ databaseId: "db-1", viewId: "chart-new", viewType: "chart" });
+    await expect(registerDatabaseViewConfig(provider, chart)).resolves.toContainEqual({
+      databaseId: "db-1", viewId: "chart-new", viewType: "chart"
+    });
+    await expect(registerDatabaseViewConfig(provider, chart)).resolves.toContainEqual({
+      databaseId: "db-1", viewId: "chart-new", viewType: "chart"
+    });
+    await expect(registerDatabaseViewConfig({ save: provider.save }, chart)).rejects.toThrow(/cannot durably register/);
+    await expect(registerDatabaseViewConfig({ list: provider.list }, chart)).rejects.toThrow(/cannot durably register/);
+    await expect(registerDatabaseViewConfig({
+      save: provider.save,
+      async list() { return []; }
+    }, chart)).rejects.toThrow(/could not rediscover/);
   });
 
   it("creates a bounded whitelist patch without allowing identity or row data injection", () => {
@@ -186,12 +271,107 @@ describe("DatabaseViewConfig hydration and persistence", () => {
     await expect(loadDatabaseViewHydration(input)).resolves.toMatchObject({
       missing: true,
       valid: true,
+      state: "missing",
       config: { databaseId: "db-1", viewId: "new-view", viewType: "board" }
     });
     await expect(loadDatabaseViewHydration({
       ...input,
       provider: { async load() { throw new Error("host unavailable"); } }
-    })).resolves.toMatchObject({ missing: false, valid: false });
+    })).resolves.toMatchObject({ missing: false, valid: false, state: "config-load-failed" });
+  });
+
+  it("blocks saves after uncertain load and metadata failures, then permits saves after explicit successful retry", async () => {
+    const persisted: DatabaseViewConfig[] = [];
+    const provider: DatabaseViewConfigProvider = {
+      async load() { throw new Error("temporary load failure"); },
+      async save(config) { persisted.push(config); }
+    };
+    const writer = { save: vi.fn(async (config: DatabaseViewConfig) => { persisted.push(config); }) };
+    const failed = await loadDatabaseViewHydration({
+      provider,
+      databaseId: "db-1",
+      viewId: "work",
+      viewType: "calendar"
+    });
+    const localEdit = { ...failed.config, query: "local edit" };
+    expect(failed.state).toBe("config-load-failed");
+    expect(failed.warnings[0]).toContain("defaults are shown");
+    await expect(persistDatabaseViewConfigIfAuthoritative(failed.state, writer, localEdit)).resolves.toBe(false);
+    expect(writer.save).not.toHaveBeenCalled();
+
+    provider.load = async () => savedConfig();
+    const retried = await loadDatabaseViewHydration({
+      provider,
+      databaseProvider: { async getDatabase() { return metadata; } },
+      databaseId: "db-1",
+      viewId: "work",
+      viewType: "calendar"
+    });
+    expect(retried.state).toBe("ready");
+    const changedAfterRetry = { ...retried.config, query: "intentional edit" };
+    await expect(persistDatabaseViewConfigIfAuthoritative(retried.state, writer, changedAfterRetry)).resolves.toBe(true);
+    expect(writer.save).toHaveBeenCalledWith(changedAfterRetry);
+
+    const metadataFailed = await loadDatabaseViewHydration({
+      provider: { async load() { return savedConfig(); }, async save(config) { persisted.push(config); } },
+      databaseProvider: { async getDatabase() { throw new Error("metadata unavailable"); } },
+      databaseId: "db-1",
+      viewId: "work",
+      viewType: "calendar"
+    });
+    expect(metadataFailed.state).toBe("metadata-unavailable");
+    expect(metadataFailed.config.filters).toEqual([]);
+    expect(metadataFailed.config.calendar).toBeUndefined();
+    await expect(persistDatabaseViewConfigIfAuthoritative(
+      metadataFailed.state,
+      writer,
+      { ...metadataFailed.config, query: "local edit after metadata failure" }
+    )).resolves.toBe(false);
+    expect(writer.save).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows default registration only after a successful missing lookup", async () => {
+    const writer = { save: vi.fn(async () => undefined) };
+    const missing = await loadDatabaseViewHydration({
+      provider: { async load() { return null; } },
+      databaseId: "db-1",
+      viewId: "new-view",
+      viewType: "board"
+    });
+    await expect(persistDatabaseViewConfigIfAuthoritative(missing.state, writer, missing.config)).resolves.toBe(true);
+    const uncertain = await loadDatabaseViewHydration({
+      provider: { async load() { throw new Error("unknown"); } },
+      databaseId: "db-1",
+      viewId: "new-view",
+      viewType: "board"
+    });
+    await expect(persistDatabaseViewConfigIfAuthoritative(uncertain.state, writer, uncertain.config)).resolves.toBe(false);
+    expect(writer.save).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps invalid host-loaded config non-authoritative even when fields were sanitized", async () => {
+    const invalid = await loadDatabaseViewHydration({
+      provider: {
+        async load() {
+          return {
+            ...savedConfig(),
+            filters: [{ propertyId: "status", propertyType: "status", operator: "contains", value: "done" }]
+          };
+        }
+      },
+      databaseProvider: { async getDatabase() { return metadata; } },
+      databaseId: "db-1",
+      viewId: "work",
+      viewType: "calendar"
+    });
+    expect(invalid.state).toBe("invalid");
+    expect(invalid.config.filters).toEqual([]);
+    const save = vi.fn(async () => undefined);
+    await expect(persistDatabaseViewConfigIfAuthoritative(invalid.state, { save }, {
+      ...invalid.config,
+      query: "changed"
+    })).resolves.toBe(false);
+    expect(save).not.toHaveBeenCalled();
   });
 
   it("loads config and metadata before the first listRows request, seeding query state atomically", async () => {

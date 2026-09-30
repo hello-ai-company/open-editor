@@ -19,6 +19,10 @@ export type DatabaseViewPickerProps = {
   initialViewType?: DatabaseViewType;
   loading?: boolean;
   errorMessage?: string;
+  saving?: boolean;
+  selectionLocked?: boolean;
+  onRetry?: () => void;
+  retryLabel?: string;
   /** False when adding a new view to the already selected database. */
   allowExistingViews?: boolean;
   /** When set, keep the database fixed and omit its selector. */
@@ -136,6 +140,10 @@ export function DatabaseViewPicker(props: DatabaseViewPickerProps): ReactElement
   if (!props.open) return null;
 
   const close = () => props.onPick(null);
+  const dismiss = () => {
+    if (props.saving || props.selectionLocked) return;
+    close();
+  };
   const pick = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedDatabase?.id || !canInsert) return;
@@ -167,7 +175,7 @@ export function DatabaseViewPicker(props: DatabaseViewPickerProps): ReactElement
     <div
       className="oe-database-picker"
       onClick={(event) => {
-        if (event.target === event.currentTarget) close();
+        if (event.target === event.currentTarget) dismiss();
       }}
     >
       <div
@@ -180,7 +188,7 @@ export function DatabaseViewPicker(props: DatabaseViewPickerProps): ReactElement
         onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
           if (event.key === "Escape") {
             event.preventDefault();
-            close();
+            dismiss();
           }
         }}
       >
@@ -189,6 +197,9 @@ export function DatabaseViewPicker(props: DatabaseViewPickerProps): ReactElement
         </h2>
         {props.errorMessage ? (
           <p className="oe-database-picker__status" role="alert">{props.errorMessage}</p>
+        ) : null}
+        {props.saving ? (
+          <p className="oe-database-picker__status" role="status">Registering view…</p>
         ) : null}
         <form className="oe-database-picker__form" onSubmit={pick}>
           {props.loading ? (
@@ -207,6 +218,7 @@ export function DatabaseViewPicker(props: DatabaseViewPickerProps): ReactElement
                 <select
                   aria-label="Database"
                   value={selectedDatabase.id}
+                  disabled={props.selectionLocked || props.saving}
                   onChange={(event) => {
                     setDatabaseId(event.target.value);
                     setViewChoice("new");
@@ -225,6 +237,7 @@ export function DatabaseViewPicker(props: DatabaseViewPickerProps): ReactElement
                 <select
                   aria-label="View"
                   value={viewChoice}
+                  disabled={props.selectionLocked || props.saving}
                   onChange={(event) => setViewChoice(event.target.value)}
                 >
                   {existingViews.map((view) => {
@@ -246,6 +259,7 @@ export function DatabaseViewPicker(props: DatabaseViewPickerProps): ReactElement
                   aria-label="View type"
                   aria-describedby={detailId}
                   value={viewType}
+                  disabled={props.selectionLocked || props.saving}
                   onChange={(event) => {
                     const selected = event.target.value;
                     if (isDatabaseViewType(selected)) setViewType(selected);
@@ -263,8 +277,13 @@ export function DatabaseViewPicker(props: DatabaseViewPickerProps): ReactElement
             </>
           )}
           <div className="oe-database-picker__actions">
-            <button type="button" onClick={close}>Cancel</button>
-            <button type="submit" disabled={props.loading || !canInsert}>Insert</button>
+            <button type="button" disabled={props.saving} onClick={close}>Cancel</button>
+            {props.onRetry ? (
+              <button type="button" disabled={props.saving} onClick={props.onRetry}>
+                {props.retryLabel ?? "Retry"}
+              </button>
+            ) : null}
+            <button type="submit" disabled={props.loading || props.saving || props.selectionLocked || !canInsert}>Insert</button>
           </div>
         </form>
       </div>

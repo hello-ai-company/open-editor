@@ -193,6 +193,7 @@ export {
   type DatabaseViewConfigHydration,
   type DatabaseViewConfigIdentity,
   type DatabaseViewConfigProvider,
+  type DatabaseViewConfigHydrationState,
   type DatabaseViewConfigValidation
 } from "./databaseViewConfig.js";
 

@@ -7,7 +7,7 @@ import type {
 } from "@hello-ai-company/editor-core";
 import {
   hostSupportsPropertyFilters,
-  isIsoDateString,
+  parseDatabaseFilter,
   resolveDatabasePropertyDefinitions,
   sanitizeFiltersAgainstMetadata,
   sanitizePropertySortAgainstMetadata,
@@ -18,7 +18,6 @@ import { isDatabaseViewType, type DatabaseViewType } from "./types.js";
 const MAX_ID_LENGTH = 256;
 const MAX_QUERY_LENGTH = 500;
 const MAX_FILTERS = 20;
-const MAX_FILTER_VALUE_LENGTH = 500;
 
 export type DatabaseViewConfig = {
   schemaVersion: 1;
@@ -67,7 +66,18 @@ export type DatabaseViewConfigValidation = {
 export type DatabaseViewConfigHydration = DatabaseViewConfigValidation & {
   /** True only when the host successfully reported that no config existed. */
   missing: boolean;
+  state: DatabaseViewConfigHydrationState;
+  /** Metadata used to validate persisted property IDs, when the config referenced properties. */
+  databaseMetadata?: EditorDatabase;
 };
+
+export type DatabaseViewConfigHydrationState =
+  | "ready"
+  | "missing"
+  | "config-load-failed"
+  | "metadata-unavailable"
+  | "invalid"
+  | "unavailable";
 
 /** Validate a host-provided saved-view listing and discard foreign/duplicate identities. */
 export function validateDatabaseViewConfigIdentities(
@@ -99,6 +109,29 @@ export async function listDatabaseViewConfigIdentities(
   } catch {
     return [];
   }
+}
+
+/** Register a view only when the host can save it and prove it can rediscover it. */
+export async function registerDatabaseViewConfig(
+  provider: DatabaseViewConfigProvider | undefined,
+  config: DatabaseViewConfig
+): Promise<DatabaseViewConfigIdentity[]> {
+  if (!provider?.save || !provider.list) {
+    throw new Error("Host cannot durably register database views");
+  }
+  const current = validateDatabaseViewConfigIdentities(await provider.list(config.databaseId), config.databaseId);
+  const existing = current.find(({ viewId }) => viewId === config.viewId);
+  if (existing) {
+    if (existing.viewType !== config.viewType) throw new Error("View ID is already registered with a different type");
+    return current;
+  }
+  await provider.save(config);
+  const saved = validateDatabaseViewConfigIdentities(await provider.list(config.databaseId), config.databaseId);
+  const discovered = saved.find(({ viewId }) => viewId === config.viewId);
+  if (!discovered || discovered.viewType !== config.viewType) {
+    throw new Error("Host saved the view but could not rediscover it");
+  }
+  return saved;
 }
 
 export function createDefaultDatabaseViewConfig(input: {
@@ -135,45 +168,24 @@ function parseFilters(value: unknown): DatabaseFilter[] | null {
   if (!Array.isArray(value) || value.length > MAX_FILTERS) return null;
   const filters: DatabaseFilter[] = [];
   for (const raw of value) {
-    if (!isRecord(raw) || !boundedId(raw.propertyId)) return null;
-    const { propertyId, propertyType, operator } = raw;
-    const empty = operator === "isEmpty" || operator === "isNotEmpty";
-    if (empty) {
-      if (
-        !["text", "number", "boolean", "date", "url", "select", "status"].includes(String(propertyType)) ||
-        Object.hasOwn(raw, "value")
-      ) return null;
-      filters.push({ propertyId, propertyType: propertyType as DatabaseFilter["propertyType"], operator });
-      continue;
-    }
-    if (typeof raw.value === "string" && raw.value.length <= MAX_FILTER_VALUE_LENGTH) {
-      const stringType = propertyType === "text" || propertyType === "url" || propertyType === "select" || propertyType === "status";
-      const stringOp = operator === "contains" || operator === "equals" || operator === "notEquals";
-      const dateOp = operator === "on" || operator === "before" || operator === "after";
-      if (stringType && stringOp) {
-        filters.push({ propertyId, propertyType, operator, value: raw.value } as DatabaseFilter);
-        continue;
-      }
-      if (propertyType === "date" && dateOp && isIsoDateString(raw.value)) {
-        filters.push({ propertyId, propertyType, operator, value: raw.value } as DatabaseFilter);
-        continue;
-      }
-    }
-    if (propertyType === "number" && operator === "equals" && typeof raw.value === "number" && Number.isFinite(raw.value)) {
-      filters.push({ propertyId, propertyType, operator, value: raw.value });
-      continue;
-    }
-    if (propertyType === "number" && ["gt", "gte", "lt", "lte"].includes(String(operator)) && typeof raw.value === "number" && Number.isFinite(raw.value)) {
-      filters.push({ propertyId, propertyType, operator: operator as "gt" | "gte" | "lt" | "lte", value: raw.value });
-      continue;
-    }
-    if (propertyType === "boolean" && operator === "is" && typeof raw.value === "boolean") {
-      filters.push({ propertyId, propertyType, operator, value: raw.value });
-      continue;
-    }
-    return null;
+    const parsed = parseDatabaseFilter(raw);
+    if (!parsed) return null;
+    filters.push(parsed);
   }
   return filters;
+}
+
+function hasMetadataBoundSettings(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (Array.isArray(value.filters) && value.filters.length > 0) return true;
+  if (value.propertySort !== null && value.propertySort !== undefined) return true;
+  for (const group of ["board", "calendar", "timeline", "gantt", "chart", "feed", "dashboard"]) {
+    const settings = value[group];
+    if (isRecord(settings) && Object.entries(settings).some(([key, setting]) =>
+      key !== "scale" && setting !== null && setting !== undefined
+    )) return true;
+  }
+  return false;
 }
 
 function propertyWithType(
@@ -324,36 +336,70 @@ export async function loadDatabaseViewHydration(input: {
   viewType: DatabaseViewType;
 }): Promise<DatabaseViewConfigHydration> {
   const warnings: string[] = [];
-  let raw: unknown | null = null;
-  let loadFailed = false;
+  const fallback = createDefaultDatabaseViewConfig(input);
+  const unavailable = (state: DatabaseViewConfigHydrationState, message: string): DatabaseViewConfigHydration => ({
+    config: fallback,
+    warnings: [message],
+    valid: false,
+    missing: false,
+    state
+  });
+  if (!input.provider) {
+    return unavailable("unavailable", "Saved database view settings are unavailable from the host.");
+  }
+  if (!input.provider.load) {
+    return unavailable("config-load-failed", "Saved database view settings cannot be loaded; local changes will not be saved.");
+  }
+  let raw: unknown | null;
   try {
-    raw = input.provider?.load
-      ? await input.provider.load(input.databaseId, input.viewId)
-      : null;
+    raw = await input.provider.load(input.databaseId, input.viewId);
   } catch {
-    loadFailed = true;
-    warnings.push("Saved view could not be loaded; defaults were used");
+    return unavailable("config-load-failed", "Saved view could not be loaded; defaults are shown and changes will not be saved.");
   }
   if (raw === null || raw === undefined) {
     return {
-      config: createDefaultDatabaseViewConfig(input),
+      config: fallback,
       warnings,
-      valid: warnings.length === 0,
-      missing: !loadFailed
+      valid: true,
+      missing: true,
+      state: "missing"
     };
   }
+
   let metadata: EditorDatabase | null = null;
-  try {
-    const loadedMetadata = input.databaseProvider?.getDatabase
-      ? await input.databaseProvider.getDatabase(input.databaseId)
-      : null;
-    if (loadedMetadata?.id === input.databaseId) metadata = loadedMetadata;
-    else if (loadedMetadata) warnings.push("Database metadata identity did not match; property settings were cleared");
-  } catch {
-    warnings.push("Database metadata unavailable; property settings were cleared");
+  if (hasMetadataBoundSettings(raw)) {
+    if (!input.databaseProvider?.getDatabase) {
+      return unavailable("metadata-unavailable", "Database metadata is unavailable; saved property settings were not restored or overwritten.");
+    }
+    try {
+      const loadedMetadata = await input.databaseProvider.getDatabase(input.databaseId);
+      if (loadedMetadata?.id === input.databaseId) metadata = loadedMetadata;
+      else {
+        return unavailable("metadata-unavailable", "Database metadata is unavailable; saved property settings were not restored or overwritten.");
+      }
+    } catch {
+      return unavailable("metadata-unavailable", "Database metadata is unavailable; saved property settings were not restored or overwritten.");
+    }
   }
   const validated = validateDatabaseViewConfig({ ...input, value: raw, database: metadata });
-  return { ...validated, warnings: [...warnings, ...validated.warnings], missing: false };
+  const state = !validated.valid || validated.warnings.length > 0 ? "invalid" : "ready";
+  return {
+    ...validated,
+    warnings: [...warnings, ...validated.warnings],
+    missing: false,
+    state,
+    ...(metadata ? { databaseMetadata: metadata } : {})
+  };
+}
+
+/** Prevent a sanitized/default view from overwriting config whose remote state is unknown. */
+export function persistDatabaseViewConfigIfAuthoritative(
+  state: DatabaseViewConfigHydrationState,
+  writer: { save: (config: DatabaseViewConfig) => Promise<void> },
+  config: DatabaseViewConfig
+): Promise<boolean> {
+  if (state !== "ready" && state !== "missing") return Promise.resolve(false);
+  return writer.save(config).then(() => true);
 }
 
 /** Immutable merge for intentional settings changes; identity is never patchable. */

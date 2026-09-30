@@ -85,6 +85,12 @@ selectors only; row data, trash, pagination, focus, and loading state are never
 part of `DatabaseViewConfig`. A save failure leaves the current view usable
 and exposes a retry action.
 
+If `load` fails, or property metadata needed to validate a saved setting is
+unavailable, OpenEditor shows a local fallback and blocks config writes until
+an explicit retry successfully rehydrates the view. `+ View` is enabled only
+when the host implements both `save` and `list`; registration is confirmed by
+rediscovery before the editor switches to the new identity.
+
 ## License boundary
 
 - Never depend on `@blocknote/xl-*`

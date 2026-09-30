@@ -117,11 +117,10 @@ const DEMO_VIEW_TYPES = new Set<string>([
 type DemoStorage = Pick<Storage, "getItem" | "setItem">;
 
 function defaultDemoStorage(): DemoStorage | null {
-  try {
-    return typeof localStorage === "undefined" ? null : localStorage;
-  } catch {
-    return null;
-  }
+  return typeof window === "undefined" ? null : {
+    getItem: (key) => window.localStorage.getItem(key),
+    setItem: (key, value) => window.localStorage.setItem(key, value)
+  };
 }
 
 /** Demo host persistence for view settings only; row data stays in the provider. */
@@ -131,12 +130,7 @@ export function createDemoDatabaseViewConfigProvider(
   const memory = new Map<string, unknown>();
   const keyFor = (databaseId: string, viewId: string) => JSON.stringify([databaseId, viewId]);
   const readAll = (): Record<string, unknown> => {
-    let stored: unknown;
-    try {
-      stored = JSON.parse(storage?.getItem(DEMO_VIEW_CONFIG_STORAGE_KEY) ?? "null");
-    } catch {
-      stored = null;
-    }
+    const stored: unknown = JSON.parse(storage?.getItem(DEMO_VIEW_CONFIG_STORAGE_KEY) ?? "null");
     const persisted = stored && typeof stored === "object" && !Array.isArray(stored)
       ? stored as Record<string, unknown>
       : {};
@@ -159,8 +153,8 @@ export function createDemoDatabaseViewConfigProvider(
     async save(config) {
       const key = keyFor(config.databaseId, config.viewId);
       const next = { ...readAll(), [key]: config };
-      memory.set(key, config);
       writeAll(next);
+      memory.set(key, config);
     },
     async delete(databaseId, viewId) {
       const key = keyFor(databaseId, viewId);

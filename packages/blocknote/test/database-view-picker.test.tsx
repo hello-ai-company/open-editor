@@ -130,6 +130,59 @@ describe("DatabaseViewPicker", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = priorActFlag;
   });
 
+  it("does not dismiss while view registration is saving", () => {
+    const priorActFlag = (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const onPick = vi.fn();
+    const { container, cleanup } = mount(createElement(DatabaseViewPicker, {
+      open: true,
+      databases,
+      fixedDatabaseId: "tasks",
+      allowExistingViews: false,
+      saving: true,
+      onPick
+    }));
+    const backdrop = container.querySelector(".oe-database-picker") as HTMLDivElement;
+    const dialog = container.querySelector('[role="dialog"]') as HTMLDivElement;
+    act(() => backdrop.click());
+    act(() => dialog.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Escape", bubbles: true, cancelable: true
+    })));
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(container.querySelector<HTMLButtonElement>('button[type="button"]')?.disabled).toBe(true);
+    expect(onPick).not.toHaveBeenCalled();
+    cleanup();
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = priorActFlag;
+  });
+
+  it("requires explicit Cancel to discard a failed registration", () => {
+    const priorActFlag = (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const onPick = vi.fn();
+    const { container, cleanup } = mount(createElement(DatabaseViewPicker, {
+      open: true,
+      databases,
+      fixedDatabaseId: "tasks",
+      allowExistingViews: false,
+      selectionLocked: true,
+      errorMessage: "This view is not saved yet.",
+      onPick
+    }));
+    const backdrop = container.querySelector(".oe-database-picker") as HTMLDivElement;
+    const dialog = container.querySelector('[role="dialog"]') as HTMLDivElement;
+    act(() => backdrop.click());
+    act(() => dialog.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Escape", bubbles: true, cancelable: true
+    })));
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(onPick).not.toHaveBeenCalled();
+    const cancel = [...container.querySelectorAll("button")].find((button) => button.textContent === "Cancel")!;
+    act(() => cancel.click());
+    expect(onPick).toHaveBeenCalledExactlyOnceWith(null);
+    cleanup();
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = priorActFlag;
+  });
+
   it("does not fall back to a different database when a fixed host ID is unavailable", () => {
     const priorActFlag = (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

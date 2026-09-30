@@ -43,4 +43,59 @@ describe("demo database discovery", () => {
     ]);
     expect(storageData.values().next().value).not.toContain("Outline power UX");
   });
+
+  it("does not list a view after durable storage rejects its first save", async () => {
+    let fail = true;
+    const storageData = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => storageData.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        if (fail) throw new Error("storage unavailable");
+        storageData.set(key, value);
+      }
+    };
+    const host = createDemoDatabaseViewConfigProvider(storage);
+    const config = {
+      schemaVersion: 1 as const,
+      databaseId: "tasks",
+      viewId: "view-chart",
+      viewType: "chart" as const,
+      query: "",
+      sortBy: "position" as const,
+      direction: "asc" as const,
+      filters: [],
+      propertySort: null
+    };
+
+    await expect(host.save?.(config)).rejects.toThrow("storage unavailable");
+    expect(await host.list?.("tasks")).toEqual([]);
+    fail = false;
+    await host.save?.(config);
+    expect(await host.list?.("tasks")).toEqual([
+      { databaseId: "tasks", viewId: "view-chart", viewType: "chart" }
+    ]);
+  });
+
+  it("does not treat a failed config read as a successful missing lookup", async () => {
+    let writes = 0;
+    const host = createDemoDatabaseViewConfigProvider({
+      getItem: () => { throw new Error("storage read failed"); },
+      setItem: () => { writes += 1; }
+    });
+    const config = {
+      schemaVersion: 1 as const,
+      databaseId: "tasks",
+      viewId: "view-chart",
+      viewType: "chart" as const,
+      query: "",
+      sortBy: "position" as const,
+      direction: "asc" as const,
+      filters: [],
+      propertySort: null
+    };
+
+    await expect(host.load?.("tasks", "view-chart")).rejects.toThrow("storage read failed");
+    await expect(host.save?.(config)).rejects.toThrow("storage read failed");
+    expect(writes).toBe(0);
+  });
 });
