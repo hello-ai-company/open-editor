@@ -65,8 +65,8 @@ export function CanvasInspector(props: {
         <button type="button" onClick={() => { const next = reorderCanvasNode(spec, selectedNode.id, -1); if (next) onSpecUpdate(next); }} disabled={isLocked || isRoot}>Move up</button>
         <button type="button" onClick={() => { const next = reorderCanvasNode(spec, selectedNode.id, 1); if (next) onSpecUpdate(next); }} disabled={isLocked || isRoot}>Move down</button>
         <button type="button" onClick={() => { const next = duplicateCanvasNode(spec, selectedNode.id); if (next) onSpecUpdate(next); }} disabled={isLocked || isRoot}>Duplicate</button>
-        <button type="button" onClick={() => onViewUpdate({ hiddenNodeIds: hiddenSelected ? view.hiddenNodeIds.filter((id) => id !== selectedNode.id) : [...view.hiddenNodeIds, selectedNode.id] })}>{hiddenSelected ? "Show" : "Hide"}</button>
-        <button type="button" disabled={isLocked && !directlyLocked} onClick={() => onViewUpdate({ lockedNodeIds: directlyLocked ? view.lockedNodeIds.filter((id) => id !== selectedNode.id) : [...view.lockedNodeIds, selectedNode.id] })}>{directlyLocked ? "Unlock" : isLocked ? "Locked by parent" : "Lock"}</button>
+        <button type="button" aria-pressed={hiddenSelected} onClick={() => onViewUpdate({ hiddenNodeIds: hiddenSelected ? view.hiddenNodeIds.filter((id) => id !== selectedNode.id) : [...view.hiddenNodeIds, selectedNode.id] })}>Hidden</button>
+        <button type="button" aria-pressed={isLocked && !directlyLocked ? undefined : directlyLocked} disabled={isLocked && !directlyLocked} onClick={() => onViewUpdate({ lockedNodeIds: directlyLocked ? view.lockedNodeIds.filter((id) => id !== selectedNode.id) : [...view.lockedNodeIds, selectedNode.id] })}>{isLocked && !directlyLocked ? "Locked by parent" : "Locked"}</button>
       </div>
       <label className="oe-canvas__field">Move into
         <select aria-label="Move into layout group" value="" disabled={isLocked} onChange={(event) => {

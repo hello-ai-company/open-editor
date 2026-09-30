@@ -38,10 +38,19 @@
   --oe-ui-radius-control: 0.35rem;
   --oe-ui-radius-card: 0.45rem;
   --oe-ui-radius-panel: 0.75rem;
-  --oe-ui-motion-fast: 120ms;
-  --oe-ui-motion-normal: 160ms;
+  --oe-ui-motion-press: 90ms;
+  --oe-ui-motion-fast: 130ms;
+  --oe-ui-motion-normal: 180ms;
   --oe-ui-motion-overlay: 180ms;
-  --oe-ui-motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  --oe-ui-motion-exit: 100ms;
+  --oe-ui-motion-panel: 220ms;
+  --oe-ui-motion-mode: 260ms;
+  --oe-ui-motion-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --oe-ui-motion-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --oe-ui-motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --oe-ui-motion-shift-small: 4px;
+  --oe-ui-motion-shift-panel: 8px;
+  --oe-ui-motion-scale-subtle: 0.99;
   --oe-callout-info-bg: var(--oe-ui-info-soft);
   --oe-callout-info-border: var(--oe-ui-info);
   --oe-callout-warning-bg: var(--oe-ui-warning-soft);
@@ -58,6 +67,23 @@
   --oe-unknown-border: var(--oe-ui-unknown-border);
   --oe-power-ink: var(--oe-ui-ink);
   --oe-power-canvas: var(--oe-ui-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  [data-oe-theme="light"],
+  [data-oe-theme="dark"] {
+    --oe-ui-motion-press: 80ms;
+    --oe-ui-motion-fast: 80ms;
+    --oe-ui-motion-normal: 90ms;
+    --oe-ui-motion-overlay: 90ms;
+    --oe-ui-motion-exit: 70ms;
+    --oe-ui-motion-panel: 100ms;
+    --oe-ui-motion-mode: 120ms;
+    --oe-ui-motion-shift-small: 0px;
+    --oe-ui-motion-shift-panel: 0px;
+    --oe-ui-motion-scale-subtle: 1;
+  }
 }
 
 [data-oe-theme="dark"] {

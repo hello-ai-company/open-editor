@@ -309,6 +309,73 @@ dialog.oe-overlay::backdrop {
   font-size: 0.85rem;
 }
 
+@keyframes oe-overlay-enter {
+  from { background-color: transparent; }
+  to { background-color: var(--oe-ui-overlay); }
+}
+
+@keyframes oe-overlay-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--oe-ui-motion-shift-small)) scale(var(--oe-ui-motion-scale-subtle));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.oe-overlay,
+.oe-command-palette {
+  animation: oe-overlay-enter var(--oe-ui-motion-overlay) var(--oe-ui-motion-ease) both;
+}
+
+.oe-quick-nav,
+.oe-command-palette__panel,
+.oe-page-picker {
+  animation: oe-overlay-panel-enter var(--oe-ui-motion-panel) var(--oe-ui-motion-ease) both;
+}
+
+.oe-quick-nav .oe-quick-nav__item,
+.oe-command-palette__panel .oe-command-palette__item,
+.oe-page-picker .oe-page-picker__option,
+.oe-page-picker .oe-page-picker__list button {
+  transform: translateY(0);
+  transition:
+    background-color var(--oe-ui-motion-fast) var(--oe-ui-motion-ease),
+    border-color var(--oe-ui-motion-fast) var(--oe-ui-motion-ease),
+    color var(--oe-ui-motion-fast) var(--oe-ui-motion-ease),
+    transform var(--oe-ui-motion-exit) var(--oe-ui-motion-ease-exit);
+}
+
+.oe-quick-nav .oe-quick-nav__item[data-active="true"],
+.oe-command-palette__panel .oe-command-palette__item[data-active="true"],
+.oe-page-picker .oe-page-picker__option--active,
+.oe-page-picker .oe-page-picker__list button[aria-selected="true"] {
+  transform: translateY(calc(0px - var(--oe-ui-motion-shift-small)));
+  transition-duration: var(--oe-ui-motion-normal);
+  transition-timing-function: var(--oe-ui-motion-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oe-overlay,
+  .oe-command-palette,
+  .oe-quick-nav,
+  .oe-command-palette__panel,
+  .oe-page-picker {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .oe-quick-nav .oe-quick-nav__item[data-active="true"],
+  .oe-command-palette__panel .oe-command-palette__item[data-active="true"],
+  .oe-page-picker .oe-page-picker__option--active,
+  .oe-page-picker .oe-page-picker__list button[aria-selected="true"] {
+    transform: none;
+  }
+}
+
 .oe-block-reference {
   display: inline-flex;
   align-items: center;
