@@ -7,21 +7,17 @@ import {
   type CanvasBlockElementRef,
   type CanvasLayoutNode,
   type CanvasLayoutSpec,
-  type CanvasRect,
   type CanvasTheme,
-  type CanvasThemePresetName,
   type CanvasThemeTokens
 } from "../index.js";
 import {
-  duplicateCanvasNode,
   findCanvasNode,
   flattenCanvasNodes,
   getCanvasGapNode,
-  moveCanvasNode,
-  reorderCanvasNode,
-  resolveResponsiveValue,
-  setCanvasNodeGap
+  resolveResponsiveValue
 } from "../layoutOperations.js";
+import { CanvasInspector, type CanvasInspectorModel } from "./CanvasInspector.js";
+import { findAbsoluteItem, nodeLabel, updateAbsoluteItemRect } from "./canvasEditorUtils.js";
 
 export type CanvasAlignment = "left" | "center" | "right" | "stretch";
 
@@ -46,7 +42,6 @@ export type CanvasEditorProps = {
 };
 
 type LayerItem = { node: CanvasLayoutNode; depth: number };
-type AbsoluteItem = { element: CanvasBlockElementRef; rect: { mobile: CanvasRect; tablet?: CanvasRect; desktop?: CanvasRect } };
 
 const MAX_PREVIEW_TEXT = 4000;
 const EMPTY_CANVAS_SPEC: CanvasLayoutSpec = {
@@ -177,75 +172,12 @@ function collectLockedNodes(root: CanvasLayoutNode, lockedIds: ReadonlySet<strin
   return locked;
 }
 
-function nodeLabel(node: CanvasLayoutNode): string {
-  if ("blockId" in node && node.blockId) return `${node.type} · ${node.blockId} · ${node.id}`;
-  return `${node.type} · ${node.id}`;
-}
-
 function isContainer(node: CanvasLayoutNode): boolean {
   return node.type === "stack" || node.type === "grid" || node.type === "columns" || node.type === "section" || node.type === "frame";
 }
 
 function isBlockElement(node: CanvasLayoutNode): node is CanvasBlockElementRef {
   return ["text", "image", "card", "divider", "button", "chart", "embed"].includes(node.type);
-}
-
-function findAbsoluteItem(root: CanvasLayoutNode, nodeId: string): AbsoluteItem | undefined {
-  for (const node of flattenCanvasNodes(root)) {
-    if (node.type === "absolute") {
-      const item = node.items.find(({ element }) => element.id === nodeId);
-      if (item) return item;
-    }
-  }
-  return undefined;
-}
-
-function updateAbsoluteItemRect(
-  spec: CanvasLayoutSpec,
-  nodeId: string,
-  breakpoint: CanvasBreakpoint,
-  rect: CanvasRect
-): CanvasLayoutSpec | null {
-  const width = Math.min(100, Math.max(1, Number.isFinite(rect.width) ? rect.width : 1));
-  const height = Math.min(100, Math.max(1, Number.isFinite(rect.height) ? rect.height : 1));
-  const nextRect = {
-    x: Math.min(100 - width, Math.max(0, Number.isFinite(rect.x) ? rect.x : 0)),
-    y: Math.min(100 - height, Math.max(0, Number.isFinite(rect.y) ? rect.y : 0)),
-    width,
-    height
-  };
-
-  function visit(node: CanvasLayoutNode): { node: CanvasLayoutNode; changed: boolean } {
-    if (node.type === "absolute") {
-      const index = node.items.findIndex(({ element }) => element.id === nodeId);
-      if (index >= 0) {
-        const items = [...node.items];
-        const item = items[index]!;
-        items[index] = { ...item, rect: { ...item.rect, [breakpoint]: nextRect } };
-        return { node: { ...node, items }, changed: true };
-      }
-      return { node, changed: false };
-    }
-    if (node.type === "stack" || node.type === "grid" || node.type === "section" || node.type === "frame") {
-      const children = node.children.map(visit);
-      return children.some(({ changed }) => changed)
-        ? { node: { ...node, children: children.map(({ node: child }) => child) }, changed: true }
-        : { node, changed: false };
-    }
-    if (node.type === "columns") {
-      let changed = false;
-      const columns = node.columns.map((column) => column.map((child) => {
-        const result = visit(child);
-        changed ||= result.changed;
-        return result.node;
-      }));
-      return changed ? { node: { ...node, columns }, changed: true } : { node, changed: false };
-    }
-    return { node, changed: false };
-  }
-
-  const result = visit(spec.root);
-  return result.changed ? { ...spec, root: result.node } : null;
 }
 
 function getThemeTokens(theme: CanvasTheme): CanvasThemeTokens {
@@ -530,6 +462,7 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
     }
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
     const preview = event.currentTarget.closest(".oe-canvas__surface");
+    // ponytail: linear DOM scan follows preview order under the 1,000-node layout cap; index it only if key navigation measures slow.
     const visibleNodes = Array.from(preview?.querySelectorAll<HTMLElement>("[data-canvas-node-id]") ?? []);
     const index = visibleNodes.findIndex((entry) => entry.dataset.canvasNodeId === nodeId);
     if (index < 0 || visibleNodes.length < 2) return;
@@ -627,9 +560,24 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
     return <section className={"oe-canvas " + (props.className ?? "")} role="alert"><div className="oe-canvas__error"><strong>Canvas unavailable</strong><p>{fatalIssues[0]?.message ?? "The layout could not be rendered."}</p></div></section>;
   }
 
-  const hiddenSelected = hidden.has(selectedNode.id);
-  const allPresets = Object.keys(CANVAS_THEME_PRESETS) as CanvasThemePresetName[];
-  const presetValue = typeof renderSpec.theme === "string" ? renderSpec.theme : "custom";
+  const inspectorModel: CanvasInspectorModel = {
+    issues: validationIssues,
+    spec: renderSpec,
+    view,
+    selectedNode,
+    selectedId,
+    hidden,
+    locked,
+    directlyLocked,
+    isLocked,
+    isRoot,
+    hiddenSelected: hidden.has(selectedNode.id),
+    previewDestinationCandidates,
+    resolvedGap,
+    layerItems,
+    ...(gapNode ? { gapNodeId: gapNode.id } : {}),
+    ...(absoluteRect ? { absoluteRect } : {})
+  };
 
   return <div className={"oe-canvas " + (props.className ?? "")}>
     <style>{CANVAS_CSS}</style>
@@ -647,73 +595,7 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
           {renderNode(renderSpec.root)}
         </div>
       </section>
-      <aside className="oe-canvas__inspector" aria-label="Canvas inspector">
-        {validationIssues.length > 0 ? <p className="oe-canvas__notice" role="status">{validationIssues.filter(({ code }) => code === "MISSING_BLOCK_REFERENCE").length} layout reference(s) point to content that is no longer available.</p> : null}
-        <section className="oe-canvas__section" aria-labelledby={`${headingId}-theme-heading`}>
-          <h3 id={`${headingId}-theme-heading`}>Theme</h3>
-          <label className="oe-canvas__field">Canvas theme
-            <select aria-label="Canvas theme" value={presetValue} onChange={(event) => {
-              const selectedTheme = event.currentTarget.value as CanvasThemePresetName;
-              const next = { ...renderSpec, theme: selectedTheme };
-              updateSpec(next, true);
-            }}>
-              {presetValue === "custom" ? <option value="custom" disabled>Custom theme</option> : null}
-              {allPresets.map((name) => <option value={name} key={name}>{name[0]!.toUpperCase() + name.slice(1)}</option>)}
-            </select>
-          </label>
-        </section>
-        <section className="oe-canvas__section" aria-labelledby={`${headingId}-selection-heading`}>
-          <h3 id={`${headingId}-selection-heading`}>Selected layout</h3>
-          <p className="oe-canvas__selected">{nodeLabel(selectedNode)}</p>
-          <div className="oe-canvas__actions">
-            <button type="button" onClick={() => { const next = reorderCanvasNode(renderSpec, selectedNode.id, -1); if (next) updateSpec(next); }} disabled={isLocked || isRoot}>Move up</button>
-            <button type="button" onClick={() => { const next = reorderCanvasNode(renderSpec, selectedNode.id, 1); if (next) updateSpec(next); }} disabled={isLocked || isRoot}>Move down</button>
-            <button type="button" onClick={() => { const next = duplicateCanvasNode(renderSpec, selectedNode.id); if (next) updateSpec(next); }} disabled={isLocked || isRoot}>Duplicate</button>
-            <button type="button" onClick={() => updateView({ hiddenNodeIds: hiddenSelected ? view.hiddenNodeIds.filter((id) => id !== selectedNode.id) : [...view.hiddenNodeIds, selectedNode.id] })}>{hiddenSelected ? "Show" : "Hide"}</button>
-            <button type="button" disabled={isLocked && !directlyLocked} onClick={() => updateView({ lockedNodeIds: directlyLocked ? view.lockedNodeIds.filter((id) => id !== selectedNode.id) : [...view.lockedNodeIds, selectedNode.id] })}>{directlyLocked ? "Unlock" : isLocked ? "Locked by parent" : "Lock"}</button>
-          </div>
-          <label className="oe-canvas__field">Move into
-            <select aria-label="Move into layout group" value="" disabled={isLocked} onChange={(event) => {
-              const target = event.currentTarget.value;
-              const next = target ? moveCanvasNode(renderSpec, selectedNode.id, target) : null;
-              if (next) updateSpec(next);
-            }}>
-              <option value="">Choose a group</option>
-              {previewDestinationCandidates.map(({ node }) => <option value={node.id} key={node.id}>{nodeLabel(node)}</option>)}
-            </select>
-          </label>
-        </section>
-        <section className="oe-canvas__section" aria-labelledby={`${headingId}-alignment-heading`}>
-          <h3 id={`${headingId}-alignment-heading`}>Alignment</h3>
-          <div className="oe-canvas__alignments">
-            {(["left", "center", "right", "stretch"] as const).map((alignment) => <button type="button" key={alignment} aria-label={`Align ${alignment}`} aria-pressed={(view.alignmentByNodeId[selectedNode.id] ?? "left") === alignment} disabled={isLocked} onClick={() => updateView({ alignmentByNodeId: { ...view.alignmentByNodeId, [selectedNode.id]: alignment } })}>{alignment === "left" ? "Left" : alignment === "center" ? "Center" : alignment === "right" ? "Right" : "Fill"}</button>)}
-          </div>
-        </section>
-        <section className="oe-canvas__section" aria-labelledby={`${headingId}-spacing-heading`}>
-          <h3 id={`${headingId}-spacing-heading`}>Spacing</h3>
-          <label className="oe-canvas__field">Gap · {view.breakpoint}
-            <input type="number" aria-label={`Gap ${view.breakpoint}`} min="0" max="256" step="4" value={resolvedGap} disabled={isLocked || !gapNode} onChange={(event) => {
-              const next = setCanvasNodeGap(renderSpec, gapNode?.id ?? "", view.breakpoint, Number(event.currentTarget.value));
-              if (next) updateSpec(next);
-            }} />
-          </label>
-        </section>
-        {absoluteItem && absoluteRect ? <section className="oe-canvas__section" aria-labelledby={`${headingId}-position-heading`}>
-          <h3 id={`${headingId}-position-heading`}>Position &amp; size · {view.breakpoint}</h3>
-          {(["x", "y", "width", "height"] as const).map((key) => <label className="oe-canvas__field" key={key}>{key === "x" ? "Position X" : key === "y" ? "Position Y" : key === "width" ? "Width" : "Height"}
-            <input type="number" aria-label={`${key === "x" ? "Position X" : key === "y" ? "Position Y" : key === "width" ? "Width" : "Height"} ${view.breakpoint}`} min={key === "x" || key === "y" ? 0 : 1} max="100" step="1" value={absoluteRect[key]} disabled={isLocked} onChange={(event) => {
-              const next = updateAbsoluteItemRect(renderSpec, selectedNode.id, view.breakpoint, { ...absoluteRect, [key]: Number(event.currentTarget.value) });
-              if (next) updateSpec(next);
-            }} />
-          </label>)}
-        </section> : null}
-        <section className="oe-canvas__section" aria-labelledby={`${headingId}-layers-heading`}>
-          <h3 id={`${headingId}-layers-heading`}>Layers</h3>
-          <ul className="oe-canvas__layers">
-            {layerItems.map(({ node, depth }) => <li key={node.id}><button type="button" aria-pressed={selectedId === node.id} aria-label={`Select ${nodeLabel(node)}${hidden.has(node.id) ? ", hidden" : ""}${locked.has(node.id) ? ", locked" : ""}`} onClick={() => updateView({ selectedNodeId: node.id })} style={{ paddingLeft: `${8 + depth * 14}px` }}>{nodeLabel(node)}{hidden.has(node.id) ? " · hidden" : ""}{locked.has(node.id) ? " · locked" : ""}</button></li>)}
-          </ul>
-        </section>
-      </aside>
+      <CanvasInspector headingId={headingId} model={inspectorModel} onViewUpdate={updateView} onSpecUpdate={updateSpec} />
     </div>
   </div>;
 }
