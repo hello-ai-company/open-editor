@@ -72,6 +72,11 @@ export type DatabaseViewQueryState = {
   propertySort: DatabasePropertySort | null;
 };
 
+/** Persistable query settings used only to seed a newly mounted view. */
+export type DatabaseViewInitialQueryState = Partial<
+  Pick<DatabaseViewQueryState, "query" | "sortBy" | "direction" | "filters" | "propertySort">
+>;
+
 export type DatabaseMutationState = {
   kind:
     | "creating"
@@ -136,7 +141,11 @@ export type DatabaseRuntimeStore = {
   /** Sync snapshot for a view instance. */
   getView: (viewKey: string) => DatabaseViewSnapshot;
   /** Ensure view state exists and kick initial load. */
-  ensureView: (viewKey: string, databaseId: string) => void;
+  ensureView: (
+    viewKey: string,
+    databaseId: string,
+    initialState?: DatabaseViewInitialQueryState
+  ) => void;
   load: (viewKey: string) => Promise<void>;
   refresh: (viewKey: string) => Promise<void>;
   loadMore: (viewKey: string) => Promise<void>;
@@ -716,9 +725,27 @@ export function createDatabaseRuntimeStore(
       return view.cachedSnapshot;
     },
 
-    ensureView(viewKey, databaseId) {
+    ensureView(viewKey, databaseId, initialState) {
       const view = getOrCreate(viewKey, databaseId);
       if (view.status === "idle") {
+        if (initialState) {
+          const query = typeof initialState.query === "string" ? initialState.query : view.queryState.query;
+          const sortBy = initialState.sortBy === "title" ? "title" : "position";
+          const direction = initialState.direction === "desc" ? "desc" : "asc";
+          const propertySort = initialState.propertySort &&
+            typeof initialState.propertySort.propertyId === "string" &&
+            (initialState.propertySort.direction === "asc" || initialState.propertySort.direction === "desc")
+            ? { ...initialState.propertySort }
+            : null;
+          view.queryState = {
+            ...view.queryState,
+            query: query.slice(0, 500),
+            sortBy,
+            direction,
+            filters: Array.isArray(initialState.filters) ? cloneFilters(initialState.filters) : [],
+            propertySort
+          };
+        }
         void loadFirstPage(view);
       }
     },
@@ -1055,13 +1082,16 @@ export function databaseViewInstanceKey(
 }
 
 import type { DatabaseViewRuntime } from "./databaseViewRuntime.js";
+import type { DatabaseViewConfigProvider } from "./databaseViewConfig.js";
 
 export function createDatabaseViewRuntimeFromStore(
   store: DatabaseRuntimeStore,
-  provider?: DatabaseProvider
+  provider?: DatabaseProvider,
+  databaseViewConfig?: DatabaseViewConfigProvider
 ): DatabaseViewRuntime {
   return {
     database: provider,
-    store
+    store,
+    databaseViewConfig
   };
 }

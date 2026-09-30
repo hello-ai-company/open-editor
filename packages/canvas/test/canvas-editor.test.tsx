@@ -196,9 +196,88 @@ describe("CanvasEditor", () => {
     };
     const view = mount(createElement(CanvasEditor, { document: referencedDocument, spec: referencedSpec }));
     try {
-      expect(view.container.textContent).toContain("@architecture");
-      expect(view.container.textContent).toContain("→ heading-1");
-      expect(view.container.textContent).toContain("↗ tasks/task-1");
+      const preview = view.container.querySelector(".oe-canvas__surface");
+      expect(preview?.textContent).toContain("@Linked page");
+      expect(preview?.textContent).toContain("→ Referenced block");
+      expect(preview?.textContent).toContain("↗ Linked database row");
+      expect(preview?.textContent).not.toContain("architecture");
+      expect(preview?.textContent).not.toContain("heading-1");
+      expect(preview?.textContent).not.toContain("tasks/task-1");
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it("projects visible list, table, callout, and status semantics with safe reference fallbacks", () => {
+    const semanticDocument = createEditorDocument([
+      {
+        id: "references",
+        type: "paragraph",
+        content: [
+          { type: "pageMention", props: { pageId: "private-page-7d" } },
+          { type: "text", text: " / " },
+          { type: "blockReference", props: { blockId: "private-block-8d" } },
+          { type: "text", text: " / " },
+          { type: "databaseRelation", props: { databaseId: "private-db-9d", rowId: "private-row-10d" } }
+        ]
+      },
+      {
+        id: "list",
+        type: "bulletListItem",
+        content: [{ type: "text", text: "Visible task" }],
+        children: [{ id: "nested-task", type: "numberedListItem", content: [{ type: "text", text: "Nested task" }] }]
+      },
+      { id: "check", type: "checkListItem", props: { checked: true }, content: [{ type: "text", text: "Checked item" }] },
+      {
+        id: "table",
+        type: "table",
+        content: {
+          type: "tableContent",
+          headerRows: 1,
+          rows: [
+            { cells: ["Task", "Status"] },
+            { cells: [[{ type: "text", text: "Write docs" }], [{ type: "text", text: "Ready" }]] }
+          ]
+        }
+      },
+      { id: "callout", type: "callout", props: { variant: "warning", title: "Review" }, content: [{ type: "text", text: "Visible note" }] },
+      { id: "status", type: "status", props: { state: "done", label: "Ready" } },
+      { id: "page-card", type: "pageCard", props: { pageId: "private-page-7d", titleHint: "Architecture" } },
+      { id: "child-page", type: "childPage", props: { pageId: "private-page-11d" } },
+      { id: "transclusion", type: "pageTransclusion", props: { pageId: "private-page-12d" } },
+      { id: "database-view", type: "databaseView", props: { databaseId: "private-db-9d", viewId: "private-view-13d", viewType: "table", titleHint: "Tasks" } },
+      { id: "unknown", type: "internalWidget", props: { titleHint: "Visible preview name" } }
+    ]);
+    const references = ["references", "list", "check", "table", "callout", "status", "page-card", "child-page", "transclusion", "database-view", "unknown"];
+    const semanticSpec: CanvasLayoutSpec = {
+      ...spec(),
+      root: {
+        id: "semantic-root",
+        type: "stack",
+        direction: "vertical",
+        children: references.map((blockId) => ({ id: `ref-${blockId}`, type: "text" as const, blockId }))
+      }
+    };
+    const view = mount(createElement(CanvasEditor, { document: semanticDocument, spec: semanticSpec }));
+    try {
+      const preview = view.container.querySelector<HTMLElement>(".oe-canvas__surface");
+      if (!preview) throw new Error("Missing Canvas preview surface");
+      expect(preview.querySelector("ul li")?.textContent).toContain("Visible task");
+      expect(preview.querySelector("ol li")?.textContent).toContain("Nested task");
+      expect(preview.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
+      expect(preview.querySelector('.oe-canvas__table-wrap[role="region"][tabindex="0"]')?.getAttribute("aria-label")).toBe("Table preview");
+      expect(preview.querySelector("table thead th")?.textContent).toBe("Task");
+      expect(preview.querySelector("table tbody td")?.textContent).toBe("Write docs");
+      expect(preview.querySelector(".oe-canvas__callout--warning")?.textContent).toContain("Visible note");
+      expect(preview.querySelector('.oe-canvas__status[data-status="done"]')?.textContent).toBe("Ready");
+      expect(preview.querySelector('[role="status"]')?.textContent).toBe("Ready");
+      expect(preview.textContent).toContain("Architecture");
+      expect(preview.textContent).toContain("Page content is not included in this preview.");
+      expect(preview.textContent).toContain("Rows are host-owned and are not included in this preview.");
+      expect(preview.textContent).toContain("Visible preview name");
+      for (const privateId of ["private-page-7d", "private-block-8d", "private-db-9d", "private-row-10d", "private-view-13d", "private-page-11d", "private-page-12d"]) {
+        expect(preview.innerHTML).not.toContain(privateId);
+      }
     } finally {
       view.unmount();
     }

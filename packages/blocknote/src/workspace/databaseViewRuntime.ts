@@ -13,6 +13,7 @@ import type {
   JsonValue
 } from "@hello-ai-company/editor-core";
 import type { DatabaseRuntimeStore } from "./databaseRuntimeStore.js";
+import type { DatabaseViewConfigProvider } from "./databaseViewConfig.js";
 import type {
   DatabaseRowOpenRequest,
   DatabaseViewRendererMap
@@ -74,6 +75,8 @@ export type DatabaseViewRuntime = {
   database?: DatabaseProvider;
   /** Preferred: instance-scoped interaction store. */
   store?: DatabaseRuntimeStore;
+  /** Optional host-owned persistence for presentation-only view settings. */
+  databaseViewConfig?: DatabaseViewConfigProvider;
   getTitle?: (databaseId: string) => string | undefined;
   /** Optional host-neutral row-open callback. */
   onOpenRow?: (request: DatabaseRowOpenRequest) => void;

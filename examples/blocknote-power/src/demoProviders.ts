@@ -5,10 +5,15 @@ import type {
   DatabasePropertySort,
   DatabaseProvider,
   DatabaseRowsPage,
+  EditorDatabase,
   EditorPageLink,
   JsonValue,
   PageProvider
 } from "@hello-ai-company/editor-core";
+import type {
+  DatabaseViewConfigProvider,
+  DatabaseViewType
+} from "@hello-ai-company/editor-blocknote";
 
 export type DemoPageStore = {
   pages: EditorPageLink[];
@@ -99,6 +104,83 @@ type DemoRow = {
   deletedAt: string | null;
   row: Record<string, JsonValue>;
 };
+
+export type DemoDatabaseProvider = DatabaseProvider & {
+  listDatabases(): Promise<EditorDatabase[]>;
+  databaseViewConfig: DatabaseViewConfigProvider;
+};
+
+const DEMO_VIEW_CONFIG_STORAGE_KEY = "openeditor-demo:database-view-configs:v1";
+const DEMO_VIEW_TYPES = new Set<string>([
+  "table", "board", "calendar", "list", "gallery", "timeline", "gantt", "chart", "feed", "map", "dashboard"
+]);
+type DemoStorage = Pick<Storage, "getItem" | "setItem">;
+
+function defaultDemoStorage(): DemoStorage | null {
+  try {
+    return typeof localStorage === "undefined" ? null : localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** Demo host persistence for view settings only; row data stays in the provider. */
+export function createDemoDatabaseViewConfigProvider(
+  storage: DemoStorage | null = defaultDemoStorage()
+): DatabaseViewConfigProvider {
+  const memory = new Map<string, unknown>();
+  const keyFor = (databaseId: string, viewId: string) => JSON.stringify([databaseId, viewId]);
+  const readAll = (): Record<string, unknown> => {
+    let stored: unknown;
+    try {
+      stored = JSON.parse(storage?.getItem(DEMO_VIEW_CONFIG_STORAGE_KEY) ?? "null");
+    } catch {
+      stored = null;
+    }
+    const persisted = stored && typeof stored === "object" && !Array.isArray(stored)
+      ? stored as Record<string, unknown>
+      : {};
+    return { ...persisted, ...Object.fromEntries(memory) };
+  };
+  const writeAll = (configs: Record<string, unknown>) => {
+    try {
+      storage?.setItem(DEMO_VIEW_CONFIG_STORAGE_KEY, JSON.stringify(configs));
+    } catch (error) {
+      throw error instanceof Error ? error : new Error("Could not save demo database view settings.");
+    }
+  };
+
+  return {
+    async load(databaseId, viewId) {
+      const configs = readAll();
+      const key = keyFor(databaseId, viewId);
+      return Object.hasOwn(configs, key) ? configs[key] : null;
+    },
+    async save(config) {
+      const key = keyFor(config.databaseId, config.viewId);
+      const next = { ...readAll(), [key]: config };
+      memory.set(key, config);
+      writeAll(next);
+    },
+    async delete(databaseId, viewId) {
+      const key = keyFor(databaseId, viewId);
+      const next = readAll();
+      delete next[key];
+      memory.delete(key);
+      writeAll(next);
+    },
+    async list(databaseId) {
+      return Object.values(readAll()).flatMap((value) => {
+        if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+        const config = value as Record<string, unknown>;
+        return config.databaseId === databaseId && typeof config.viewId === "string"
+          && typeof config.viewType === "string" && DEMO_VIEW_TYPES.has(config.viewType)
+          ? [{ databaseId, viewId: config.viewId, viewType: config.viewType as DatabaseViewType }]
+          : [];
+      });
+    }
+  };
+}
 
 const TASKS_SCHEMA = {
   title: "text",
@@ -206,7 +288,8 @@ function compareProperty(
  * In-memory DatabaseProvider with typed metadata, filters, property sort,
  * pagination, trash, CRUD, and reorder (Phase 4F-3B demo).
  */
-export function createDemoDatabaseProvider(): DatabaseProvider {
+export function createDemoDatabaseProvider(): DemoDatabaseProvider {
+  const databaseViewConfig = createDemoDatabaseViewConfigProvider();
   let seq = 0;
   const nextKey = () => {
     seq += 1;
@@ -376,32 +459,59 @@ export function createDemoDatabaseProvider(): DatabaseProvider {
     return String(row.row.title ?? row.rowKey);
   }
 
+  function databaseMetadata(databaseId: string): EditorDatabase | null {
+    if (!rowsByDb.has(databaseId)) return null;
+    return {
+      id: databaseId,
+      title: databaseId === "tasks" ? "Tasks" : databaseId,
+      propertyDefinitions: [...TASKS_DEFINITIONS],
+      queryCapabilities: {
+        propertyFilters: true,
+        propertySort: true
+      },
+      views: [
+        { id: "main-table", title: "Table", viewType: "table" },
+        { id: "main-board", title: "Board", viewType: "board" },
+        { id: "main-calendar", title: "Calendar", viewType: "calendar" },
+        { id: "main-list", title: "List", viewType: "list" },
+        { id: "main-gallery", title: "Gallery", viewType: "gallery" },
+        { id: "main-timeline", title: "Timeline", viewType: "timeline" },
+        { id: "main-gantt", title: "Gantt", viewType: "gantt" },
+        { id: "main-chart", title: "Chart", viewType: "chart" },
+        { id: "main-feed", title: "Feed", viewType: "feed" },
+        { id: "main-map", title: "Map", viewType: "map" },
+        { id: "main-dashboard", title: "Dashboard", viewType: "dashboard" }
+      ]
+    };
+  }
+
+  async function databaseMetadataWithSavedViews(databaseId: string): Promise<EditorDatabase | null> {
+    const database = databaseMetadata(databaseId);
+    if (!database) return null;
+    const savedViews = await databaseViewConfig.list?.(databaseId) ?? [];
+    const views = [...(database.views ?? [])];
+    const knownIds = new Set(views.map(({ id }) => id));
+    for (const view of savedViews) {
+      if (knownIds.has(view.viewId)) continue;
+      knownIds.add(view.viewId);
+      views.push({
+        id: view.viewId,
+        title: `${view.viewType[0]!.toUpperCase()}${view.viewType.slice(1)} · Saved`,
+        viewType: view.viewType
+      });
+    }
+    return { ...database, views };
+  }
+
   return {
-    async getDatabase(databaseId) {
-      if (!rowsByDb.has(databaseId)) return null;
-      return {
-        id: databaseId,
-        title: databaseId === "tasks" ? "Tasks" : databaseId,
-        propertyDefinitions: [...TASKS_DEFINITIONS],
-        queryCapabilities: {
-          propertyFilters: true,
-          propertySort: true
-        },
-        views: [
-          { id: "main-table", title: "Table", viewType: "table" },
-          { id: "main-board", title: "Board", viewType: "board" },
-          { id: "main-calendar", title: "Calendar", viewType: "calendar" },
-          { id: "main-list", title: "List", viewType: "list" },
-          { id: "main-gallery", title: "Gallery", viewType: "gallery" },
-          { id: "main-timeline", title: "Timeline", viewType: "timeline" },
-          { id: "main-gantt", title: "Gantt", viewType: "gantt" },
-          { id: "main-chart", title: "Chart", viewType: "chart" },
-          { id: "main-feed", title: "Feed", viewType: "feed" },
-          { id: "main-map", title: "Map", viewType: "map" },
-          { id: "main-dashboard", title: "Dashboard", viewType: "dashboard" }
-        ]
-      };
+    async listDatabases() {
+      return (await Promise.all([...rowsByDb.keys()].map(databaseMetadataWithSavedViews)))
+        .filter((database): database is EditorDatabase => database !== null);
     },
+    async getDatabase(databaseId) {
+      return databaseMetadataWithSavedViews(databaseId);
+    },
+    databaseViewConfig,
 
     async listRows(databaseId, options): Promise<DatabaseRowsPage> {
       const all = rowsFor(databaseId);

@@ -59,10 +59,11 @@ export function BoardRenderer(
   const baseId = useId();
   const eligible = listBoardGroupingProperties(definitions);
   const [groupPropertyId, setGroupPropertyId] = useState<string | null>(
-    () => resolveBoardGroupingProperty(definitions, null)?.id ?? null
+    () => ctx.viewConfig?.board?.groupPropertyId ?? resolveBoardGroupingProperty(definitions, null)?.id ?? null
   );
 
   useEffect(() => {
+    if (snap.status === "loading" || snap.metaStatus === "idle" || snap.metaStatus === "loading") return;
     const resolved = resolveBoardGroupingProperty(definitions, groupPropertyId);
     const nextId = resolved?.id ?? null;
     if (nextId !== groupPropertyId) {
@@ -188,7 +189,11 @@ export function BoardRenderer(
             <select
               aria-label="Board grouping property"
               value={groupProperty?.id ?? ""}
-              onChange={(event) => setGroupPropertyId(event.target.value)}
+              onChange={(event) => {
+                const propertyId = event.target.value || null;
+                setGroupPropertyId(propertyId);
+                ctx.onViewConfigChange?.({ board: { groupPropertyId: propertyId } });
+              }}
             >
               {eligible.map((def) => (
                 <option key={def.id} value={def.id}>

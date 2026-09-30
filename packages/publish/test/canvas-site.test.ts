@@ -65,10 +65,17 @@ describe("Canvas site projection", () => {
       canvasSpec: spec,
       canvasRenderState: { hiddenNodeIds: [hiddenNode!.id] }
     });
+    const site = renderOpenEditorSite(doc, {
+      canvasSpec: spec,
+      canvasRenderState: { hiddenNodeIds: [hiddenNode!.id] }
+    });
 
     expect(context.trust).toBe("untrusted");
     expect(context.text).toContain("Visible page text");
     expect(context.text).not.toContain("Hidden page text");
+    expect(site).toContain('name="description" content="Visible page text"');
+    expect(site).toContain('property="og:description" content="Visible page text"');
+    expect(site).not.toContain("Hidden page text");
   });
 
   it("preserves native columns as responsive transparent containers", () => {
