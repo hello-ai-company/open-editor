@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 import { filterSuggestionItems } from "@blocknote/core/extensions";
 import type { BatchPolicy, OpenEditorChangeBatch } from "../bridge/batchedSink.js";
 import { createPendingAwareSink } from "../bridge/pendingAwareSink.js";
@@ -128,6 +128,8 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const listboxId = useId();
   useDialogFocusTrap(open, dialogRef);
 
   const items: PaletteItem[] = useMemo(
@@ -151,17 +153,30 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
     setError(null);
   }, [query]);
 
+  useEffect(() => {
+    listRef.current
+      ?.querySelector<HTMLElement>('[aria-selected="true"]')
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [activeIndex, items]);
+
+  const runItem = useCallback(
+    async (item: PaletteItem) => {
+      if (item.disabledReason) return;
+      try {
+        setError(null);
+        await registry.run(item.id, context);
+        onOpenChange(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Command failed");
+      }
+    },
+    [context, onOpenChange, registry]
+  );
+
   const runActive = useCallback(async () => {
     const item = items[activeIndex];
-    if (!item || item.disabledReason) return;
-    try {
-      setError(null);
-      await registry.run(item.id, context);
-      onOpenChange(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Command failed");
-    }
-  }, [activeIndex, context, items, onOpenChange, registry]);
+    if (item) await runItem(item);
+  }, [activeIndex, items, runItem]);
 
   if (!open) return null;
 
@@ -194,8 +209,8 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
           className="oe-command-palette__input"
           role="combobox"
           aria-expanded="true"
-          aria-controls="oe-command-palette-list"
-          aria-activedescendant={items[activeIndex] ? `oe-command-palette-option-${activeIndex}` : undefined}
+          aria-controls={listboxId}
+          aria-activedescendant={items[activeIndex] ? `${listboxId}-option-${activeIndex}` : undefined}
           aria-autocomplete="list"
           aria-label={dict.commandPalettePlaceholder}
           placeholder={dict.commandPalettePlaceholder}
@@ -219,53 +234,44 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
             {error}
           </div>
         ) : null}
-        <ul id="oe-command-palette-list" className="oe-command-palette__list" role="listbox">
-          {items.length === 0 ? (
-            <li className="oe-command-palette__group">{dict.commandPaletteEmpty}</li>
-          ) : (
-            items.map((item, index) => {
-              const showGroup = item.group !== lastGroup;
-              lastGroup = item.group;
-              return (
-                <li key={item.id} role="presentation">
-                  {showGroup ? (
-                    <div className="oe-command-palette__group" role="presentation">
-                      {item.recent && index === 0 ? dict.recentCommands : item.group}
-                    </div>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="oe-command-palette__item"
-                    role="option"
-                    tabIndex={-1}
-                    id={`oe-command-palette-option-${index}`}
-                    aria-selected={index === activeIndex}
-                    data-active={index === activeIndex ? "true" : "false"}
-                    disabled={Boolean(item.disabledReason)}
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onClick={() => {
-                      void (async () => {
-                        if (item.disabledReason) return;
-                        try {
-                          setError(null);
-                          await registry.run(item.id, context);
-                          onOpenChange(false);
-                        } catch (err) {
-                          setError(err instanceof Error ? err.message : "Command failed");
-                        }
-                      })();
-                    }}
-                  >
-                    <span>
-                      {item.title}
-                      {item.disabledReason ? ` — ${item.disabledReason}` : ""}
-                    </span>
-                    {item.shortcut ? <kbd>{item.shortcut}</kbd> : null}
-                  </button>
-                </li>
-              );
-            })
-          )}
+        {items.length === 0 ? (
+          <p className="oe-command-palette__group" role="status">
+            {dict.commandPaletteEmpty}
+          </p>
+        ) : null}
+        <ul ref={listRef} id={listboxId} className="oe-command-palette__list" role="listbox">
+          {items.map((item, index) => {
+            const showGroup = item.group !== lastGroup;
+            lastGroup = item.group;
+            return (
+              <li key={item.id} role="presentation">
+                {showGroup ? (
+                  <div className="oe-command-palette__group" role="presentation">
+                    {item.recent && index === 0 ? dict.recentCommands : item.group}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  className="oe-command-palette__item"
+                  role="option"
+                  tabIndex={-1}
+                  id={`${listboxId}-option-${index}`}
+                  aria-selected={index === activeIndex}
+                  aria-disabled={item.disabledReason ? "true" : undefined}
+                  data-active={index === activeIndex ? "true" : "false"}
+                  disabled={Boolean(item.disabledReason)}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => void runItem(item)}
+                >
+                  <span>
+                    {item.title}
+                    {item.disabledReason ? ` — ${item.disabledReason}` : ""}
+                  </span>
+                  {item.shortcut ? <kbd>{item.shortcut}</kbd> : null}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>
@@ -283,7 +289,14 @@ export function usePowerCommandPaletteShortcut(
     const onKeyDown = (event: Event) => {
       const keyboardEvent = event as KeyboardEvent;
       const mod = keyboardEvent.metaKey || keyboardEvent.ctrlKey;
-      if (mod && keyboardEvent.key.toLowerCase() === "k") {
+      if (
+        !keyboardEvent.defaultPrevented &&
+        !keyboardEvent.isComposing &&
+        !keyboardEvent.altKey &&
+        !keyboardEvent.shiftKey &&
+        mod &&
+        keyboardEvent.key.toLowerCase() === "k"
+      ) {
         keyboardEvent.preventDefault();
         onToggle();
       }

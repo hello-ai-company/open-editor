@@ -633,7 +633,10 @@ export function createMagicLayoutSpec(
   const children: CanvasLayoutNode[] = [];
 
   for (const [index, group] of headingGroups(blocks).entries()) {
-    const content = group.blocks.map(elementFor);
+    const content = [
+      ...(group.heading ? [elementFor(group.heading)] : []),
+      ...group.blocks.map(elementFor)
+    ];
     if (!group.heading) {
       children.push(...content);
       continue;

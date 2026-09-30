@@ -1,14 +1,14 @@
 # OpenEditor · BlockNote Power demo
 
-5-minute Quick Start for `@hello-ai-company/editor-blocknote`.
+Interactive product preview for the OpenEditor packages.
 
 ## What this is
 
-BlockNote engine + OpenEditor portable `EditorDocument` + power commands (slash + Mod+K). Not a fork. Core stays separate. No `@blocknote/xl-*`, no AI SDK, no persistence inside the package.
+The preview moves one document through Document, Canvas, Present, and Site views. It uses BlockNote as the editing adapter, the Canvas editor for responsive layout, and the publish renderers for static previews. The sample writing suggestion uses `@hello-ai-company/editor-ai` validation and accept/reject contracts; it makes no model call. Persistence and a real AI provider stay host-owned. No `@blocknote/xl-*` packages are used.
 
 ## Run
 
-From the repository root (after `npm install`):
+From the repository root:
 
 ```bash
 # link workspace packages into the example (example is outside workspaces)
@@ -16,25 +16,13 @@ npm install --prefix examples/blocknote-power
 npm run dev --prefix examples/blocknote-power
 ```
 
-## Minutes 0–5
-
-| Time | Outcome |
-| --- | --- |
-| 0:00 | Power layer on BlockNote + portable docs |
-| 0:45 | Install `editor-core` + workspace `editor-blocknote` + BN peers |
-| 1:30 | `createPowerEditorOptions` + `BlockNoteView` + slash controller |
-| 2:30 | `/` and Mod+K share `createCommandRegistry` |
-| 3:30 | `fromBlockNote` / `toBlockNoteForSchema` + serialize on save |
-| 4:15 | Callout + status already in the preset |
-| 4:45 | Boundaries: no XL, no AI SDK, host owns persistence |
-| 5:00 | This demo |
-
 ## Try in the UI
 
-1. Type `/` → insert **Callout** or **Status**
-2. Press **Mod+K** → same registry
-3. Toggle Files / Comments chips → media/collab commands appear/hide
-4. Watch JSON update from the **batched** change bridge
+1. Edit the document; type `/` for commands or press **⌘K / Ctrl+K** for the command palette.
+2. Select the sample sentence “A focused workspace keeps the content clear and the tools close at hand.” and choose **Improve** to review the local proposal. Accept applies it as one editor change; Reject leaves the document alone.
+3. Switch to **Canvas**, **Present**, or **Site** to see the same document in each package's view.
+4. Open **Outline**, **Context**, **Focus**, and **Inspect** as needed. The inspector holds host-owned page and relation examples.
+5. Change **Appearance** to preview explicit light and dark themes.
 
 ## License footer
 

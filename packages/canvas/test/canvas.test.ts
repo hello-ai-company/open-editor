@@ -25,13 +25,15 @@ function issueCodes(spec: unknown): string[] {
 function referencedBlockIds(node: CanvasLayoutSpec["root"]): string[] {
   const refs: string[] = [];
   const visit = (current: CanvasLayoutSpec["root"]): void => {
-    if ("blockId" in current && current.blockId) refs.push(current.blockId);
     if (current.type === "absolute") {
       current.items.forEach(({ element }) => refs.push(element.blockId));
     } else if ("children" in current) {
+      if (current.type !== "section" && current.type !== "frame" && "blockId" in current && current.blockId) refs.push(current.blockId);
       current.children.forEach(visit);
     } else if (current.type === "columns") {
       current.columns.flat().forEach(visit);
+    } else if ("blockId" in current && current.blockId) {
+      refs.push(current.blockId);
     }
   };
   visit(node);

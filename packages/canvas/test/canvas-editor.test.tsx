@@ -71,6 +71,10 @@ function clickButton(container: HTMLElement, label: string): void {
   act(() => target.click());
 }
 
+function pressKey(target: HTMLElement, key: string): void {
+  act(() => target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true })));
+}
+
 function changeSelect(container: HTMLElement, label: string, value: string): void {
   const select = Array.from(container.querySelectorAll("select")).find((entry) => entry.getAttribute("aria-label") === label);
   if (!(select instanceof HTMLSelectElement)) throw new Error(`Missing select: ${label}`);
@@ -91,7 +95,115 @@ function changeInput(container: HTMLElement, label: string, value: string): void
   });
 }
 
+function dispatchPointer(target: HTMLElement, type: string, clientX: number, clientY: number, pointerId = 1, button = 0, pointerType = "mouse"): void {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperties(event, {
+    pointerId: { value: pointerId },
+    pointerType: { value: pointerType },
+    isPrimary: { value: true },
+    button: { value: button },
+    clientX: { value: clientX },
+    clientY: { value: clientY }
+  });
+  act(() => target.dispatchEvent(event));
+}
+
+function setBounds(target: HTMLElement, left: number, top: number, width: number, height: number): void {
+  Object.defineProperty(target, "getBoundingClientRect", {
+    configurable: true,
+    value: () => ({ left, top, right: left + width, bottom: top + height, width, height, x: left, y: top, toJSON: () => ({}) } as DOMRect)
+  });
+}
+
+function mockPointerCapture(target: HTMLElement) {
+  let capturedPointer: number | null = null;
+  Object.defineProperties(target, {
+    setPointerCapture: { configurable: true, value: (pointerId: number) => { capturedPointer = pointerId; } },
+    hasPointerCapture: { configurable: true, value: (pointerId: number) => capturedPointer === pointerId },
+    releasePointerCapture: { configurable: true, value: (pointerId: number) => { if (capturedPointer === pointerId) capturedPointer = null; } }
+  });
+  return () => capturedPointer;
+}
+
+function positionedFixture(lockedNodeIds: string[] = []) {
+  const positionedSpec: CanvasLayoutSpec = {
+    template: "report",
+    breakpoints: { ...DEFAULT_CANVAS_BREAKPOINTS },
+    theme: "editorial",
+    root: {
+      id: "overlay-root",
+      type: "absolute",
+      items: [{
+        element: { id: "absolute-action", type: "button", blockId: "action" },
+        rect: { mobile: { x: 4, y: 4, width: 40, height: 20 } }
+      }]
+    }
+  };
+  const positionedDocument = createEditorDocument([
+    { id: "action", type: "button", content: [{ type: "text", text: "Open details" }] }
+  ]);
+  const viewState: CanvasEditorViewState = {
+    selectedNodeId: "absolute-action", hiddenNodeIds: [], lockedNodeIds, alignmentByNodeId: {}, breakpoint: "mobile"
+  };
+  const layoutChanges: CanvasLayoutSpec[] = [];
+  const render = (nextSpec: CanvasLayoutSpec) => createElement(CanvasEditor, {
+    document: positionedDocument,
+    spec: nextSpec,
+    viewState,
+    onLayoutChange: (next) => layoutChanges.push(next)
+  });
+  const view = mount(render(positionedSpec));
+  const item = view.container.querySelector<HTMLElement>(".oe-canvas__absolute-item");
+  const absolute = view.container.querySelector<HTMLElement>(".oe-canvas__absolute");
+  if (!item || !absolute) throw new Error("Missing positioned Canvas item");
+  setBounds(absolute, 100, 50, 200, 100);
+  setBounds(item, 108, 54, 80, 20);
+  const capturedPointer = mockPointerCapture(item);
+  return {
+    view,
+    item,
+    layoutChanges,
+    capturedPointer,
+    render
+  };
+}
+
 describe("CanvasEditor", () => {
+  it("keeps workspace reference labels visible in the document preview", () => {
+    const referencedDocument = createEditorDocument([
+      {
+        id: "references",
+        type: "paragraph",
+        content: [
+          { type: "pageMention", props: { pageId: "architecture" } },
+          { type: "text", text: " ", styles: {} },
+          { type: "blockReference", props: { blockId: "heading-1" } },
+          { type: "text", text: " ", styles: {} },
+          { type: "databaseRelation", props: { databaseId: "tasks", rowId: "task-1" } }
+        ]
+      }
+    ]);
+    const referencedSpec: CanvasLayoutSpec = {
+      template: "report",
+      breakpoints: { ...DEFAULT_CANVAS_BREAKPOINTS },
+      theme: "editorial",
+      root: {
+        id: "reference-root",
+        type: "stack",
+        direction: "vertical",
+        children: [{ id: "reference-text", type: "text", blockId: "references" }]
+      }
+    };
+    const view = mount(createElement(CanvasEditor, { document: referencedDocument, spec: referencedSpec }));
+    try {
+      expect(view.container.textContent).toContain("@architecture");
+      expect(view.container.textContent).toContain("→ heading-1");
+      expect(view.container.textContent).toContain("↗ tasks/task-1");
+    } finally {
+      view.unmount();
+    }
+  });
+
   it("keeps inspector labels unique when multiple editors are mounted", () => {
     const view = mount(createElement("div", null,
       createElement(CanvasEditor, { document: documentModel, spec: spec() }),
@@ -257,6 +369,7 @@ describe("CanvasEditor", () => {
     try {
       expect(view.container.querySelector(".oe-canvas__grid")?.getAttribute("style")).toContain("repeat(1");
       expect(view.container.querySelector(".oe-canvas__columns")?.getAttribute("style")).toContain("repeat(1");
+      expect((view.container.querySelector(".oe-canvas__surface") as HTMLElement).style.maxWidth).toBe("min(390px, 100%)");
       expect(view.container.querySelector('[data-kind="frame"]')).not.toBeNull();
       expect(view.container.querySelector(".oe-canvas__absolute-item")?.getAttribute("style")).toContain("left: 4%");
       expect(view.container.textContent).toContain("Card copy");
@@ -266,6 +379,123 @@ describe("CanvasEditor", () => {
       expect(view.container.querySelector('img[src="https://example.test/photo.png"]')?.getAttribute("alt")).toBe("Report photo");
       expect(view.container.querySelectorAll("hr").length).toBeGreaterThan(0);
       expect(view.container.querySelector("iframe")).toBeNull();
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it("moves positioned Canvas items with captured pointers and keeps inspector controls", () => {
+    const fixture = positionedFixture();
+    const { view, item, layoutChanges, capturedPointer, render } = fixture;
+    try {
+      expect(item.hasAttribute("draggable")).toBe(false);
+      expect(item.getAttribute("data-draggable")).toBe("true");
+      dispatchPointer(item, "pointerdown", 148, 59, 7);
+      expect(capturedPointer()).toBe(7);
+      dispatchPointer(item, "pointermove", 200, 100, 7);
+      expect(item.style.left).toBe("30%");
+      expect(item.style.top).toBe("45%");
+      expect(layoutChanges).toHaveLength(0);
+      dispatchPointer(item, "pointerup", 200, 100, 7);
+      expect(layoutChanges).toHaveLength(1);
+      const movedSpec = layoutChanges[0]!;
+      expect(movedSpec.root.type === "absolute" && movedSpec.root.items[0]?.rect.mobile).toEqual({ x: 30, y: 45, width: 40, height: 20 });
+      expect(capturedPointer()).toBeNull();
+      view.rerender(render(movedSpec));
+      expect(item.style.left).toBe("30%");
+
+      changeInput(view.container, "Position X mobile", "18");
+      expect(layoutChanges).toHaveLength(2);
+      view.rerender(render(layoutChanges.at(-1)!));
+      changeInput(view.container, "Width mobile", "55");
+      const resizedSpec = layoutChanges.at(-1)!;
+      expect(resizedSpec.root.type === "absolute" && resizedSpec.root.items[0]?.rect.mobile).toEqual({ x: 18, y: 45, width: 55, height: 20 });
+      view.rerender(render(resizedSpec));
+      expect(item.style.left).toBe("18%");
+      expect(item.style.width).toBe("55%");
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it("clamps pointer movement to the positioned item bounds", () => {
+    const fixture = positionedFixture();
+    try {
+      dispatchPointer(fixture.item, "pointerdown", 148, 59, 11, 0, "touch");
+      dispatchPointer(fixture.item, "pointermove", 500, 400, 11, 0, "touch");
+      expect(fixture.item.style.left).toBe("60%");
+      expect(fixture.item.style.top).toBe("80%");
+      dispatchPointer(fixture.item, "pointerup", 500, 400, 11, 0, "touch");
+      const rect = fixture.layoutChanges[0]?.root.type === "absolute" ? fixture.layoutChanges[0].root.items[0]?.rect.mobile : undefined;
+      expect(rect).toEqual({ x: 60, y: 80, width: 40, height: 20 });
+    } finally {
+      fixture.view.unmount();
+    }
+  });
+
+  it("blocks locked items and clears cancelled pointer drags", () => {
+    const locked = positionedFixture(["absolute-action"]);
+    try {
+      expect(locked.item.getAttribute("data-draggable")).toBeNull();
+      dispatchPointer(locked.item, "pointerdown", 148, 59, 12);
+      dispatchPointer(locked.item, "pointermove", 200, 100, 12);
+      dispatchPointer(locked.item, "pointerup", 200, 100, 12);
+      expect(locked.capturedPointer()).toBeNull();
+      expect(locked.layoutChanges).toHaveLength(0);
+      expect(locked.item.style.left).toBe("4%");
+    } finally {
+      locked.view.unmount();
+    }
+
+    const fixture = positionedFixture();
+    let mounted = true;
+    try {
+      dispatchPointer(fixture.item, "pointerdown", 148, 59, 13);
+      dispatchPointer(fixture.item, "pointermove", 200, 100, 13);
+      expect(fixture.item.style.left).toBe("30%");
+      dispatchPointer(fixture.item, "pointercancel", 200, 100, 13);
+      expect(fixture.item.style.left).toBe("4%");
+      expect(fixture.capturedPointer()).toBeNull();
+      expect(fixture.layoutChanges).toHaveLength(0);
+
+      dispatchPointer(fixture.item, "pointerdown", 148, 59, 14, 0, "pen");
+      expect(fixture.capturedPointer()).toBe(14);
+      fixture.view.unmount();
+      mounted = false;
+      expect(fixture.capturedPointer()).toBeNull();
+    } finally {
+      if (mounted) fixture.view.unmount();
+    }
+  });
+
+  it("supports keyboard selection and movement through the preview", () => {
+    const view = mount(createElement(CanvasEditor, { document: documentModel, spec: spec() }));
+    try {
+      const tree = view.container.querySelector<HTMLElement>("[role=tree]");
+      const root = view.container.querySelector<HTMLElement>('[data-canvas-node-id="root"]');
+      const section = view.container.querySelector<HTMLElement>('[data-canvas-node-id="section"]');
+      const intro = view.container.querySelector<HTMLElement>('[data-canvas-node-id="intro-ref"]');
+      expect(tree?.querySelector("[role=button]")).toBeNull();
+      expect(root?.getAttribute("role")).toBe("treeitem");
+      expect(root?.getAttribute("aria-level")).toBe("1");
+      expect(Array.from(root?.children ?? []).some((child) => child.getAttribute("role") === "group")).toBe(true);
+      expect(section?.getAttribute("role")).toBe("treeitem");
+      expect(section?.getAttribute("aria-level")).toBe("2");
+      expect(root?.tabIndex).toBe(0);
+      expect(section?.tabIndex).toBe(-1);
+      if (!root || !section || !intro) throw new Error("Missing preview node");
+
+      root.focus();
+      pressKey(root, "ArrowDown");
+      expect(section.getAttribute("data-selected")).toBe("true");
+      expect(section.getAttribute("aria-selected")).toBe("true");
+      expect(section.tabIndex).toBe(0);
+      expect(document.activeElement).toBe(section);
+
+      pressKey(section, "ArrowDown");
+      expect(intro.getAttribute("data-selected")).toBe("true");
+      pressKey(intro, " ");
+      expect(intro.getAttribute("aria-selected")).toBe("true");
     } finally {
       view.unmount();
     }

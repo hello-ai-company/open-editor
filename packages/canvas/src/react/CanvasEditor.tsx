@@ -1,26 +1,24 @@
-import { createElement, useEffect, useId, useMemo, useState, type CSSProperties, type MouseEvent, type ReactElement } from "react";
+import { createElement, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactElement } from "react";
 import type { EditorBlock, EditorDocument } from "@hello-ai-company/editor-core";
 import {
   CANVAS_THEME_PRESETS,
   validateCanvasLayoutSpec,
   type CanvasBreakpoint,
   type CanvasBlockElementRef,
+  type CanvasRect,
   type CanvasLayoutNode,
   type CanvasLayoutSpec,
   type CanvasTheme,
-  type CanvasThemePresetName,
   type CanvasThemeTokens
 } from "../index.js";
 import {
-  duplicateCanvasNode,
   findCanvasNode,
   flattenCanvasNodes,
   getCanvasGapNode,
-  moveCanvasNode,
-  reorderCanvasNode,
-  resolveResponsiveValue,
-  setCanvasNodeGap
+  resolveResponsiveValue
 } from "../layoutOperations.js";
+import { CanvasInspector, type CanvasInspectorModel } from "./CanvasInspector.js";
+import { findAbsoluteItem, nodeLabel, updateAbsoluteItemRect } from "./canvasEditorUtils.js";
 
 export type CanvasAlignment = "left" | "center" | "right" | "stretch";
 
@@ -45,6 +43,14 @@ export type CanvasEditorProps = {
 };
 
 type LayerItem = { node: CanvasLayoutNode; depth: number };
+type CanvasPointerDrag = {
+  nodeId: string;
+  pointerId: number;
+  originRect: CanvasRect;
+  rect: CanvasRect;
+  bounds: { left: number; top: number; width: number; height: number };
+  offset: { x: number; y: number };
+};
 
 const MAX_PREVIEW_TEXT = 4000;
 const EMPTY_CANVAS_SPEC: CanvasLayoutSpec = {
@@ -74,6 +80,18 @@ function extractText(value: unknown): string {
       return;
     }
     if (!isRecord(current)) return;
+    if (current.type === "pageMention" && isRecord(current.props) && typeof current.props.pageId === "string") {
+      visit(`@${current.props.pageId}`);
+      return;
+    }
+    if (current.type === "blockReference" && isRecord(current.props) && typeof current.props.blockId === "string") {
+      visit(`→ ${current.props.blockId}`);
+      return;
+    }
+    if (current.type === "databaseRelation" && isRecord(current.props) && typeof current.props.databaseId === "string" && typeof current.props.rowId === "string") {
+      visit(`↗ ${current.props.databaseId}/${current.props.rowId}`);
+      return;
+    }
     if (typeof current.text === "string") {
       visit(current.text);
       if (Array.isArray(current.content)) visit(current.content);
@@ -161,11 +179,6 @@ function collectLockedNodes(root: CanvasLayoutNode, lockedIds: ReadonlySet<strin
     for (const child of children) pending.push({ node: child, ancestorLocked: isLocked });
   }
   return locked;
-}
-
-function nodeLabel(node: CanvasLayoutNode): string {
-  if ("blockId" in node && node.blockId) return `${node.type} · ${node.blockId} · ${node.id}`;
-  return `${node.type} · ${node.id}`;
 }
 
 function isContainer(node: CanvasLayoutNode): boolean {
@@ -315,8 +328,11 @@ const CANVAS_CSS = `
 .oe-canvas__surface h1,.oe-canvas__surface h2,.oe-canvas__surface h3,.oe-canvas__surface h4,.oe-canvas__surface h5,.oe-canvas__surface h6{font-family:var(--oe-canvas-heading-font);font-size:calc(1em * var(--oe-canvas-heading-scale));line-height:1.2;margin:0 0 var(--oe-canvas-space-sm)}
 .oe-canvas__surface p{margin:0 0 var(--oe-canvas-space-sm);white-space:pre-wrap;overflow-wrap:anywhere}
 .oe-canvas__surface pre{white-space:pre-wrap;overflow-wrap:anywhere}
-.oe-canvas__node{min-width:0;position:relative;border:1px solid transparent;border-radius:8px;transition:border-color .12s ease,background-color .12s ease}
+.oe-canvas__node{min-width:0;position:relative;border:1px solid transparent;border-radius:8px;cursor:pointer;transition:border-color .12s ease,background-color .12s ease}
+.oe-canvas__node:hover:not([data-selected=true]){border-color:var(--oe-canvas-accent)}
+.oe-canvas__node:focus-visible{outline:2px solid var(--oe-canvas-accent);outline-offset:2px;z-index:1}
 .oe-canvas__node[data-selected=true]{border-color:var(--oe-canvas-accent);background:rgb(73 118 92 / 4%)}
+.oe-canvas__absolute-item[data-draggable=true]{cursor:grab;touch-action:none}.oe-canvas__absolute-item[data-draggable=true] .oe-canvas__node{cursor:grab}.oe-canvas__absolute-item[data-dragging=true],.oe-canvas__absolute-item[data-dragging=true] *{cursor:grabbing;user-select:none}
 .oe-canvas__node[data-hidden=true]{display:none}
 .oe-canvas__node[data-locked=true]::after{content:"Locked";position:absolute;top:4px;right:6px;border-radius:5px;background:#edf0ec;color:#536057;padding:1px 6px;font:11px/1.5 ui-sans-serif,system-ui,sans-serif}
 .oe-canvas__stack{display:flex;min-width:0}
@@ -385,8 +401,18 @@ function normalizeViewState(
 
 export function CanvasEditor(props: CanvasEditorProps): ReactElement {
   const headingId = useId().replaceAll(":", "");
+  const pointerDragRef = useRef<CanvasPointerDrag | null>(null);
+  const pointerTargetRef = useRef<HTMLElement | null>(null);
+  const [pointerDrag, setPointerDrag] = useState<CanvasPointerDrag | null>(null);
   const [internalSpec, setInternalSpec] = useState(props.spec);
   const [internalView, setInternalView] = useState(() => defaultViewState(props.spec));
+  useEffect(() => () => {
+    const drag = pointerDragRef.current;
+    const target = pointerTargetRef.current;
+    pointerDragRef.current = null;
+    pointerTargetRef.current = null;
+    if (drag && target?.hasPointerCapture?.(drag.pointerId)) target.releasePointerCapture?.(drag.pointerId);
+  }, []);
   const spec = props.onLayoutChange ? props.spec : internalSpec;
   const validationIssues = useMemo(
     () => validateCanvasLayoutSpec(spec, props.document),
@@ -421,6 +447,8 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
   const isRoot = selectedNode.id === renderSpec.root.id;
   const gapNode = getCanvasGapNode(renderSpec.root, selectedNode.id);
   const resolvedGap = gapNode ? resolveResponsiveValue(gapNode.gap, view.breakpoint) ?? 16 : 16;
+  const absoluteItem = findAbsoluteItem(renderSpec.root, selectedNode.id);
+  const absoluteRect = absoluteItem ? resolveResponsiveValue(absoluteItem.rect, view.breakpoint) ?? absoluteItem.rect.mobile : undefined;
   const theme = getThemeTokens(renderSpec.theme);
   const themeVars = themeStyle(theme);
   const selectedSubtreeIds = new Set(flattenCanvasNodes(selectedNode).map(({ id }) => id));
@@ -442,7 +470,99 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
     if (changedTheme) props.onThemeChange?.(next.theme, next);
   }
 
-  function renderNode(node: CanvasLayoutNode): ReactElement | null {
+  function clearPointerDrag(pointerId?: number): void {
+    const drag = pointerDragRef.current;
+    if (!drag || (pointerId !== undefined && drag.pointerId !== pointerId)) return;
+    const target = pointerTargetRef.current;
+    pointerDragRef.current = null;
+    pointerTargetRef.current = null;
+    setPointerDrag(null);
+    if (target?.hasPointerCapture?.(drag.pointerId)) target.releasePointerCapture?.(drag.pointerId);
+  }
+
+  function movePointerDrag(nodeId: string, event: PointerEvent<HTMLDivElement>): CanvasPointerDrag | null {
+    const drag = pointerDragRef.current;
+    if (!drag || drag.nodeId !== nodeId || drag.pointerId !== event.pointerId) return null;
+    if (locked.has(nodeId)) {
+      clearPointerDrag(event.pointerId);
+      return null;
+    }
+    const x = ((event.clientX - drag.bounds.left) / drag.bounds.width) * 100 - drag.offset.x;
+    const y = ((event.clientY - drag.bounds.top) / drag.bounds.height) * 100 - drag.offset.y;
+    const next = {
+      ...drag,
+      rect: {
+        ...drag.rect,
+        x: Math.min(100 - drag.rect.width, Math.max(0, x)),
+        y: Math.min(100 - drag.rect.height, Math.max(0, y))
+      }
+    };
+    event.preventDefault();
+    pointerDragRef.current = next;
+    setPointerDrag(next);
+    return next;
+  }
+
+  function startPointerDrag(nodeId: string, rect: CanvasRect, event: PointerEvent<HTMLDivElement>): void {
+    if (event.button !== 0 || event.isPrimary === false || locked.has(nodeId) || hidden.has(nodeId)) return;
+    const parentBounds = event.currentTarget.parentElement?.getBoundingClientRect();
+    if (!parentBounds?.width || !parentBounds.height) return;
+    const itemBounds = event.currentTarget.getBoundingClientRect();
+    const drag: CanvasPointerDrag = {
+      nodeId,
+      pointerId: event.pointerId,
+      originRect: rect,
+      rect,
+      bounds: { left: parentBounds.left, top: parentBounds.top, width: parentBounds.width, height: parentBounds.height },
+      offset: {
+        x: ((event.clientX - itemBounds.left) / parentBounds.width) * 100,
+        y: ((event.clientY - itemBounds.top) / parentBounds.height) * 100
+      }
+    };
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    pointerTargetRef.current = event.currentTarget;
+    pointerDragRef.current = drag;
+    setPointerDrag(drag);
+    updateView({ selectedNodeId: nodeId });
+  }
+
+  function endPointerDrag(nodeId: string, event: PointerEvent<HTMLDivElement>): void {
+    const active = pointerDragRef.current;
+    if (!active || active.nodeId !== nodeId || active.pointerId !== event.pointerId) return;
+    const completed = movePointerDrag(nodeId, event) ?? active;
+    clearPointerDrag(event.pointerId);
+    if (locked.has(nodeId)) return;
+    const { originRect, rect } = completed;
+    if (rect.x === originRect.x && rect.y === originRect.y) return;
+    const next = updateAbsoluteItemRect(renderSpec, nodeId, view.breakpoint, rect);
+    if (next) updateSpec(next);
+  }
+
+  function handlePreviewKeyDown(nodeId: string, event: KeyboardEvent<HTMLElement>): void {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      event.stopPropagation();
+      updateView({ selectedNodeId: nodeId });
+      return;
+    }
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    const preview = event.currentTarget.closest(".oe-canvas__surface");
+    // ponytail: linear DOM scan follows preview order under the 1,000-node layout cap; index it only if key navigation measures slow.
+    const visibleNodes = Array.from(preview?.querySelectorAll<HTMLElement>("[data-canvas-node-id]") ?? []);
+    const index = visibleNodes.findIndex((entry) => entry.dataset.canvasNodeId === nodeId);
+    if (index < 0 || visibleNodes.length < 2) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    const next = visibleNodes[(index + direction + visibleNodes.length) % visibleNodes.length]!;
+    const nextId = next.dataset.canvasNodeId;
+    if (!nextId) return;
+    updateView({ selectedNodeId: nextId });
+    next.focus();
+  }
+
+  function renderNode(node: CanvasLayoutNode, depth = 1): ReactElement | null {
     if (hidden.has(node.id)) return null;
     const selected = node.id === selectedId;
     const lockedNode = locked.has(node.id);
@@ -452,10 +572,17 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
       "data-canvas-node-id": node.id,
       "data-selected": selected ? "true" : "false",
       "data-locked": lockedNode ? "true" : "false",
+      role: "treeitem",
+      "aria-level": depth,
+      "aria-label": `Select ${nodeLabel(node)}${lockedNode ? ", locked" : ""}`,
+      "aria-selected": selected,
+      "aria-keyshortcuts": "Enter Space ArrowUp ArrowDown",
+      tabIndex: selected ? 0 : -1,
       onClick: (event: MouseEvent<HTMLElement>) => {
         event.stopPropagation();
         updateView({ selectedNodeId: node.id });
       },
+      onKeyDown: (event: KeyboardEvent<HTMLElement>) => handlePreviewKeyDown(node.id, event),
       style: alignment
     };
 
@@ -463,38 +590,55 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
       const gap = resolveResponsiveValue(node.gap, view.breakpoint) ?? 0;
       const padding = resolveResponsiveValue(node.padding, view.breakpoint) ?? 0;
       const direction = node.direction === "horizontal" && view.breakpoint !== "mobile" ? "row" : "column";
-      return <div {...wrapperProps} className={`${wrapperProps.className} oe-canvas__stack`} style={{ ...alignment, flexDirection: direction, gap, padding }}>{node.children.map((child) => <div className="oe-canvas__child" key={child.id}>{renderNode(child)}</div>)}</div>;
+      return <div key={node.id} {...wrapperProps} style={alignment}><div className="oe-canvas__stack" role="group" style={{ flexDirection: direction, gap, padding }}>{node.children.map((child) => renderNode(child, depth + 1))}</div></div>;
     }
     if (node.type === "grid") {
       const columns = resolveResponsiveValue(node.columns, view.breakpoint) ?? 1;
       const gap = resolveResponsiveValue(node.gap, view.breakpoint) ?? 0;
-      return <div {...wrapperProps} className={`${wrapperProps.className} oe-canvas__grid`} style={{ ...alignment, gridTemplateColumns: `repeat(${columns},minmax(0,1fr))`, gap }}>{node.children.map((child) => <div className="oe-canvas__child" key={child.id}>{renderNode(child)}</div>)}</div>;
+      return <div key={node.id} {...wrapperProps} style={alignment}><div className="oe-canvas__grid" role="group" style={{ gridTemplateColumns: `repeat(${columns},minmax(0,1fr))`, gap }}>{node.children.map((child) => renderNode(child, depth + 1))}</div></div>;
     }
     if (node.type === "columns") {
       const columnCount = view.breakpoint === "mobile" ? 1 : view.breakpoint === "tablet" ? Math.min(2, node.columns.length) : node.columns.length;
       const gap = resolveResponsiveValue(node.gap, view.breakpoint) ?? 0;
-      return <div {...wrapperProps} className={`${wrapperProps.className} oe-canvas__columns`} style={{ ...alignment, gridTemplateColumns: `repeat(${columnCount},minmax(0,1fr))`, gap }}>{node.columns.map((column, index) => <div className="oe-canvas__column" key={`column-${index}`}>{column.map((child) => <div className="oe-canvas__child" key={child.id}>{renderNode(child)}</div>)}</div>)}</div>;
+      return <div key={node.id} {...wrapperProps} style={alignment}><div className="oe-canvas__columns" role="group" style={{ gridTemplateColumns: `repeat(${columnCount},minmax(0,1fr))`, gap }}>{node.columns.map((column, index) => <div className="oe-canvas__column" role="group" key={`column-${index}`}>{column.map((child) => renderNode(child, depth + 1))}</div>)}</div></div>;
     }
     if (node.type === "section" || node.type === "frame") {
-      return <section {...wrapperProps} className={`${wrapperProps.className} oe-canvas__group`} data-kind={node.type} style={{ ...alignment, ...(node.type === "frame" ? { boxShadow: "0 5px 18px rgb(25 35 27 / 8%)" } : {}) }}>{node.children.map((child) => <div className="oe-canvas__child" key={child.id}>{renderNode(child)}</div>)}</section>;
+      return <div key={node.id} {...wrapperProps} style={alignment}><div className="oe-canvas__group" role="group" data-kind={node.type} style={node.type === "frame" ? { boxShadow: "0 5px 18px rgb(25 35 27 / 8%)" } : undefined}>{node.children.map((child) => renderNode(child, depth + 1))}</div></div>;
     }
     if (node.type === "absolute") {
-      return <div {...wrapperProps} className={`${wrapperProps.className} oe-canvas__absolute`} style={{ ...alignment, position: "relative", minHeight: 240 }}>{node.items.map(({ element, rect }) => {
-        const activeRect = resolveResponsiveValue(rect, view.breakpoint) ?? rect.mobile;
-        return <div className="oe-canvas__absolute-item" key={element.id} style={{ position: "absolute", left: `${activeRect.x}%`, top: `${activeRect.y}%`, width: `${activeRect.width}%`, height: `${activeRect.height}%` }}>{renderNode(element)}</div>;
-      })}</div>;
+      return <div key={node.id} {...wrapperProps} style={alignment}><div className="oe-canvas__absolute" role="group" data-dragging={pointerDrag && node.items.some(({ element }) => element.id === pointerDrag.nodeId) ? "true" : undefined} style={{ position: "relative", minHeight: 240 }}>{node.items.map(({ element, rect }) => {
+        const sourceRect = resolveResponsiveValue(rect, view.breakpoint) ?? rect.mobile;
+        const activeRect = pointerDrag?.nodeId === element.id ? pointerDrag.rect : sourceRect;
+        const isDraggable = !locked.has(element.id) && !hidden.has(element.id);
+        return <div className="oe-canvas__absolute-item" role="group" key={element.id} data-draggable={isDraggable ? "true" : undefined} data-dragging={pointerDrag?.nodeId === element.id ? "true" : undefined} onPointerDown={(event) => startPointerDrag(element.id, sourceRect, event)} onPointerMove={(event) => movePointerDrag(element.id, event)} onPointerUp={(event) => endPointerDrag(element.id, event)} onPointerCancel={(event) => clearPointerDrag(event.pointerId)} onLostPointerCapture={(event) => clearPointerDrag(event.pointerId)} style={{ position: "absolute", left: `${activeRect.x}%`, top: `${activeRect.y}%`, width: `${activeRect.width}%`, height: `${activeRect.height}%` }}>{renderNode(element, depth + 1)}</div>;
+      })}</div></div>;
     }
     if (!isBlockElement(node)) return null;
-    return <div {...wrapperProps} className={`${wrapperProps.className} oe-canvas__element`}>{renderBlockElement(node, blocks, references)}</div>;
+    return <div key={node.id} {...wrapperProps} className={`${wrapperProps.className} oe-canvas__element`}>{renderBlockElement(node, blocks, references)}</div>;
   }
 
   if (fatalIssues.length > 0) {
     return <section className={"oe-canvas " + (props.className ?? "")} role="alert"><div className="oe-canvas__error"><strong>Canvas unavailable</strong><p>{fatalIssues[0]?.message ?? "The layout could not be rendered."}</p></div></section>;
   }
 
-  const hiddenSelected = hidden.has(selectedNode.id);
-  const allPresets = Object.keys(CANVAS_THEME_PRESETS) as CanvasThemePresetName[];
-  const presetValue = typeof renderSpec.theme === "string" ? renderSpec.theme : "custom";
+  const inspectorModel: CanvasInspectorModel = {
+    issues: validationIssues,
+    spec: renderSpec,
+    view,
+    selectedNode,
+    selectedId,
+    hidden,
+    locked,
+    directlyLocked,
+    isLocked,
+    isRoot,
+    hiddenSelected: hidden.has(selectedNode.id),
+    previewDestinationCandidates,
+    resolvedGap,
+    layerItems,
+    ...(gapNode ? { gapNodeId: gapNode.id } : {}),
+    ...(absoluteRect ? { absoluteRect } : {})
+  };
 
   return <div className={"oe-canvas " + (props.className ?? "")}>
     <style>{CANVAS_CSS}</style>
@@ -508,68 +652,11 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
     </header>
     <div className="oe-canvas__workspace">
       <section className="oe-canvas__stage" data-breakpoint={view.breakpoint} aria-label="Canvas preview">
-        <div className="oe-canvas__surface" style={themeVars} onClick={() => updateView({ selectedNodeId: renderSpec.root.id })}>
+        <div className="oe-canvas__surface" role="tree" aria-label="Canvas preview" style={{ ...themeVars, maxWidth: view.breakpoint === "mobile" ? "min(390px, 100%)" : undefined }} onClick={() => updateView({ selectedNodeId: renderSpec.root.id })}>
           {renderNode(renderSpec.root)}
         </div>
       </section>
-      <aside className="oe-canvas__inspector" aria-label="Canvas inspector">
-        {validationIssues.length > 0 ? <p className="oe-canvas__notice" role="status">{validationIssues.filter(({ code }) => code === "MISSING_BLOCK_REFERENCE").length} layout reference(s) point to content that is no longer available.</p> : null}
-        <section className="oe-canvas__section" aria-labelledby={`${headingId}-theme-heading`}>
-          <h3 id={`${headingId}-theme-heading`}>Theme</h3>
-          <label className="oe-canvas__field">Canvas theme
-            <select aria-label="Canvas theme" value={presetValue} onChange={(event) => {
-              const selectedTheme = event.currentTarget.value as CanvasThemePresetName;
-              const next = { ...renderSpec, theme: selectedTheme };
-              updateSpec(next, true);
-            }}>
-              {presetValue === "custom" ? <option value="custom" disabled>Custom theme</option> : null}
-              {allPresets.map((name) => <option value={name} key={name}>{name[0]!.toUpperCase() + name.slice(1)}</option>)}
-            </select>
-          </label>
-        </section>
-        <section className="oe-canvas__section" aria-labelledby={`${headingId}-selection-heading`}>
-          <h3 id={`${headingId}-selection-heading`}>Selected layout</h3>
-          <p className="oe-canvas__selected">{nodeLabel(selectedNode)}</p>
-          <div className="oe-canvas__actions">
-            <button type="button" onClick={() => { const next = reorderCanvasNode(renderSpec, selectedNode.id, -1); if (next) updateSpec(next); }} disabled={isLocked || isRoot}>Move up</button>
-            <button type="button" onClick={() => { const next = reorderCanvasNode(renderSpec, selectedNode.id, 1); if (next) updateSpec(next); }} disabled={isLocked || isRoot}>Move down</button>
-            <button type="button" onClick={() => { const next = duplicateCanvasNode(renderSpec, selectedNode.id); if (next) updateSpec(next); }} disabled={isLocked || isRoot}>Duplicate</button>
-            <button type="button" onClick={() => updateView({ hiddenNodeIds: hiddenSelected ? view.hiddenNodeIds.filter((id) => id !== selectedNode.id) : [...view.hiddenNodeIds, selectedNode.id] })}>{hiddenSelected ? "Show" : "Hide"}</button>
-            <button type="button" disabled={isLocked && !directlyLocked} onClick={() => updateView({ lockedNodeIds: directlyLocked ? view.lockedNodeIds.filter((id) => id !== selectedNode.id) : [...view.lockedNodeIds, selectedNode.id] })}>{directlyLocked ? "Unlock" : isLocked ? "Locked by parent" : "Lock"}</button>
-          </div>
-          <label className="oe-canvas__field">Move into
-            <select aria-label="Move into layout group" value="" disabled={isLocked} onChange={(event) => {
-              const target = event.currentTarget.value;
-              const next = target ? moveCanvasNode(renderSpec, selectedNode.id, target) : null;
-              if (next) updateSpec(next);
-            }}>
-              <option value="">Choose a group</option>
-              {previewDestinationCandidates.map(({ node }) => <option value={node.id} key={node.id}>{nodeLabel(node)}</option>)}
-            </select>
-          </label>
-        </section>
-        <section className="oe-canvas__section" aria-labelledby={`${headingId}-alignment-heading`}>
-          <h3 id={`${headingId}-alignment-heading`}>Alignment</h3>
-          <div className="oe-canvas__alignments">
-            {(["left", "center", "right", "stretch"] as const).map((alignment) => <button type="button" key={alignment} aria-label={`Align ${alignment}`} aria-pressed={(view.alignmentByNodeId[selectedNode.id] ?? "left") === alignment} disabled={isLocked} onClick={() => updateView({ alignmentByNodeId: { ...view.alignmentByNodeId, [selectedNode.id]: alignment } })}>{alignment === "left" ? "Left" : alignment === "center" ? "Center" : alignment === "right" ? "Right" : "Fill"}</button>)}
-          </div>
-        </section>
-        <section className="oe-canvas__section" aria-labelledby={`${headingId}-spacing-heading`}>
-          <h3 id={`${headingId}-spacing-heading`}>Spacing</h3>
-          <label className="oe-canvas__field">Gap · {view.breakpoint}
-            <input type="number" aria-label={`Gap ${view.breakpoint}`} min="0" max="256" step="4" value={resolvedGap} disabled={isLocked || !gapNode} onChange={(event) => {
-              const next = setCanvasNodeGap(renderSpec, gapNode?.id ?? "", view.breakpoint, Number(event.currentTarget.value));
-              if (next) updateSpec(next);
-            }} />
-          </label>
-        </section>
-        <section className="oe-canvas__section" aria-labelledby={`${headingId}-layers-heading`}>
-          <h3 id={`${headingId}-layers-heading`}>Layers</h3>
-          <ul className="oe-canvas__layers">
-            {layerItems.map(({ node, depth }) => <li key={node.id}><button type="button" aria-pressed={selectedId === node.id} aria-label={`Select ${nodeLabel(node)}${hidden.has(node.id) ? ", hidden" : ""}${locked.has(node.id) ? ", locked" : ""}`} onClick={() => updateView({ selectedNodeId: node.id })} style={{ paddingLeft: `${8 + depth * 14}px` }}>{nodeLabel(node)}{hidden.has(node.id) ? " · hidden" : ""}{locked.has(node.id) ? " · locked" : ""}</button></li>)}
-          </ul>
-        </section>
-      </aside>
+      <CanvasInspector headingId={headingId} model={inspectorModel} onViewUpdate={updateView} onSpecUpdate={updateSpec} />
     </div>
   </div>;
 }
