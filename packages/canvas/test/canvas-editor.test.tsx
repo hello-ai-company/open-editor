@@ -71,6 +71,10 @@ function clickButton(container: HTMLElement, label: string): void {
   act(() => target.click());
 }
 
+function pressKey(target: HTMLElement, key: string): void {
+  act(() => target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true })));
+}
+
 function changeSelect(container: HTMLElement, label: string, value: string): void {
   const select = Array.from(container.querySelectorAll("select")).find((entry) => entry.getAttribute("aria-label") === label);
   if (!(select instanceof HTMLSelectElement)) throw new Error(`Missing select: ${label}`);
@@ -91,7 +95,52 @@ function changeInput(container: HTMLElement, label: string, value: string): void
   });
 }
 
+function dispatchDrag(target: HTMLElement, type: string, dataTransfer: DataTransfer, clientX = 0, clientY = 0): void {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperties(event, {
+    dataTransfer: { value: dataTransfer },
+    clientX: { value: clientX },
+    clientY: { value: clientY }
+  });
+  act(() => target.dispatchEvent(event));
+}
+
 describe("CanvasEditor", () => {
+  it("keeps workspace reference labels visible in the document preview", () => {
+    const referencedDocument = createEditorDocument([
+      {
+        id: "references",
+        type: "paragraph",
+        content: [
+          { type: "pageMention", props: { pageId: "architecture" } },
+          { type: "text", text: " ", styles: {} },
+          { type: "blockReference", props: { blockId: "heading-1" } },
+          { type: "text", text: " ", styles: {} },
+          { type: "databaseRelation", props: { databaseId: "tasks", rowId: "task-1" } }
+        ]
+      }
+    ]);
+    const referencedSpec: CanvasLayoutSpec = {
+      template: "report",
+      breakpoints: { ...DEFAULT_CANVAS_BREAKPOINTS },
+      theme: "editorial",
+      root: {
+        id: "reference-root",
+        type: "stack",
+        direction: "vertical",
+        children: [{ id: "reference-text", type: "text", blockId: "references" }]
+      }
+    };
+    const view = mount(createElement(CanvasEditor, { document: referencedDocument, spec: referencedSpec }));
+    try {
+      expect(view.container.textContent).toContain("@architecture");
+      expect(view.container.textContent).toContain("→ heading-1");
+      expect(view.container.textContent).toContain("↗ tasks/task-1");
+    } finally {
+      view.unmount();
+    }
+  });
+
   it("keeps inspector labels unique when multiple editors are mounted", () => {
     const view = mount(createElement("div", null,
       createElement(CanvasEditor, { document: documentModel, spec: spec() }),
@@ -257,6 +306,7 @@ describe("CanvasEditor", () => {
     try {
       expect(view.container.querySelector(".oe-canvas__grid")?.getAttribute("style")).toContain("repeat(1");
       expect(view.container.querySelector(".oe-canvas__columns")?.getAttribute("style")).toContain("repeat(1");
+      expect((view.container.querySelector(".oe-canvas__surface") as HTMLElement).style.maxWidth).toBe("min(390px, 100%)");
       expect(view.container.querySelector('[data-kind="frame"]')).not.toBeNull();
       expect(view.container.querySelector(".oe-canvas__absolute-item")?.getAttribute("style")).toContain("left: 4%");
       expect(view.container.textContent).toContain("Card copy");
@@ -266,6 +316,93 @@ describe("CanvasEditor", () => {
       expect(view.container.querySelector('img[src="https://example.test/photo.png"]')?.getAttribute("alt")).toBe("Report photo");
       expect(view.container.querySelectorAll("hr").length).toBeGreaterThan(0);
       expect(view.container.querySelector("iframe")).toBeNull();
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it("moves and resizes positioned Canvas items with pointer and inspector controls", () => {
+    const positionedSpec: CanvasLayoutSpec = {
+      template: "report",
+      breakpoints: { ...DEFAULT_CANVAS_BREAKPOINTS },
+      theme: "editorial",
+      root: {
+        id: "overlay-root",
+        type: "absolute",
+        items: [{
+          element: { id: "absolute-action", type: "button", blockId: "action" },
+          rect: { mobile: { x: 4, y: 4, width: 40, height: 20 } }
+        }]
+      }
+    };
+    const positionedDocument = createEditorDocument([
+      { id: "action", type: "button", content: [{ type: "text", text: "Open details" }] }
+    ]);
+    const viewState: CanvasEditorViewState = {
+      selectedNodeId: "absolute-action", hiddenNodeIds: [], lockedNodeIds: [], alignmentByNodeId: {}, breakpoint: "mobile"
+    };
+    const view = mount(createElement(CanvasEditor, { document: positionedDocument, spec: positionedSpec, viewState }));
+    try {
+      const item = view.container.querySelector<HTMLElement>(".oe-canvas__absolute-item");
+      const absolute = view.container.querySelector<HTMLElement>(".oe-canvas__absolute");
+      if (!item || !absolute) throw new Error("Missing positioned Canvas item");
+      expect(item.getAttribute("draggable")).toBe("true");
+      Object.defineProperty(absolute, "getBoundingClientRect", {
+        configurable: true,
+        value: () => ({ left: 100, top: 50, right: 300, bottom: 150, width: 200, height: 100, x: 100, y: 50, toJSON: () => ({}) })
+      });
+      Object.defineProperty(item, "getBoundingClientRect", {
+        configurable: true,
+        value: () => ({ left: 108, top: 54, right: 188, bottom: 74, width: 80, height: 20, x: 108, y: 54, toJSON: () => ({}) })
+      });
+      const dataTransfer = {
+        effectAllowed: "",
+        setData: () => undefined,
+        getData: () => "absolute-action"
+      } as unknown as DataTransfer;
+      dispatchDrag(item, "dragstart", dataTransfer, 148, 59);
+      dispatchDrag(absolute, "dragover", dataTransfer, 200, 100);
+      dispatchDrag(absolute, "drop", dataTransfer, 200, 100);
+      expect(view.container.querySelector(".oe-canvas__absolute-item")?.getAttribute("style")).toContain("left: 30%");
+      expect(view.container.querySelector(".oe-canvas__absolute-item")?.getAttribute("style")).toContain("top: 45%");
+
+      changeInput(view.container, "Position X mobile", "18");
+      changeInput(view.container, "Width mobile", "55");
+      expect(view.container.querySelector(".oe-canvas__absolute-item")?.getAttribute("style")).toContain("left: 18%");
+      expect(view.container.querySelector(".oe-canvas__absolute-item")?.getAttribute("style")).toContain("width: 55%");
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it("supports keyboard selection and movement through the preview", () => {
+    const view = mount(createElement(CanvasEditor, { document: documentModel, spec: spec() }));
+    try {
+      const tree = view.container.querySelector<HTMLElement>("[role=tree]");
+      const root = view.container.querySelector<HTMLElement>('[data-canvas-node-id="root"]');
+      const section = view.container.querySelector<HTMLElement>('[data-canvas-node-id="section"]');
+      const intro = view.container.querySelector<HTMLElement>('[data-canvas-node-id="intro-ref"]');
+      expect(tree?.querySelector("[role=button]")).toBeNull();
+      expect(root?.getAttribute("role")).toBe("treeitem");
+      expect(root?.getAttribute("aria-level")).toBe("1");
+      expect(Array.from(root?.children ?? []).some((child) => child.getAttribute("role") === "group")).toBe(true);
+      expect(section?.getAttribute("role")).toBe("treeitem");
+      expect(section?.getAttribute("aria-level")).toBe("2");
+      expect(root?.tabIndex).toBe(0);
+      expect(section?.tabIndex).toBe(-1);
+      if (!root || !section || !intro) throw new Error("Missing preview node");
+
+      root.focus();
+      pressKey(root, "ArrowDown");
+      expect(section.getAttribute("data-selected")).toBe("true");
+      expect(section.getAttribute("aria-selected")).toBe("true");
+      expect(section.tabIndex).toBe(0);
+      expect(document.activeElement).toBe(section);
+
+      pressKey(section, "ArrowDown");
+      expect(intro.getAttribute("data-selected")).toBe("true");
+      pressKey(intro, " ");
+      expect(intro.getAttribute("aria-selected")).toBe("true");
     } finally {
       view.unmount();
     }

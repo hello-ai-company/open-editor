@@ -57,6 +57,24 @@ describe("adapter round-trip", () => {
     expect(back[1]?.type).toBe("heading");
   });
 
+  it("omits BlockNote's undefined content slot on no-content inline nodes", () => {
+    const doc = fromBlockNote([
+      {
+        id: "p1",
+        type: "paragraph",
+        content: [{
+          type: "pageMention",
+          props: { pageId: "architecture" },
+          content: undefined
+        }]
+      }
+    ]);
+
+    expect(doc.blocks[0]?.content).toEqual([
+      { type: "pageMention", props: { pageId: "architecture" } }
+    ]);
+  });
+
   it("preserves unknown nested props via envelope on OE→BN→OE", () => {
     const doc = createEditorDocument([
       {

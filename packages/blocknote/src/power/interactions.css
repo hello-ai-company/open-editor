@@ -1,0 +1,82 @@
+/* Shared interaction affordances for OpenEditor-owned controls. */
+.oe-block-actions,
+.oe-page-picker,
+.oe-backlinks,
+.oe-database-view,
+.oe-database-board,
+.oe-database-calendar,
+.oe-database-list,
+.oe-database-gallery,
+.oe-database-timeline,
+.oe-database-gantt,
+.oe-database-chart,
+.oe-database-feed,
+.oe-database-map,
+.oe-database-dashboard {
+  color: var(--oe-ui-ink);
+}
+
+:where([class^="oe-"], [class*=" oe-"]):focus-visible,
+:where([class^="oe-"], [class*=" oe-"]) :focus-visible {
+  outline: 2px solid var(--oe-ui-accent);
+  outline-offset: 2px;
+}
+
+.oe-status,
+.oe-outline__link,
+.oe-quick-nav__item,
+.oe-command-palette__item,
+.oe-block-actions__item,
+.oe-page-picker__option,
+.oe-page-picker__list button,
+.oe-backlinks__refresh,
+.oe-database-map__pin {
+  transition:
+    background-color var(--oe-ui-motion-fast) var(--oe-ui-motion-ease),
+    border-color var(--oe-ui-motion-fast) var(--oe-ui-motion-ease),
+    color var(--oe-ui-motion-fast) var(--oe-ui-motion-ease);
+}
+
+.oe-database-board__columns,
+.oe-database-calendar__grid,
+.oe-database-timeline__scroll,
+.oe-database-gantt__scroll {
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 639px) {
+  .oe-status,
+  .oe-outline__link,
+  .oe-quick-nav__item,
+  .oe-command-palette__item,
+  .oe-block-actions__item,
+  .oe-page-picker__option,
+  .oe-page-picker__list button,
+  .oe-backlinks__refresh,
+  .oe-backlinks__link,
+  .oe-database-view button,
+  .oe-database-view input:not([type="checkbox"]),
+  .oe-database-view select {
+    min-height: 2.75rem;
+  }
+
+  .oe-quick-nav,
+  .oe-command-palette__panel {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where([class^="oe-"], [class*=" oe-"]),
+  :where([class^="oe-"], [class*=" oe-"]) *,
+  :where([class^="oe-"], [class*=" oe-"])::before,
+  :where([class^="oe-"], [class*=" oe-"])::after,
+  :where([class^="oe-"], [class*=" oe-"]) *::before,
+  :where([class^="oe-"], [class*=" oe-"]) *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

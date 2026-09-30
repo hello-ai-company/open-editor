@@ -17,18 +17,18 @@ export const sampleDocument = createEditorDocument([
     id: "p1",
     type: "paragraph",
     content: [
+      { type: "text", text: "Discuss this with ", styles: {} },
+      { type: "pageMention", props: { pageId: "architecture" } },
+      { type: "text", text: ". Document stores references — hosts own pages and database rows.", styles: {} }
+    ]
+  },
+  {
+    id: "p-ai-demo",
+    type: "paragraph",
+    content: [
       {
         type: "text",
-        text: "Discuss this with ",
-        styles: {}
-      },
-      {
-        type: "pageMention",
-        props: { pageId: "architecture" }
-      },
-      {
-        type: "text",
-        text: ". Document stores references — hosts own pages and database rows.",
+        text: "A focused workspace keeps the content clear and the tools close at hand.",
         styles: {}
       }
     ]
@@ -59,7 +59,7 @@ export const sampleDocument = createEditorDocument([
     id: "h2c",
     type: "heading",
     props: { level: 2 },
-    content: [{ type: "text", text: "Tasks (same database, eleven views)", styles: {} }]
+    content: [{ type: "text", text: "Tasks", styles: {} }]
   },
   {
     id: "db-table",
@@ -82,103 +82,13 @@ export const sampleDocument = createEditorDocument([
     }
   },
   {
-    id: "db-calendar",
-    type: "databaseView",
-    props: {
-      databaseId: "tasks",
-      viewId: "main-calendar",
-      viewType: "calendar",
-      titleHint: "Tasks"
-    }
-  },
-  {
-    id: "db-list",
-    type: "databaseView",
-    props: {
-      databaseId: "tasks",
-      viewId: "main-list",
-      viewType: "list",
-      titleHint: "Tasks"
-    }
-  },
-  {
-    id: "db-gallery",
-    type: "databaseView",
-    props: {
-      databaseId: "tasks",
-      viewId: "main-gallery",
-      viewType: "gallery",
-      titleHint: "Tasks"
-    }
-  },
-  {
-    id: "db-timeline",
-    type: "databaseView",
-    props: {
-      databaseId: "tasks",
-      viewId: "main-timeline",
-      viewType: "timeline",
-      titleHint: "Tasks"
-    }
-  },
-  {
-    id: "db-gantt",
-    type: "databaseView",
-    props: {
-      databaseId: "tasks",
-      viewId: "main-gantt",
-      viewType: "gantt",
-      titleHint: "Tasks"
-    }
-  },
-  {
-    id: "db-chart",
-    type: "databaseView",
-    props: {
-      databaseId: "tasks",
-      viewId: "main-chart",
-      viewType: "chart",
-      titleHint: "Tasks"
-    }
-  },
-  {
-    id: "db-feed",
-    type: "databaseView",
-    props: {
-      databaseId: "tasks",
-      viewId: "main-feed",
-      viewType: "feed",
-      titleHint: "Tasks"
-    }
-  },
-  {
-    id: "db-map",
-    type: "databaseView",
-    props: {
-      databaseId: "tasks",
-      viewId: "main-map",
-      viewType: "map",
-      titleHint: "Tasks"
-    }
-  },
-  {
-    id: "db-dashboard",
-    type: "databaseView",
-    props: {
-      databaseId: "tasks",
-      viewId: "main-dashboard",
-      viewType: "dashboard",
-      titleHint: "Tasks"
-    }
-  },
-  {
     id: "c1",
     type: "callout",
     props: { variant: "info", title: "Portable" },
     content: [
       {
         type: "text",
-        text: "databaseView props hold databaseId/viewId/viewType only — never the row array. Board grouping, Calendar cursor, List/Gallery presentation, Timeline/Gantt date-property selection, Chart metric selection, Feed date selection, Map locations (host resolveMapLocation), and Dashboard selectors are ephemeral UI / host state.",
+        text: "The document stores a view reference; row data and persistence stay with the host.",
         styles: {}
       }
     ]

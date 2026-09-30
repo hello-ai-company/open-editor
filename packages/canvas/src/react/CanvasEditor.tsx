@@ -1,4 +1,4 @@
-import { createElement, useEffect, useId, useMemo, useState, type CSSProperties, type MouseEvent, type ReactElement } from "react";
+import { createElement, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type DragEvent, type KeyboardEvent, type MouseEvent, type ReactElement } from "react";
 import type { EditorBlock, EditorDocument } from "@hello-ai-company/editor-core";
 import {
   CANVAS_THEME_PRESETS,
@@ -7,6 +7,7 @@ import {
   type CanvasBlockElementRef,
   type CanvasLayoutNode,
   type CanvasLayoutSpec,
+  type CanvasRect,
   type CanvasTheme,
   type CanvasThemePresetName,
   type CanvasThemeTokens
@@ -45,6 +46,7 @@ export type CanvasEditorProps = {
 };
 
 type LayerItem = { node: CanvasLayoutNode; depth: number };
+type AbsoluteItem = { element: CanvasBlockElementRef; rect: { mobile: CanvasRect; tablet?: CanvasRect; desktop?: CanvasRect } };
 
 const MAX_PREVIEW_TEXT = 4000;
 const EMPTY_CANVAS_SPEC: CanvasLayoutSpec = {
@@ -74,6 +76,18 @@ function extractText(value: unknown): string {
       return;
     }
     if (!isRecord(current)) return;
+    if (current.type === "pageMention" && isRecord(current.props) && typeof current.props.pageId === "string") {
+      visit(`@${current.props.pageId}`);
+      return;
+    }
+    if (current.type === "blockReference" && isRecord(current.props) && typeof current.props.blockId === "string") {
+      visit(`→ ${current.props.blockId}`);
+      return;
+    }
+    if (current.type === "databaseRelation" && isRecord(current.props) && typeof current.props.databaseId === "string" && typeof current.props.rowId === "string") {
+      visit(`↗ ${current.props.databaseId}/${current.props.rowId}`);
+      return;
+    }
     if (typeof current.text === "string") {
       visit(current.text);
       if (Array.isArray(current.content)) visit(current.content);
@@ -174,6 +188,64 @@ function isContainer(node: CanvasLayoutNode): boolean {
 
 function isBlockElement(node: CanvasLayoutNode): node is CanvasBlockElementRef {
   return ["text", "image", "card", "divider", "button", "chart", "embed"].includes(node.type);
+}
+
+function findAbsoluteItem(root: CanvasLayoutNode, nodeId: string): AbsoluteItem | undefined {
+  for (const node of flattenCanvasNodes(root)) {
+    if (node.type === "absolute") {
+      const item = node.items.find(({ element }) => element.id === nodeId);
+      if (item) return item;
+    }
+  }
+  return undefined;
+}
+
+function updateAbsoluteItemRect(
+  spec: CanvasLayoutSpec,
+  nodeId: string,
+  breakpoint: CanvasBreakpoint,
+  rect: CanvasRect
+): CanvasLayoutSpec | null {
+  const width = Math.min(100, Math.max(1, Number.isFinite(rect.width) ? rect.width : 1));
+  const height = Math.min(100, Math.max(1, Number.isFinite(rect.height) ? rect.height : 1));
+  const nextRect = {
+    x: Math.min(100 - width, Math.max(0, Number.isFinite(rect.x) ? rect.x : 0)),
+    y: Math.min(100 - height, Math.max(0, Number.isFinite(rect.y) ? rect.y : 0)),
+    width,
+    height
+  };
+
+  function visit(node: CanvasLayoutNode): { node: CanvasLayoutNode; changed: boolean } {
+    if (node.type === "absolute") {
+      const index = node.items.findIndex(({ element }) => element.id === nodeId);
+      if (index >= 0) {
+        const items = [...node.items];
+        const item = items[index]!;
+        items[index] = { ...item, rect: { ...item.rect, [breakpoint]: nextRect } };
+        return { node: { ...node, items }, changed: true };
+      }
+      return { node, changed: false };
+    }
+    if (node.type === "stack" || node.type === "grid" || node.type === "section" || node.type === "frame") {
+      const children = node.children.map(visit);
+      return children.some(({ changed }) => changed)
+        ? { node: { ...node, children: children.map(({ node: child }) => child) }, changed: true }
+        : { node, changed: false };
+    }
+    if (node.type === "columns") {
+      let changed = false;
+      const columns = node.columns.map((column) => column.map((child) => {
+        const result = visit(child);
+        changed ||= result.changed;
+        return result.node;
+      }));
+      return changed ? { node: { ...node, columns }, changed: true } : { node, changed: false };
+    }
+    return { node, changed: false };
+  }
+
+  const result = visit(spec.root);
+  return result.changed ? { ...spec, root: result.node } : null;
 }
 
 function getThemeTokens(theme: CanvasTheme): CanvasThemeTokens {
@@ -315,8 +387,11 @@ const CANVAS_CSS = `
 .oe-canvas__surface h1,.oe-canvas__surface h2,.oe-canvas__surface h3,.oe-canvas__surface h4,.oe-canvas__surface h5,.oe-canvas__surface h6{font-family:var(--oe-canvas-heading-font);font-size:calc(1em * var(--oe-canvas-heading-scale));line-height:1.2;margin:0 0 var(--oe-canvas-space-sm)}
 .oe-canvas__surface p{margin:0 0 var(--oe-canvas-space-sm);white-space:pre-wrap;overflow-wrap:anywhere}
 .oe-canvas__surface pre{white-space:pre-wrap;overflow-wrap:anywhere}
-.oe-canvas__node{min-width:0;position:relative;border:1px solid transparent;border-radius:8px;transition:border-color .12s ease,background-color .12s ease}
+.oe-canvas__node{min-width:0;position:relative;border:1px solid transparent;border-radius:8px;cursor:pointer;transition:border-color .12s ease,background-color .12s ease}
+.oe-canvas__node:hover:not([data-selected=true]){border-color:var(--oe-canvas-accent)}
+.oe-canvas__node:focus-visible{outline:2px solid var(--oe-canvas-accent);outline-offset:2px;z-index:1}
 .oe-canvas__node[data-selected=true]{border-color:var(--oe-canvas-accent);background:rgb(73 118 92 / 4%)}
+.oe-canvas__absolute-item[draggable=true],.oe-canvas__absolute-item[draggable=true] .oe-canvas__node{cursor:grab}.oe-canvas__absolute-item[draggable=true]:active,.oe-canvas__absolute-item[draggable=true]:active .oe-canvas__node{cursor:grabbing}
 .oe-canvas__node[data-hidden=true]{display:none}
 .oe-canvas__node[data-locked=true]::after{content:"Locked";position:absolute;top:4px;right:6px;border-radius:5px;background:#edf0ec;color:#536057;padding:1px 6px;font:11px/1.5 ui-sans-serif,system-ui,sans-serif}
 .oe-canvas__stack{display:flex;min-width:0}
@@ -385,6 +460,8 @@ function normalizeViewState(
 
 export function CanvasEditor(props: CanvasEditorProps): ReactElement {
   const headingId = useId().replaceAll(":", "");
+  const draggedNodeId = useRef<string | null>(null);
+  const dragOffset = useRef({ x: 0, y: 0 });
   const [internalSpec, setInternalSpec] = useState(props.spec);
   const [internalView, setInternalView] = useState(() => defaultViewState(props.spec));
   const spec = props.onLayoutChange ? props.spec : internalSpec;
@@ -421,6 +498,8 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
   const isRoot = selectedNode.id === renderSpec.root.id;
   const gapNode = getCanvasGapNode(renderSpec.root, selectedNode.id);
   const resolvedGap = gapNode ? resolveResponsiveValue(gapNode.gap, view.breakpoint) ?? 16 : 16;
+  const absoluteItem = findAbsoluteItem(renderSpec.root, selectedNode.id);
+  const absoluteRect = absoluteItem ? resolveResponsiveValue(absoluteItem.rect, view.breakpoint) ?? absoluteItem.rect.mobile : undefined;
   const theme = getThemeTokens(renderSpec.theme);
   const themeVars = themeStyle(theme);
   const selectedSubtreeIds = new Set(flattenCanvasNodes(selectedNode).map(({ id }) => id));
@@ -442,20 +521,51 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
     if (changedTheme) props.onThemeChange?.(next.theme, next);
   }
 
-  function renderNode(node: CanvasLayoutNode): ReactElement | null {
+  function handlePreviewKeyDown(nodeId: string, event: KeyboardEvent<HTMLElement>): void {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      event.stopPropagation();
+      updateView({ selectedNodeId: nodeId });
+      return;
+    }
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    const preview = event.currentTarget.closest(".oe-canvas__surface");
+    const visibleNodes = Array.from(preview?.querySelectorAll<HTMLElement>("[data-canvas-node-id]") ?? []);
+    const index = visibleNodes.findIndex((entry) => entry.dataset.canvasNodeId === nodeId);
+    if (index < 0 || visibleNodes.length < 2) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    const next = visibleNodes[(index + direction + visibleNodes.length) % visibleNodes.length]!;
+    const nextId = next.dataset.canvasNodeId;
+    if (!nextId) return;
+    updateView({ selectedNodeId: nextId });
+    next.focus();
+  }
+
+  function renderNode(node: CanvasLayoutNode, depth = 1): ReactElement | null {
     if (hidden.has(node.id)) return null;
     const selected = node.id === selectedId;
     const lockedNode = locked.has(node.id);
+    const hasChildren = isContainer(node) || node.type === "absolute";
     const alignment = resolveAlignment(view.alignmentByNodeId[node.id]);
     const wrapperProps = {
       className: "oe-canvas__node",
       "data-canvas-node-id": node.id,
       "data-selected": selected ? "true" : "false",
       "data-locked": lockedNode ? "true" : "false",
+      role: "treeitem",
+      "aria-level": depth,
+      "aria-label": `Select ${nodeLabel(node)}${lockedNode ? ", locked" : ""}`,
+      "aria-selected": selected,
+      "aria-expanded": hasChildren ? true : undefined,
+      "aria-keyshortcuts": "Enter Space ArrowUp ArrowDown",
+      tabIndex: selected ? 0 : -1,
       onClick: (event: MouseEvent<HTMLElement>) => {
         event.stopPropagation();
         updateView({ selectedNodeId: node.id });
       },
+      onKeyDown: (event: KeyboardEvent<HTMLElement>) => handlePreviewKeyDown(node.id, event),
       style: alignment
     };
 
@@ -463,29 +573,54 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
       const gap = resolveResponsiveValue(node.gap, view.breakpoint) ?? 0;
       const padding = resolveResponsiveValue(node.padding, view.breakpoint) ?? 0;
       const direction = node.direction === "horizontal" && view.breakpoint !== "mobile" ? "row" : "column";
-      return <div {...wrapperProps} className={`${wrapperProps.className} oe-canvas__stack`} style={{ ...alignment, flexDirection: direction, gap, padding }}>{node.children.map((child) => <div className="oe-canvas__child" key={child.id}>{renderNode(child)}</div>)}</div>;
+      return <div key={node.id} {...wrapperProps} style={alignment}><div className="oe-canvas__stack" role="group" style={{ flexDirection: direction, gap, padding }}>{node.children.map((child) => renderNode(child, depth + 1))}</div></div>;
     }
     if (node.type === "grid") {
       const columns = resolveResponsiveValue(node.columns, view.breakpoint) ?? 1;
       const gap = resolveResponsiveValue(node.gap, view.breakpoint) ?? 0;
-      return <div {...wrapperProps} className={`${wrapperProps.className} oe-canvas__grid`} style={{ ...alignment, gridTemplateColumns: `repeat(${columns},minmax(0,1fr))`, gap }}>{node.children.map((child) => <div className="oe-canvas__child" key={child.id}>{renderNode(child)}</div>)}</div>;
+      return <div key={node.id} {...wrapperProps} style={alignment}><div className="oe-canvas__grid" role="group" style={{ gridTemplateColumns: `repeat(${columns},minmax(0,1fr))`, gap }}>{node.children.map((child) => renderNode(child, depth + 1))}</div></div>;
     }
     if (node.type === "columns") {
       const columnCount = view.breakpoint === "mobile" ? 1 : view.breakpoint === "tablet" ? Math.min(2, node.columns.length) : node.columns.length;
       const gap = resolveResponsiveValue(node.gap, view.breakpoint) ?? 0;
-      return <div {...wrapperProps} className={`${wrapperProps.className} oe-canvas__columns`} style={{ ...alignment, gridTemplateColumns: `repeat(${columnCount},minmax(0,1fr))`, gap }}>{node.columns.map((column, index) => <div className="oe-canvas__column" key={`column-${index}`}>{column.map((child) => <div className="oe-canvas__child" key={child.id}>{renderNode(child)}</div>)}</div>)}</div>;
+      return <div key={node.id} {...wrapperProps} style={alignment}><div className="oe-canvas__columns" role="group" style={{ gridTemplateColumns: `repeat(${columnCount},minmax(0,1fr))`, gap }}>{node.columns.map((column, index) => <div className="oe-canvas__column" role="group" key={`column-${index}`}>{column.map((child) => renderNode(child, depth + 1))}</div>)}</div></div>;
     }
     if (node.type === "section" || node.type === "frame") {
-      return <section {...wrapperProps} className={`${wrapperProps.className} oe-canvas__group`} data-kind={node.type} style={{ ...alignment, ...(node.type === "frame" ? { boxShadow: "0 5px 18px rgb(25 35 27 / 8%)" } : {}) }}>{node.children.map((child) => <div className="oe-canvas__child" key={child.id}>{renderNode(child)}</div>)}</section>;
+      return <div key={node.id} {...wrapperProps} style={alignment}><div className="oe-canvas__group" role="group" data-kind={node.type} style={node.type === "frame" ? { boxShadow: "0 5px 18px rgb(25 35 27 / 8%)" } : undefined}>{node.children.map((child) => renderNode(child, depth + 1))}</div></div>;
     }
     if (node.type === "absolute") {
-      return <div {...wrapperProps} className={`${wrapperProps.className} oe-canvas__absolute`} style={{ ...alignment, position: "relative", minHeight: 240 }}>{node.items.map(({ element, rect }) => {
+      return <div key={node.id} {...wrapperProps} style={alignment}><div className="oe-canvas__absolute" role="group" style={{ position: "relative", minHeight: 240 }} onDragOver={(event: DragEvent<HTMLDivElement>) => event.preventDefault()} onDrop={(event: DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        const id = draggedNodeId.current ?? event.dataTransfer.getData("text/plain");
+        const item = findAbsoluteItem(renderSpec.root, id);
+        if (!item || !id || locked.has(id)) return;
+        const bounds = event.currentTarget.getBoundingClientRect();
+        if (!bounds.width || !bounds.height) return;
+        const rect = resolveResponsiveValue(item.rect, view.breakpoint) ?? item.rect.mobile;
+        const next = updateAbsoluteItemRect(renderSpec, id, view.breakpoint, {
+          ...rect,
+          x: ((event.clientX - bounds.left) / bounds.width) * 100 - dragOffset.current.x,
+          y: ((event.clientY - bounds.top) / bounds.height) * 100 - dragOffset.current.y
+        });
+        if (next) updateSpec(next);
+      }}>{node.items.map(({ element, rect }) => {
         const activeRect = resolveResponsiveValue(rect, view.breakpoint) ?? rect.mobile;
-        return <div className="oe-canvas__absolute-item" key={element.id} style={{ position: "absolute", left: `${activeRect.x}%`, top: `${activeRect.y}%`, width: `${activeRect.width}%`, height: `${activeRect.height}%` }}>{renderNode(element)}</div>;
-      })}</div>;
+        return <div className="oe-canvas__absolute-item" role="group" key={element.id} draggable={!locked.has(element.id)} onDragStart={(event: DragEvent<HTMLDivElement>) => {
+          if (locked.has(element.id)) { event.preventDefault(); return; }
+          draggedNodeId.current = element.id;
+          const itemBounds = event.currentTarget.getBoundingClientRect();
+          const parentBounds = event.currentTarget.parentElement?.getBoundingClientRect();
+          dragOffset.current = parentBounds?.width && parentBounds.height
+            ? { x: ((event.clientX - itemBounds.left) / parentBounds.width) * 100, y: ((event.clientY - itemBounds.top) / parentBounds.height) * 100 }
+            : { x: 0, y: 0 };
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", element.id);
+          updateView({ selectedNodeId: element.id });
+        }} onDragEnd={() => { draggedNodeId.current = null; dragOffset.current = { x: 0, y: 0 }; }} style={{ position: "absolute", left: `${activeRect.x}%`, top: `${activeRect.y}%`, width: `${activeRect.width}%`, height: `${activeRect.height}%` }}>{renderNode(element, depth + 1)}</div>;
+      })}</div></div>;
     }
     if (!isBlockElement(node)) return null;
-    return <div {...wrapperProps} className={`${wrapperProps.className} oe-canvas__element`}>{renderBlockElement(node, blocks, references)}</div>;
+    return <div key={node.id} {...wrapperProps} className={`${wrapperProps.className} oe-canvas__element`}>{renderBlockElement(node, blocks, references)}</div>;
   }
 
   if (fatalIssues.length > 0) {
@@ -508,7 +643,7 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
     </header>
     <div className="oe-canvas__workspace">
       <section className="oe-canvas__stage" data-breakpoint={view.breakpoint} aria-label="Canvas preview">
-        <div className="oe-canvas__surface" style={themeVars} onClick={() => updateView({ selectedNodeId: renderSpec.root.id })}>
+        <div className="oe-canvas__surface" role="tree" aria-label="Canvas preview" style={{ ...themeVars, maxWidth: view.breakpoint === "mobile" ? "min(390px, 100%)" : undefined }} onClick={() => updateView({ selectedNodeId: renderSpec.root.id })}>
           {renderNode(renderSpec.root)}
         </div>
       </section>
@@ -563,6 +698,15 @@ export function CanvasEditor(props: CanvasEditorProps): ReactElement {
             }} />
           </label>
         </section>
+        {absoluteItem && absoluteRect ? <section className="oe-canvas__section" aria-labelledby={`${headingId}-position-heading`}>
+          <h3 id={`${headingId}-position-heading`}>Position &amp; size · {view.breakpoint}</h3>
+          {(["x", "y", "width", "height"] as const).map((key) => <label className="oe-canvas__field" key={key}>{key === "x" ? "Position X" : key === "y" ? "Position Y" : key === "width" ? "Width" : "Height"}
+            <input type="number" aria-label={`${key === "x" ? "Position X" : key === "y" ? "Position Y" : key === "width" ? "Width" : "Height"} ${view.breakpoint}`} min={key === "x" || key === "y" ? 0 : 1} max="100" step="1" value={absoluteRect[key]} disabled={isLocked} onChange={(event) => {
+              const next = updateAbsoluteItemRect(renderSpec, selectedNode.id, view.breakpoint, { ...absoluteRect, [key]: Number(event.currentTarget.value) });
+              if (next) updateSpec(next);
+            }} />
+          </label>)}
+        </section> : null}
         <section className="oe-canvas__section" aria-labelledby={`${headingId}-layers-heading`}>
           <h3 id={`${headingId}-layers-heading`}>Layers</h3>
           <ul className="oe-canvas__layers">

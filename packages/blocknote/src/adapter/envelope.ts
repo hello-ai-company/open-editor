@@ -50,6 +50,27 @@ function decodeJsonField(raw: string, path: string): JsonValue | undefined {
   return parsed;
 }
 
+function omitUndefinedObjectProperties(value: unknown, seen = new WeakMap<object, object>()): unknown {
+  if (Array.isArray(value)) {
+    const previous = seen.get(value);
+    if (previous) return previous;
+    const result: unknown[] = [];
+    seen.set(value, result);
+    for (const item of value) result.push(omitUndefinedObjectProperties(item, seen));
+    return result;
+  }
+  if (!value || typeof value !== "object") return value;
+  const previous = seen.get(value);
+  if (previous) return previous;
+  const result = Object.create(Object.getPrototypeOf(value)) as Record<string, unknown>;
+  seen.set(value, result);
+  for (const key of Object.keys(value)) {
+    const entry = (value as Record<string, unknown>)[key];
+    if (entry !== undefined) result[key] = omitUndefinedObjectProperties(entry, seen);
+  }
+  return result;
+}
+
 export function encodeUnknownEnvelope(
   block: EditorBlock,
   envelopeType: string = UNKNOWN_ENVELOPE_TYPE,
@@ -176,10 +197,13 @@ export function blockLikeToEditorBlockIdentity(block: BlockLike, path: string): 
   }
 
   if (block.content !== undefined) {
-    if (!isJsonValue(block.content)) {
+    const content = isJsonValue(block.content)
+      ? block.content
+      : omitUndefinedObjectProperties(block.content);
+    if (!isJsonValue(content)) {
       throw new BlockNoteAdapterError("NON_JSON_VALUE", "Block content must be JsonValue", path);
     }
-    result.content = block.content;
+    result.content = content;
   }
 
   if (block.children !== undefined && block.children.length > 0) {

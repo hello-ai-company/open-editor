@@ -44,7 +44,7 @@ export function BlockActionMenu(props: BlockActionMenuProps): ReactElement {
   }, [props.registry]);
 
   return (
-    <div className="oe-block-actions" role="menu" aria-label="Block actions">
+    <div className="oe-block-actions" role="group" aria-label="Block actions">
       {items.map((command) => {
         if (!command) return null;
         const enabled = command.isEnabled?.(props.context) ?? true;
@@ -58,7 +58,6 @@ export function BlockActionMenu(props: BlockActionMenuProps): ReactElement {
           <button
             key={command.id}
             type="button"
-            role="menuitem"
             className="oe-block-actions__item"
             disabled={Boolean(disabledReason)}
             title={disabledReason}
@@ -71,6 +70,7 @@ export function BlockActionMenu(props: BlockActionMenuProps): ReactElement {
             }}
           >
             {labels[command.id] ?? command.title}
+            {disabledReason ? ` — ${disabledReason}` : ""}
           </button>
         );
       })}

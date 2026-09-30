@@ -2,12 +2,17 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi } from "vitest";
+import { act, createElement } from "react";
+import { createRoot } from "react-dom/client";
 import {
   createBlockActionCommands,
   createBlockReferenceCommands,
   createCommandRegistry
 } from "../src/commands/registry.js";
 import { toPartialBlockCopy } from "../src/commands/blockCopy.js";
+import { BlockActionMenu } from "../src/react/blockActions.js";
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("block actions losslessness", () => {
   it("toPartialBlockCopy preserves type/props/content/children and drops id", () => {
@@ -108,5 +113,47 @@ describe("block actions losslessness", () => {
     expect(insertInlineContent).toHaveBeenCalledWith([
       { type: "blockReference", props: { blockId: "target-heading" } }
     ]);
+  });
+});
+
+describe("BlockActionMenu accessibility", () => {
+  it("uses native buttons in a labeled group and explains disabled actions", async () => {
+    const run = vi.fn();
+    const registry = createCommandRegistry([
+      {
+        id: "block.delete",
+        title: "Delete block",
+        group: "basic",
+        surfaces: ["block-action"],
+        isEnabled: () => ({ ok: false as const, reason: "Select a block first" }),
+        run
+      }
+    ]);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        createElement(BlockActionMenu, {
+          registry,
+          context: {} as never
+        })
+      );
+    });
+
+    const group = host.querySelector('[role="group"]') as HTMLDivElement;
+    const button = group.querySelector("button") as HTMLButtonElement;
+    expect(group.getAttribute("aria-label")).toBe("Block actions");
+    expect(group.querySelector('[role="menuitem"]')).toBeNull();
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toContain("Select a block first");
+
+    await act(async () => {
+      button.click();
+    });
+    expect(run).not.toHaveBeenCalled();
+
+    await act(async () => root.unmount());
+    host.remove();
   });
 });

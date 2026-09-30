@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
@@ -9,11 +9,15 @@ import { act } from "react";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
 
+afterEach(() => vi.unstubAllGlobals());
+
 import {
   createPageRuntimeStore,
   createPageRuntimesFromStore
 } from "../src/workspace/pageRuntimeStore.js";
 import { createPageSearchEngine } from "../src/workspace/pageSearch.js";
+import { createDocumentIndex } from "../src/index/documentIndex.js";
+import { createDocumentOutline } from "../src/index/outline.js";
 import { createCommandRegistry } from "../src/commands/registry.js";
 import { createWorkspaceContentCommands } from "../src/workspace/commands.js";
 import { CHILD_PAGE_TYPE } from "../src/workspace/types.js";
@@ -27,6 +31,8 @@ import {
   listOutgoingPageLinks,
   WorkspacePagePicker
 } from "../src/react/workspaceUi.js";
+import { PowerCommandPalette } from "../src/react/powerUi.js";
+import { DocumentOutline, QuickNav } from "../src/react/outline.js";
 import { createRelationIndex } from "../src/workspace/relationIndex.js";
 
 describe("PageRuntimeStore", () => {
@@ -400,6 +406,166 @@ describe("WorkspacePagePicker keyboard helper", () => {
     expect(
       applyWorkspacePickerKey("Escape", { highlight: 1, resultsLength: 3 })
     ).toEqual({ highlight: 1, action: "cancel" });
+    expect(
+      applyWorkspacePickerKey("Enter", { highlight: 1, resultsLength: 0 })
+    ).toEqual({ highlight: 0, action: "none" });
+    expect(
+      applyWorkspacePickerKey("ArrowDown", { highlight: 8, resultsLength: 2 })
+    ).toEqual({ highlight: 1, action: "none" });
+    expect(
+      applyWorkspacePickerKey("Enter", { highlight: 8, resultsLength: 2 })
+    ).toEqual({ highlight: 1, action: "select" });
+  });
+});
+
+describe("PowerCommandPalette keyboard and listbox behavior", () => {
+  it("connects its combobox to unique options and keeps disabled commands inert", async () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) =>
+      window.setTimeout(() => callback(0), 0)
+    );
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => window.clearTimeout(id));
+
+    const blockedRun = vi.fn();
+    const allowedRun = vi.fn();
+    const registry = createCommandRegistry([
+      {
+        id: "blocked",
+        title: "A blocked command",
+        group: "basic",
+        surfaces: ["palette"],
+        isEnabled: () => ({ ok: false as const, reason: "Select content first" }),
+        run: blockedRun
+      },
+      {
+        id: "allowed",
+        title: "B allowed command",
+        group: "basic",
+        surfaces: ["palette"],
+        run: allowedRun
+      }
+    ]);
+    const onOpenChange = vi.fn();
+    const context = {} as never;
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        createElement(PowerCommandPalette, {
+          open: true,
+          onOpenChange,
+          registry,
+          context
+        })
+      );
+    });
+
+    const input = host.querySelector('input[role="combobox"]') as HTMLInputElement;
+    const options = host.querySelectorAll('[role="option"]');
+    expect(document.getElementById(input.getAttribute("aria-controls")!)).toBe(
+      host.querySelector('[role="listbox"]')
+    );
+    expect(input.getAttribute("aria-activedescendant")).toBe(
+      (options[0] as HTMLElement).id
+    );
+    expect(options[0]?.getAttribute("aria-disabled")).toBe("true");
+
+    const key = (value: string) =>
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true })
+      );
+    await act(async () => key("ArrowDown"));
+    await act(async () => key("ArrowUp"));
+    await act(async () => {
+      key("Enter");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(blockedRun).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    await act(async () => key("ArrowDown"));
+    await act(async () => {
+      key("Enter");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(allowedRun).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+
+    await act(async () => root.unmount());
+    host.remove();
+  });
+});
+
+describe("QuickNav and document outline accessibility", () => {
+  it("connects the search listbox and marks the current outline location", async () => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) =>
+      window.setTimeout(() => callback(0), 0)
+    );
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => window.clearTimeout(id));
+
+    const index = createDocumentIndex();
+    index.replaceFromBlocks([
+      {
+        id: "heading-1",
+        type: "heading",
+        props: { level: 1 },
+        content: [{ type: "text", text: "Architecture", styles: {} }],
+        children: []
+      } as never
+    ]);
+    const setTextCursorPosition = vi.fn();
+    const focus = vi.fn();
+    const onOpenChange = vi.fn();
+    const editor = { setTextCursorPosition, focus };
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        createElement(
+          "div",
+          null,
+          createElement(DocumentOutline, {
+            nodes: createDocumentOutline(index),
+            activeBlockId: "heading-1",
+            onJump: vi.fn()
+          }),
+          createElement(QuickNav, {
+            open: true,
+            onOpenChange,
+            index,
+            editor: editor as never
+          })
+        )
+      );
+    });
+
+    const currentOutlineItem = host.querySelector(
+      ".oe-outline__link[aria-current='location']"
+    );
+    expect(currentOutlineItem?.textContent).toBe("Architecture");
+
+    const input = host.querySelector('input[role="combobox"]') as HTMLInputElement;
+    const option = host.querySelector('[role="option"]') as HTMLButtonElement;
+    expect(document.getElementById(input.getAttribute("aria-controls")!)).toBe(
+      host.querySelector('[role="listbox"]')
+    );
+    expect(input.getAttribute("aria-activedescendant")).toBe(option.id);
+
+    await act(async () => {
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })
+      );
+    });
+    expect(setTextCursorPosition).toHaveBeenCalledWith(
+      { id: "heading-1" },
+      "start"
+    );
+    expect(focus).toHaveBeenCalled();
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+
+    await act(async () => root.unmount());
+    host.remove();
   });
 });
 
@@ -471,6 +637,11 @@ describe("WorkspacePagePicker integration", () => {
       await new Promise((r) => setTimeout(r, 5));
     });
     expect(host.textContent).toContain("Searching");
+    expect(
+      (host.querySelector('input[role="combobox"]') as HTMLInputElement).getAttribute(
+        "aria-busy"
+      )
+    ).toBe("true");
     expect(typeof resolvePages).toBe("function");
     await act(async () => {
       resolvePages([{ id: "a", title: "Alpha" }]);
@@ -478,7 +649,17 @@ describe("WorkspacePagePicker integration", () => {
     });
     expect(host.textContent).toContain("Alpha");
     expect(host.textContent).not.toContain("Searching");
-    expect((host.querySelector('[role="option"]') as HTMLButtonElement).tabIndex).toBe(-1);
+    const option = host.querySelector('[role="option"]') as HTMLButtonElement;
+    const input = host.querySelector('input[role="combobox"]') as HTMLInputElement;
+    const dialog = host.querySelector('[role="dialog"]') as HTMLDivElement;
+    expect(option.tabIndex).toBe(-1);
+    expect(input.getAttribute("aria-controls")).toBe(
+      host.querySelector('[role="listbox"]')?.id
+    );
+    expect(input.getAttribute("aria-activedescendant")).toBe(option.id);
+    expect(document.getElementById(dialog.getAttribute("aria-labelledby")!)).toBe(
+      host.querySelector(".oe-page-picker__heading")
+    );
     await cleanup();
   });
 

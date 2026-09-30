@@ -53,22 +53,24 @@ export function applyWorkspacePickerKey(
   if (key === "Escape") {
     return { highlight: state.highlight, action: "cancel" };
   }
+  const lastIndex = state.resultsLength - 1;
+  if (lastIndex < 0) {
+    return { highlight: 0, action: "none" };
+  }
+  const highlight = Math.max(0, Math.min(state.highlight, lastIndex));
   if (key === "ArrowDown") {
-    if (state.resultsLength === 0) {
-      return { highlight: 0, action: "none" };
-    }
     return {
-      highlight: Math.min(state.highlight + 1, state.resultsLength - 1),
+      highlight: Math.min(highlight + 1, lastIndex),
       action: "none"
     };
   }
   if (key === "ArrowUp") {
-    return { highlight: Math.max(state.highlight - 1, 0), action: "none" };
+    return { highlight: Math.max(highlight - 1, 0), action: "none" };
   }
   if (key === "Enter") {
-    return { highlight: state.highlight, action: "select" };
+    return { highlight, action: "select" };
   }
-  return { highlight: state.highlight, action: "none" };
+  return { highlight, action: "none" };
 }
 
 /**
@@ -82,6 +84,7 @@ export function WorkspacePagePicker(
   props: WorkspacePagePickerProps
 ): ReactElement | null {
   const listboxId = useId();
+  const headingId = `${listboxId}-heading`;
   const [query, setQuery] = useState(props.initialQuery ?? "");
   const [results, setResults] = useState<EditorPageLink[]>([]);
   const [status, setStatus] = useState<PickerStatus>("idle");
@@ -89,6 +92,7 @@ export function WorkspacePagePicker(
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   useDialogFocusTrap(props.open, dialogRef);
 
   const debounceMs = props.debounceMs ?? 150;
@@ -123,6 +127,8 @@ export function WorkspacePagePicker(
 
     setStatus("loading");
     setErrorMessage(null);
+    setResults([]);
+    setHighlight(0);
 
     if (engine) {
       engine.search(
@@ -171,6 +177,12 @@ export function WorkspacePagePicker(
     props.pages
   ]);
 
+  useEffect(() => {
+    listRef.current
+      ?.querySelector<HTMLElement>('[aria-selected="true"]')
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [highlight, results]);
+
   const pick = useCallback(
     (page: EditorPageLink | null) => {
       props.onPick(page);
@@ -214,7 +226,7 @@ export function WorkspacePagePicker(
       className="oe-page-picker"
       role="dialog"
       aria-modal="true"
-      aria-label={heading}
+      aria-labelledby={headingId}
       tabIndex={-1}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
@@ -223,7 +235,7 @@ export function WorkspacePagePicker(
         }
       }}
     >
-      <p className="oe-page-picker__heading">{heading}</p>
+      <p id={headingId} className="oe-page-picker__heading">{heading}</p>
       <input
         ref={inputRef}
         className="oe-page-picker__input"
@@ -233,10 +245,11 @@ export function WorkspacePagePicker(
         aria-controls={listboxId}
         aria-autocomplete="list"
         aria-activedescendant={
-          results[highlight] ? `${listboxId}-${results[highlight]!.id}` : undefined
+          results[highlight] ? `${listboxId}-option-${highlight}` : undefined
         }
         role="combobox"
         aria-expanded="true"
+        aria-busy={status === "loading"}
         onChange={(event) => setQuery(event.target.value)}
         onKeyDown={onKeyDown}
       />
@@ -255,12 +268,12 @@ export function WorkspacePagePicker(
           No pages found
         </p>
       ) : null}
-      <ul className="oe-page-picker__list" role="listbox" id={listboxId}>
+      <ul ref={listRef} className="oe-page-picker__list" role="listbox" id={listboxId}>
         {results.map((page, index) => (
           <li key={page.id} role="presentation">
             <button
               type="button"
-              id={`${listboxId}-${page.id}`}
+              id={`${listboxId}-option-${index}`}
               role="option"
               tabIndex={-1}
               aria-selected={index === highlight}

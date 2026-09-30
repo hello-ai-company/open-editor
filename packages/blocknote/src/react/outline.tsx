@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -41,7 +42,12 @@ function jumpToBlock(editor: EditorLike, blockId: string): void {
     `[data-id="${CSS.escape(blockId)}"], [data-node-type][id="${CSS.escape(blockId)}"]`
   );
   if (el && "scrollIntoView" in el) {
-    (el as HTMLElement).scrollIntoView({ block: "center", behavior: "smooth" });
+    const reducedMotion = typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    (el as HTMLElement).scrollIntoView({
+      block: "center",
+      behavior: reducedMotion ? "auto" : "smooth"
+    });
   }
 }
 
@@ -121,6 +127,7 @@ function OutlineTree(props: {
             className="oe-outline__link"
             data-active={props.activeBlockId === node.blockId ? "true" : "false"}
             data-level={node.level}
+            aria-current={props.activeBlockId === node.blockId ? "location" : undefined}
             onClick={() => props.onJump(node.blockId)}
           >
             {node.title}
@@ -173,6 +180,8 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const listboxId = useId();
   useDialogFocusTrap(props.open, dialogRef);
   const [revision, setRevision] = useState(() => props.index.getRevision());
 
@@ -199,6 +208,16 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
   useEffect(() => {
     setActiveIndex(0);
   }, [query]);
+
+  useEffect(() => {
+    setActiveIndex((index) => Math.min(index, Math.max(results.length - 1, 0)));
+  }, [results.length]);
+
+  useEffect(() => {
+    listRef.current
+      ?.querySelector<HTMLElement>('[aria-selected="true"]')
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [activeIndex, results]);
 
   const select = useCallback(
     (blockId: string) => {
@@ -251,8 +270,8 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
           className="oe-quick-nav__input"
           role="combobox"
           aria-expanded="true"
-          aria-controls="oe-quick-nav-list"
-          aria-activedescendant={results[activeIndex] ? `oe-quick-nav-option-${activeIndex}` : undefined}
+          aria-controls={listboxId}
+          aria-activedescendant={results[activeIndex] ? `${listboxId}-option-${activeIndex}` : undefined}
           aria-autocomplete="list"
           aria-label={dict.quickNavPlaceholder}
           placeholder={dict.quickNavPlaceholder}
@@ -260,9 +279,9 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
         />
-        <ul id="oe-quick-nav-list" className="oe-quick-nav__list" role="listbox">
+        <ul ref={listRef} id={listboxId} className="oe-quick-nav__list" role="listbox">
           {results.length === 0 ? (
-            <li className="oe-quick-nav__empty" role="presentation">
+            <li className="oe-quick-nav__empty" role="presentation" aria-live="polite">
               {dict.quickNavEmpty}
             </li>
           ) : (
@@ -273,7 +292,7 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
                   className="oe-quick-nav__item"
                   role="option"
                   tabIndex={-1}
-                  id={`oe-quick-nav-option-${index}`}
+                  id={`${listboxId}-option-${index}`}
                   aria-selected={index === activeIndex}
                   data-active={index === activeIndex ? "true" : "false"}
                   onMouseEnter={() => setActiveIndex(index)}
@@ -302,13 +321,24 @@ export function useQuickNavShortcut(
     if (!target) return;
     const onKeyDown = (event: Event) => {
       const keyboardEvent = event as unknown as {
+        defaultPrevented: boolean;
+        isComposing: boolean;
+        altKey: boolean;
+        shiftKey: boolean;
         metaKey: boolean;
         ctrlKey: boolean;
         key: string;
         preventDefault: () => void;
       };
       // Cmd/Ctrl+P — document nav; prevent browser print when editor-focused
-      if (modKey(keyboardEvent) && keyboardEvent.key.toLowerCase() === "p") {
+      if (
+        !keyboardEvent.defaultPrevented &&
+        !keyboardEvent.isComposing &&
+        !keyboardEvent.altKey &&
+        !keyboardEvent.shiftKey &&
+        modKey(keyboardEvent) &&
+        keyboardEvent.key.toLowerCase() === "p"
+      ) {
         keyboardEvent.preventDefault();
         onToggle();
       }
