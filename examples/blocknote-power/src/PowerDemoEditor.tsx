@@ -37,6 +37,7 @@ import {
 import type { SuggestionGroup } from "@hello-ai-company/editor-ai";
 import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createMagicLayoutSpec } from "@hello-ai-company/editor-canvas";
+import type { CanvasEditorViewState } from "@hello-ai-company/editor-canvas/react";
 import {
   createEditorDocument,
   serializeEditorDocument,
@@ -327,9 +328,13 @@ export function PowerDemoEditor() {
   const [focusMode, setFocusMode] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<EditorDocument>(sampleDocument);
   const [canvasSpec, setCanvasSpec] = useState(() => createMagicLayoutSpec(sampleDocument, "report"));
+  const [canvasViewState, setCanvasViewState] = useState<CanvasEditorViewState>();
   const [reviewSuggestion, setReviewSuggestion] = useState<PendingDemoSuggestion | null>(null);
   const [publishedPreview, setPublishedPreview] = useState<PublishedPreview | null>(null);
   const [aiStatus, setAiStatus] = useState<string | null>(null);
+  const [aiAction, setAiAction] = useState<
+    "preparing" | "review" | "accepting" | "accepted" | "rejecting" | "rejected" | "stale" | "error" | null
+  >(null);
   const [canReviewSelection, setCanReviewSelection] = useState(false);
   const selectionRef = useRef<{ blockId: string; text: string } | null>(null);
   const devtoolsOpenRef = useRef(devtoolsOpen);
@@ -337,6 +342,9 @@ export function PowerDemoEditor() {
   const relationsOpenRef = useRef(relationsOpen);
   relationsOpenRef.current = relationsOpen;
   const [relationRevision, setRelationRevision] = useState(0);
+  const aiBusy = aiAction === "preparing" || aiAction === "accepting" || aiAction === "rejecting";
+  const outlineVisible = !focusMode && outlineOpen;
+  const inspectorVisible = !focusMode && devtoolsOpen;
 
   const requestBlockPick = useCallback(
     (options?: { excludeIds?: readonly string[] }) => {
@@ -437,12 +445,15 @@ export function PowerDemoEditor() {
 
   const createDemoSuggestion = useCallback(async () => {
     const selection = selectionRef.current;
-    if (!selection) return;
+    if (!selection || aiBusy) return;
     if (selection.text !== DEMO_AI_SOURCE) {
+      setAiAction("error");
       setAiStatus("Select the example sentence to preview this local demo suggestion.");
       return;
     }
 
+    setAiAction("preparing");
+    setAiStatus("Preparing the local suggestion…");
     try {
       const { parseSuggestionGroup } = await import("@hello-ai-company/editor-ai");
       const currentDocument = fromBlockNote(editor.document as never);
@@ -471,18 +482,23 @@ export function PowerDemoEditor() {
         suggestedText: DEMO_AI_REWRITE,
         generatedAt
       });
+      setAiAction("review");
       setAiStatus(null);
       setRelationsOpen(false);
       setActionsOpen(false);
     } catch (error) {
+      setAiAction("error");
       setAiStatus(error instanceof Error ? error.message : "Could not prepare the demo suggestion.");
     }
-  }, [editor]);
+  }, [aiBusy, editor]);
 
   const decideDemoSuggestion = useCallback(async (accept: boolean) => {
     const pending = reviewSuggestion;
-    if (!pending) return;
+    if (!pending || aiBusy) return;
+    if (accept && pending.stale) return;
     const decidedAt = new Date().toISOString();
+    setAiAction(accept ? "accepting" : "rejecting");
+    setAiStatus(accept ? "Applying suggestion…" : "Rejecting suggestion…");
 
     if (!accept) {
       try {
@@ -492,14 +508,15 @@ export function PowerDemoEditor() {
           rejectedAt: decidedAt
         });
         setReviewSuggestion(null);
+        setAiAction("rejected");
         setAiStatus(`Rejected by ${rejection.rejectedBy} · the document was left unchanged.`);
       } catch (error) {
+        setAiAction("error");
         setAiStatus(error instanceof Error ? error.message : "Could not reject the demo suggestion.");
       }
       return;
     }
 
-    if (pending.stale) return;
     try {
       const { acceptSuggestionGroup } = await import("@hello-ai-company/editor-ai");
       const result = acceptSuggestionGroup(
@@ -517,6 +534,7 @@ export function PowerDemoEditor() {
       );
       if (result.status === "stale") {
         setReviewSuggestion({ ...pending, stale: true });
+        setAiAction("stale");
         setAiStatus(result.reason);
         return;
       }
@@ -529,13 +547,36 @@ export function PowerDemoEditor() {
       );
       if (!replacement) throw new Error("The suggestion could not be converted to an editor block.");
       editor.replaceBlocks([acceptedBlock.id], [replacement as never]);
+      const root = editor.domElement?.closest<HTMLElement>(".demo-shell");
+      const acceptedElement = editor.domElement?.querySelector<HTMLElement>(
+        `[data-id="${CSS.escape(acceptedBlock.id)}"]`
+      );
+      if (
+        root &&
+        acceptedElement?.animate &&
+        !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+      ) {
+        const motion = getComputedStyle(root);
+        acceptedElement.animate(
+          [
+            { backgroundColor: motion.getPropertyValue("--demo-accent-soft").trim() },
+            { backgroundColor: "transparent" }
+          ],
+          {
+            duration: Number.parseFloat(motion.getPropertyValue("--oe-ui-motion-panel")) || 220,
+            easing: motion.getPropertyValue("--oe-ui-motion-ease-enter").trim() || "ease-out"
+          }
+        );
+      }
       const provenance = result.acceptedChange.provenance;
       setReviewSuggestion(null);
+      setAiAction("accepted");
       setAiStatus(`Accepted by ${provenance.acceptedBy} · source ${provenance.sourceAgentId} · run ${provenance.sourceRunId}.`);
     } catch (error) {
+      setAiAction("error");
       setAiStatus(error instanceof Error ? error.message : "Could not accept the demo suggestion.");
     }
-  }, [editor, options.schema, reviewSuggestion]);
+  }, [aiBusy, editor, options.schema, reviewSuggestion]);
 
   const refreshJson = useCallback(() => {
     const doc = fromBlockNote(editor.document as never);
@@ -614,80 +655,76 @@ export function PowerDemoEditor() {
           <span>Workspace</span><span aria-hidden="true">/</span><strong>Workspace primitives</strong>
         </div>
         <div className="demo-toolbar" role="group" aria-label="Workspace controls">
-          <button
-            type="button"
-            className={outlineOpen ? "chip chip--on demo-panel-toggle" : "chip demo-panel-toggle"}
-            onClick={() => setOutlineOpen((v) => !v)}
-            aria-expanded={outlineOpen}
-            aria-controls={outlineOpen ? "demo-outline-panel" : undefined}
-          >
-            Outline
-          </button>
-          <button
-            type="button"
-            className={relationsOpen ? "chip chip--on demo-panel-toggle" : "chip demo-panel-toggle"}
-            onClick={() => setRelationsOpen((v) => !v)}
-            aria-expanded={relationsOpen}
-            aria-controls={relationsOpen ? "demo-context-panel" : undefined}
-          >
-            Context
-          </button>
-          <button type="button" className="chip" onClick={() => setNavOpen(true)} aria-label="Search this document">
-            Search
-          </button>
-          <button
-            type="button"
-            className="chip"
-            onClick={() => setPaletteOpen(true)}
-            aria-label="Open commands, Command K"
-          >
-            Commands <kbd>⌘K</kbd>
-          </button>
-          <button
-            type="button"
-            className={actionsOpen ? "chip chip--on demo-panel-toggle" : "chip demo-panel-toggle"}
-            onClick={() => setActionsOpen((v) => !v)}
-            aria-expanded={actionsOpen}
-            aria-controls={actionsOpen ? "demo-context-panel" : undefined}
-          >
-            Block actions
-          </button>
+          <div className="demo-toolbar__utilities" aria-hidden={focusMode} inert={focusMode}>
+            <button
+              type="button"
+              className={outlineOpen ? "chip chip--on demo-panel-toggle" : "chip demo-panel-toggle"}
+              onClick={() => setOutlineOpen((v) => !v)}
+              aria-expanded={outlineVisible}
+              aria-controls={outlineVisible ? "demo-outline-panel" : undefined}
+            >
+              Outline
+            </button>
+            <button
+              type="button"
+              className={relationsOpen ? "chip chip--on demo-panel-toggle" : "chip demo-panel-toggle"}
+              onClick={() => setRelationsOpen((v) => !v)}
+              aria-expanded={!focusMode && relationsOpen}
+              aria-controls={!focusMode && relationsOpen ? "demo-context-panel" : undefined}
+            >
+              Context
+            </button>
+            <button type="button" className="chip" onClick={() => setNavOpen(true)} aria-label="Search this document">
+              Search
+            </button>
+            <button
+              type="button"
+              className="chip"
+              onClick={() => setPaletteOpen(true)}
+              aria-label="Open commands, Command K"
+            >
+              Commands <kbd>⌘K</kbd>
+            </button>
+            <button
+              type="button"
+              className={actionsOpen ? "chip chip--on demo-panel-toggle" : "chip demo-panel-toggle"}
+              onClick={() => setActionsOpen((v) => !v)}
+              aria-expanded={!focusMode && actionsOpen}
+              aria-controls={!focusMode && actionsOpen ? "demo-context-panel" : undefined}
+            >
+              Block actions
+            </button>
+            <label className="chip demo-theme-control">
+              <span>Appearance</span>
+              <select
+                value={theme}
+                onChange={(e) =>
+                  setTheme(e.target.value as "light" | "dark" | "system")
+                }
+                aria-label="Theme"
+              >
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              className={devtoolsOpen ? "chip chip--on demo-inspect-toggle" : "chip demo-inspect-toggle"}
+              onClick={() => setDevtoolsOpen((v) => !v)}
+              aria-expanded={inspectorVisible}
+              aria-controls={inspectorVisible ? "demo-inspector-panel" : undefined}
+            >
+              Inspect
+            </button>
+          </div>
           <button
             type="button"
             className={focusMode ? "chip chip--on demo-focus-toggle" : "chip demo-focus-toggle"}
             aria-pressed={focusMode}
-            onClick={() => {
-              setFocusMode((value) => !value);
-              setOutlineOpen(false);
-              setRelationsOpen(false);
-              setActionsOpen(false);
-              setDevtoolsOpen(false);
-            }}
+            onClick={() => setFocusMode((value) => !value)}
           >
             {focusMode ? "Exit focus" : "Focus"}
-          </button>
-          <label className="chip demo-theme-control">
-            <span>Appearance</span>
-            <select
-              value={theme}
-              onChange={(e) =>
-                setTheme(e.target.value as "light" | "dark" | "system")
-              }
-              aria-label="Theme"
-            >
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            className={devtoolsOpen ? "chip chip--on demo-inspect-toggle" : "chip demo-inspect-toggle"}
-            onClick={() => setDevtoolsOpen((v) => !v)}
-            aria-expanded={devtoolsOpen}
-            aria-controls={devtoolsOpen ? "demo-inspector-panel" : undefined}
-          >
-            Inspect
           </button>
         </div>
       </header>
@@ -706,16 +743,17 @@ export function PowerDemoEditor() {
         ))}
       </nav>
 
-      <div className={`demo-workspace${!focusMode && outlineOpen ? " demo-workspace--outline" : ""}${!focusMode && (reviewSuggestion || relationsOpen || actionsOpen) ? " demo-workspace--context" : ""}`}>
-        {!focusMode && outlineOpen ? (
+      <div className={`demo-workspace${outlineOpen ? " demo-workspace--outline" : ""}${(reviewSuggestion || relationsOpen || actionsOpen) ? " demo-workspace--context" : ""}`}>
+        {outlineOpen ? (
           <OutlinePanel
             editor={editor as never}
             index={index}
             onClose={() => setOutlineOpen(false)}
+            focusHidden={focusMode}
           />
         ) : null}
 
-        <main className="demo-editor">
+        <main className="demo-editor" data-mode={mode}>
           <div className="demo-page-heading">
             <div>
               <p className="demo-eyebrow">OPENEDITOR · WORKSPACE PRIMITIVES</p>
@@ -747,12 +785,14 @@ export function PowerDemoEditor() {
                     <button
                       type="button"
                       className="demo-ai-action"
-                      disabled={!canReviewSelection}
+                      data-state={aiAction === "preparing" ? "preparing" : "idle"}
+                      aria-busy={aiAction === "preparing"}
+                      disabled={!canReviewSelection || aiBusy}
                       title={canReviewSelection ? "Review a sample rewrite" : "Select the example sentence to preview a rewrite"}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={createDemoSuggestion}
                     >
-                      ✦ Improve
+                      {aiAction === "preparing" ? "Preparing…" : "✦ Improve"}
                     </button>
                   </div>
                 )}
@@ -779,6 +819,8 @@ export function PowerDemoEditor() {
                 <CanvasEditor
                   document={previewDocument}
                   spec={canvasSpec}
+                  viewState={canvasViewState}
+                  onViewStateChange={setCanvasViewState}
                   onLayoutChange={setCanvasSpec}
                 />
               </Suspense>
@@ -805,14 +847,27 @@ export function PowerDemoEditor() {
               {activePublishedPreview?.error ?? `Loading ${mode === "present" ? "presentation" : "site"} preview…`}
             </p>
           )}
-          {aiStatus ? <p className="demo-feedback" role="status">{aiStatus}</p> : null}
+          {aiStatus ? (
+            <p className="demo-feedback demo-ai-status" role="status" aria-live="polite" aria-atomic="true" data-state={aiAction ?? "idle"}>
+              {aiStatus}
+            </p>
+          ) : null}
         </main>
 
-        {!focusMode && reviewSuggestion ? (
-          <aside id="demo-context-panel" className="demo-context demo-review" aria-labelledby="demo-review-title">
+        {reviewSuggestion ? (
+          <aside
+            id="demo-context-panel"
+            className="demo-context demo-review"
+            aria-labelledby="demo-review-title"
+            aria-hidden={focusMode}
+            inert={focusMode}
+            data-focus-hidden={focusMode ? "true" : "false"}
+            aria-busy={aiAction === "accepting" || aiAction === "rejecting"}
+            data-state={aiAction === "accepting" || aiAction === "rejecting" ? aiAction : reviewSuggestion.stale ? "stale" : "review"}
+          >
             <div className="demo-panel-heading">
               <span>AI suggestion</span>
-              <button type="button" className="demo-panel-close" aria-label="Close suggestion review" onClick={() => setReviewSuggestion(null)}>×</button>
+              <button type="button" className="demo-panel-close" aria-label="Close suggestion review" disabled={aiBusy} onClick={() => setReviewSuggestion(null)}>×</button>
             </div>
             <p className="demo-review__demo-label">Local sample · no model call</p>
             <h2 id="demo-review-title">{reviewSuggestion.group.title}</h2>
@@ -823,13 +878,39 @@ export function PowerDemoEditor() {
             </div>
             {reviewSuggestion.stale ? <p className="demo-review__stale" role="alert">This text changed after the suggestion was prepared.</p> : null}
             <div className="demo-review__actions" role="group" aria-label="Suggestion decision">
-              <button type="button" className="chip chip--on" disabled={reviewSuggestion.stale} onClick={() => decideDemoSuggestion(true)}>Accept</button>
-              <button type="button" className="chip" onClick={() => decideDemoSuggestion(false)}>Reject</button>
+              <button
+                type="button"
+                className="chip chip--on demo-review__accept"
+                data-state={aiAction === "accepting" ? "accepting" : reviewSuggestion.stale ? "stale" : "idle"}
+                aria-busy={aiAction === "accepting"}
+                disabled={reviewSuggestion.stale || aiBusy}
+                onClick={() => decideDemoSuggestion(true)}
+              >
+                {aiAction === "accepting" ? "Applying…" : "Accept"}
+              </button>
+              <button
+                type="button"
+                className="chip demo-review__reject"
+                data-state={aiAction === "rejecting" ? "rejecting" : "idle"}
+                aria-busy={aiAction === "rejecting"}
+                disabled={aiBusy}
+                onClick={() => decideDemoSuggestion(false)}
+              >
+                {aiAction === "rejecting" ? "Rejecting…" : "Reject"}
+              </button>
             </div>
             <p className="demo-review__note">The suggestion is applied only after you accept it.</p>
           </aside>
-        ) : !focusMode && (relationsOpen || actionsOpen) ? (
-          <aside id="demo-context-panel" className="demo-context" aria-label="Document context" data-revision={relationRevision}>
+        ) : relationsOpen || actionsOpen ? (
+          <aside
+            id="demo-context-panel"
+            className="demo-context"
+            aria-label="Document context"
+            aria-hidden={focusMode}
+            inert={focusMode}
+            data-focus-hidden={focusMode ? "true" : "false"}
+            data-revision={relationRevision}
+          >
             <div className="demo-panel-heading">
               <span>Context</span>
               <button type="button" className="demo-panel-close" aria-label="Close context" onClick={() => { setRelationsOpen(false); setActionsOpen(false); }}>×</button>
@@ -853,7 +934,7 @@ export function PowerDemoEditor() {
         ) : null}
       </div>
 
-      {devtoolsOpen ? (
+      {inspectorVisible ? (
         <aside id="demo-inspector-panel" className="demo-json" aria-label="Developer tools">
           <div className="demo-json__heading">
             <div><p className="demo-eyebrow">HOST BOUNDARY</p><h2>Inspect state</h2></div>
@@ -1143,6 +1224,7 @@ function OutlinePanel(props: {
   editor: Parameters<typeof useOpenEditorBlockChanges>[0]["editor"];
   index: ReturnType<typeof createDocumentIndex>;
   onClose: () => void;
+  focusHidden: boolean;
 }) {
   const revision = useSyncExternalStore(
     props.index.subscribe,
@@ -1158,7 +1240,14 @@ function OutlinePanel(props: {
     [props.editor]
   );
   return (
-    <aside id="demo-outline-panel" className="demo-outline" aria-label="Document outline">
+    <aside
+      id="demo-outline-panel"
+      className="demo-outline"
+      aria-label="Document outline"
+      aria-hidden={props.focusHidden}
+      inert={props.focusHidden}
+      data-focus-hidden={props.focusHidden ? "true" : "false"}
+    >
       <div className="demo-panel-heading">
         <span>On this page</span>
         <button type="button" className="demo-panel-close" aria-label="Close outline" onClick={props.onClose}>×</button>

@@ -468,6 +468,27 @@ describe("CanvasEditor", () => {
     }
   });
 
+  it("exposes selected and locked inspector states with reduced-motion feedback", () => {
+    const fixture = positionedFixture(["absolute-action"]);
+    try {
+      const selected = fixture.view.container.querySelector<HTMLElement>('[data-canvas-node-id="absolute-action"]');
+      const unlock = Array.from(fixture.view.container.querySelectorAll(".oe-canvas__actions button")).find((button) => button.textContent?.trim() === "Unlock");
+      const selectedLayer = fixture.view.container.querySelector(".oe-canvas__layers button[aria-pressed=true]");
+      const css = fixture.view.container.querySelector("style")?.textContent ?? "";
+      expect(selected?.getAttribute("aria-selected")).toBe("true");
+      expect(selected?.getAttribute("data-locked")).toBe("true");
+      expect(unlock?.getAttribute("aria-pressed")).toBe("true");
+      expect(selectedLayer).not.toBeNull();
+      expect(css).toContain(".oe-canvas__alignments button[aria-pressed=true]");
+      expect(css).toContain(".oe-canvas__layers button[aria-pressed=true]");
+      expect(css).toContain("@media(prefers-reduced-motion:reduce)");
+      expect(css).toContain("--oe-ui-motion-shift-small:0px");
+      expect(css).toContain("--oe-ui-motion-scale-subtle:1");
+    } finally {
+      fixture.view.unmount();
+    }
+  });
+
   it("supports keyboard selection and movement through the preview", () => {
     const view = mount(createElement(CanvasEditor, { document: documentModel, spec: spec() }));
     try {
