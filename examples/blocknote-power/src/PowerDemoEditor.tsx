@@ -39,6 +39,12 @@ import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useStat
 import { createMagicLayoutSpec } from "@hello-ai-company/editor-canvas";
 import type { CanvasEditorViewState } from "@hello-ai-company/editor-canvas/react";
 import {
+  canImproveDemoSelection,
+  isDemoAiBusy,
+  resolveDemoAiSource,
+  type DemoAiAction
+} from "./demoAiState.mjs";
+import {
   createEditorDocument,
   serializeEditorDocument,
   type EditorDocument
@@ -332,9 +338,7 @@ export function PowerDemoEditor() {
   const [reviewSuggestion, setReviewSuggestion] = useState<PendingDemoSuggestion | null>(null);
   const [publishedPreview, setPublishedPreview] = useState<PublishedPreview | null>(null);
   const [aiStatus, setAiStatus] = useState<string | null>(null);
-  const [aiAction, setAiAction] = useState<
-    "preparing" | "review" | "accepting" | "accepted" | "rejecting" | "rejected" | "stale" | "error" | null
-  >(null);
+  const [aiAction, setAiAction] = useState<DemoAiAction>(null);
   const [canReviewSelection, setCanReviewSelection] = useState(false);
   const selectionRef = useRef<{ blockId: string; text: string } | null>(null);
   const devtoolsOpenRef = useRef(devtoolsOpen);
@@ -342,7 +346,7 @@ export function PowerDemoEditor() {
   const relationsOpenRef = useRef(relationsOpen);
   relationsOpenRef.current = relationsOpen;
   const [relationRevision, setRelationRevision] = useState(0);
-  const aiBusy = aiAction === "preparing" || aiAction === "accepting" || aiAction === "rejecting";
+  const aiBusy = isDemoAiBusy(aiAction);
   const outlineVisible = !focusMode && outlineOpen;
   const inspectorVisible = !focusMode && devtoolsOpen;
 
@@ -457,8 +461,13 @@ export function PowerDemoEditor() {
     try {
       const { parseSuggestionGroup } = await import("@hello-ai-company/editor-ai");
       const currentDocument = fromBlockNote(editor.document as never);
-      const originalBlock = currentDocument.blocks.find((block) => block.id === selection.blockId);
-      if (!originalBlock || originalBlock.type !== "paragraph") return;
+      const source = resolveDemoAiSource(currentDocument.blocks, selection.blockId, selection.text);
+      if (source.action === "stale") {
+        setAiAction(source.action);
+        setAiStatus(source.status);
+        return;
+      }
+      const originalBlock = source.block;
       const generatedAt = new Date().toISOString();
       const group = parseSuggestionGroup({
         schemaVersion: 1,
@@ -787,7 +796,7 @@ export function PowerDemoEditor() {
                       className="demo-ai-action"
                       data-state={aiAction === "preparing" ? "preparing" : "idle"}
                       aria-busy={aiAction === "preparing"}
-                      disabled={!canReviewSelection || aiBusy}
+                      disabled={!canImproveDemoSelection(canReviewSelection, aiAction)}
                       title={canReviewSelection ? "Review a sample rewrite" : "Select the example sentence to preview a rewrite"}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={createDemoSuggestion}

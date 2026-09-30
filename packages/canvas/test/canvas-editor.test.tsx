@@ -472,14 +472,16 @@ describe("CanvasEditor", () => {
     const fixture = positionedFixture(["absolute-action"]);
     try {
       const selected = fixture.view.container.querySelector<HTMLElement>('[data-canvas-node-id="absolute-action"]');
-      const unlock = Array.from(fixture.view.container.querySelectorAll(".oe-canvas__actions button")).find((button) => button.textContent?.trim() === "Unlock");
+      const lockedToggle = Array.from(fixture.view.container.querySelectorAll(".oe-canvas__actions button")).find((button) => button.textContent?.trim() === "Locked");
       const selectedLayer = fixture.view.container.querySelector(".oe-canvas__layers button[aria-pressed=true]");
       const css = fixture.view.container.querySelector("style")?.textContent ?? "";
       expect(selected?.getAttribute("aria-selected")).toBe("true");
       expect(selected?.getAttribute("data-locked")).toBe("true");
-      expect(unlock?.getAttribute("aria-pressed")).toBe("true");
+      expect(lockedToggle?.getAttribute("aria-pressed")).toBe("true");
+      expect(lockedToggle?.textContent?.trim()).toBe("Locked");
       expect(selectedLayer).not.toBeNull();
       expect(css).toContain(".oe-canvas__alignments button[aria-pressed=true]");
+      expect(css).toContain(".oe-canvas__actions button[aria-pressed=true]");
       expect(css).toContain(".oe-canvas__layers button[aria-pressed=true]");
       expect(css).toContain("@media(prefers-reduced-motion:reduce)");
       expect(css).toContain("--oe-ui-motion-shift-small:0px");
@@ -533,16 +535,24 @@ describe("CanvasEditor", () => {
       expect(view.container.querySelectorAll('.oe-canvas__element').length).toBe(5);
 
       click(view.container, 'button[aria-label="Select text · ending · ending-ref"]');
-      clickButton(view.container, "Hide");
+      const hiddenToggle = () => Array.from(view.container.querySelectorAll(".oe-canvas__actions button")).find((button) => button.textContent?.trim() === "Hidden");
+      expect(hiddenToggle()?.getAttribute("aria-pressed")).toBe("false");
+      clickButton(view.container, "Hidden");
+      expect(hiddenToggle()?.getAttribute("aria-pressed")).toBe("true");
       expect(view.container.querySelector('[data-canvas-node-id="ending-ref"]')).toBeNull();
       click(view.container, 'button[aria-label="Select text · ending · ending-ref, hidden"]');
-      clickButton(view.container, "Show");
+      clickButton(view.container, "Hidden");
+      expect(hiddenToggle()?.getAttribute("aria-pressed")).toBe("false");
       expect(view.container.querySelector('[data-canvas-node-id="ending-ref"]')).not.toBeNull();
 
       click(view.container, 'button[aria-label="Select text · ending · ending-ref"]');
-      clickButton(view.container, "Lock");
+      const lockedToggle = () => Array.from(view.container.querySelectorAll(".oe-canvas__actions button")).find((button) => button.textContent?.trim() === "Locked");
+      expect(lockedToggle()?.getAttribute("aria-pressed")).toBe("false");
+      clickButton(view.container, "Locked");
+      expect(lockedToggle()?.getAttribute("aria-pressed")).toBe("true");
       expect(Array.from(view.container.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Move up")?.hasAttribute("disabled")).toBe(true);
-      clickButton(view.container, "Unlock");
+      clickButton(view.container, "Locked");
+      expect(lockedToggle()?.getAttribute("aria-pressed")).toBe("false");
       changeSelect(view.container, "Canvas theme", "modern");
       changeSelect(view.container, "Canvas preview size", "mobile");
       expect(view.container.querySelector('[aria-label="Canvas preview"]')?.getAttribute("data-breakpoint")).toBe("mobile");
@@ -603,7 +613,9 @@ describe("CanvasEditor", () => {
     try {
       const actions = Array.from(view.container.querySelectorAll("button"));
       expect(actions.find((button) => button.textContent?.trim() === "Move up")?.disabled).toBe(true);
-      expect(actions.find((button) => button.textContent?.trim() === "Locked by parent")?.disabled).toBe(true);
+      const parentLock = actions.find((button) => button.textContent?.trim() === "Locked by parent");
+      expect(parentLock?.disabled).toBe(true);
+      expect(parentLock?.getAttribute("aria-pressed")).toBeNull();
       expect(view.container.querySelector('[data-canvas-node-id="intro-ref"]')?.getAttribute("data-locked")).toBe("true");
     } finally {
       view.unmount();
