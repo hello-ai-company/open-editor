@@ -106,7 +106,9 @@ export function renderOpenEditorSite(
   const canvas = options.canvasSpec
     ? renderCanvasLayout(options.canvasSpec, document, nodes, options.canvasRenderState)
     : null;
-  const context = knowledgeFromNodes(nodes, options);
+  const context = options.canvasSpec
+    ? canvasKnowledgeContext(document, nodes, options)
+    : knowledgeFromNodes(nodes, options);
   const title = cleanText(options.title) || context.title;
   const description = cleanText(options.description) || context.description;
   const siteName = cleanText(options.siteName) || title;
@@ -173,10 +175,19 @@ export function getPublicKnowledgeContext(
   options: Pick<OpenEditorSiteOptions, "title" | "description" | "canvasSpec" | "canvasRenderState"> = {}
 ): PublicKnowledgeContext {
   const nodes = projectExportIR(document);
-  if (!options.canvasSpec) return knowledgeFromNodes(nodes, options);
-  const issues = validateCanvasLayoutSpec(options.canvasSpec, document).filter(({ code }) => code !== "MISSING_BLOCK_REFERENCE");
+  return canvasKnowledgeContext(document, nodes, options);
+}
+
+function canvasKnowledgeContext(
+  document: EditorDocument,
+  nodes: readonly ExportNode[],
+  options: Pick<OpenEditorSiteOptions, "title" | "description" | "canvasSpec" | "canvasRenderState">
+): PublicKnowledgeContext {
+  const spec = options.canvasSpec;
+  if (!spec) return knowledgeFromNodes(nodes, options);
+  const issues = validateCanvasLayoutSpec(spec, document).filter(({ code }) => code !== "MISSING_BLOCK_REFERENCE");
   if (issues.length > 0) throw new CanvasLayoutValidationError(issues);
-  const state = normalizeCanvasRenderState(options.canvasRenderState, options.canvasSpec);
+  const state = normalizeCanvasRenderState(options.canvasRenderState, spec);
   const publicBlocks = new Map<string, ExportNode>();
   const pending = [...nodes];
   while (pending.length > 0) {
@@ -185,8 +196,8 @@ export function getPublicKnowledgeContext(
     if (block.id) publicBlocks.set(block.id, block);
     pending.push(...block.children);
   }
-  const references = collectCanvasBlockReferences(options.canvasSpec.root);
-  const visibleReferences = canvasKnowledgeReferences(options.canvasSpec.root, state.hiddenNodeIds);
+  const references = collectCanvasBlockReferences(spec.root);
+  const visibleReferences = canvasKnowledgeReferences(spec.root, state.hiddenNodeIds);
   const visibleNodes = visibleReferences.flatMap((blockId) => {
     const block = publicBlocks.get(blockId);
     return block ? [withoutNestedCanvasReferences(block, blockId, references)] : [];

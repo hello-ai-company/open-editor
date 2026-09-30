@@ -12,6 +12,7 @@ import type {
 import type { ResolvedPropertyDefinition } from "./databaseProperty.js";
 import type { DatabaseViewType } from "./types.js";
 import type { DatabaseViewRuntime } from "./databaseViewRuntime.js";
+import type { DatabaseViewConfig } from "./databaseViewConfig.js";
 
 export type DatabaseRowOpenRequest = {
   databaseId: string;
@@ -31,6 +32,10 @@ export type DatabaseViewRendererContext = {
   mutationsAllowed: boolean;
   busy: boolean;
   runtime: DatabaseViewRuntime;
+  /** Hydrated saved settings for this databaseId + viewId identity. */
+  viewConfig?: DatabaseViewConfig;
+  /** Persist an intentional renderer setting change. */
+  onViewConfigChange?: (patch: Partial<Omit<DatabaseViewConfig, "schemaVersion" | "databaseId" | "viewId" | "viewType">>) => void;
 };
 
 /**

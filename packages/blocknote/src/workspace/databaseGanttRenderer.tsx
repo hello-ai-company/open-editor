@@ -108,13 +108,14 @@ export function GanttRenderer(
 
   const eligible = listCalendarDateProperties(definitions);
   const [startPropertyId, setStartPropertyId] = useState<string | null>(
-    () => resolveGanttEndpoints(definitions, null, null).startProp?.id ?? null
+    () => ctx.viewConfig?.gantt?.startPropertyId ?? resolveGanttEndpoints(definitions, null, null).startProp?.id ?? null
   );
   const [endPropertyId, setEndPropertyId] = useState<string | null>(
-    () => resolveGanttEndpoints(definitions, null, null).endProp?.id ?? null
+    () => ctx.viewConfig?.gantt?.endPropertyId ?? resolveGanttEndpoints(definitions, null, null).endProp?.id ?? null
   );
 
   useEffect(() => {
+    if (snap.status === "loading" || snap.metaStatus === "idle" || snap.metaStatus === "loading") return;
     const resolved = resolveGanttEndpoints(
       definitions,
       startPropertyId,
@@ -537,7 +538,11 @@ export function GanttRenderer(
               <select
                 aria-label="Gantt start date property"
                 value={startProp?.id ?? ""}
-                onChange={(event) => setStartPropertyId(event.target.value)}
+                onChange={(event) => {
+                  const propertyId = event.target.value || null;
+                  setStartPropertyId(propertyId);
+                  ctx.onViewConfigChange?.({ gantt: { startPropertyId: propertyId } });
+                }}
               >
                 {eligible.map((def) => (
                   <option key={def.id} value={def.id}>
@@ -551,7 +556,11 @@ export function GanttRenderer(
               <select
                 aria-label="Gantt end date property"
                 value={endProp?.id ?? ""}
-                onChange={(event) => setEndPropertyId(event.target.value)}
+                onChange={(event) => {
+                  const propertyId = event.target.value || null;
+                  setEndPropertyId(propertyId);
+                  ctx.onViewConfigChange?.({ gantt: { endPropertyId: propertyId } });
+                }}
               >
                 {eligible.map((def) => (
                   <option key={def.id} value={def.id}>

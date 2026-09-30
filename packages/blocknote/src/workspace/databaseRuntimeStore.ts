@@ -32,6 +32,7 @@ import {
   cloneFilters,
   clonePropertySort,
   filtersEqual,
+  parseDatabaseFilter,
   propertySortEqual,
   resolveDatabasePropertyDefinitions,
   sanitizeFiltersAgainstMetadata,
@@ -71,6 +72,11 @@ export type DatabaseViewQueryState = {
   /** Active property sort — mutually exclusive with legacy sort when set. */
   propertySort: DatabasePropertySort | null;
 };
+
+/** Persistable query settings used only to seed a newly mounted view. */
+export type DatabaseViewInitialQueryState = Partial<
+  Pick<DatabaseViewQueryState, "query" | "sortBy" | "direction" | "filters" | "propertySort">
+>;
 
 export type DatabaseMutationState = {
   kind:
@@ -136,7 +142,11 @@ export type DatabaseRuntimeStore = {
   /** Sync snapshot for a view instance. */
   getView: (viewKey: string) => DatabaseViewSnapshot;
   /** Ensure view state exists and kick initial load. */
-  ensureView: (viewKey: string, databaseId: string) => void;
+  ensureView: (
+    viewKey: string,
+    databaseId: string,
+    initialState?: DatabaseViewInitialQueryState
+  ) => void;
   load: (viewKey: string) => Promise<void>;
   refresh: (viewKey: string) => Promise<void>;
   loadMore: (viewKey: string) => Promise<void>;
@@ -146,12 +156,18 @@ export type DatabaseRuntimeStore = {
     sortBy: DatabaseSortBy,
     direction: DatabaseSortDirection
   ) => void;
+  /** Replace persisted query settings atomically after host config rehydration. */
+  setQueryState?: (
+    viewKey: string,
+    state: DatabaseViewInitialQueryState,
+    metadata?: EditorDatabase
+  ) => void;
   /**
    * Apply validated AND filters. Clones input — caller-owned arrays are not retained.
    * Triggers the same first-page reload path as setQuery (generation bump, pagination clear).
    * @throws Error when filters fail validation against current metadata/capabilities
    */
-  setFilters: (viewKey: string, filters: readonly DatabaseFilter[]) => void;
+  setFilters: (viewKey: string, filters: readonly unknown[]) => void;
   /**
    * Apply property sort (or null to clear). Clears conflicting legacy-only claim in list options.
    * @throws Error when sort fails validation
@@ -518,7 +534,7 @@ export function createDatabaseRuntimeStore(
   }
 
   async function fetchPage(
-    databaseId: string,
+    view: ViewInternal,
     state: DatabaseViewQueryState,
     cursor?: string | null
   ): Promise<DatabaseRowsPage> {
@@ -526,6 +542,19 @@ export function createDatabaseRuntimeStore(
     if (!listRows) {
       throw new Error("Database provider unavailable");
     }
+    const definitions = resolveDatabasePropertyDefinitions({
+      legacySchema: view.schema,
+      definitions: view.meta?.propertyDefinitions
+    });
+    if (state.filters.length > 0) {
+      const validated = validateDatabaseFilters(state.filters, definitions, view.meta?.queryCapabilities);
+      if (!validated.ok) throw new Error(validated.error);
+    }
+    if (state.propertySort) {
+      const validated = validatePropertySort(state.propertySort, definitions, view.meta?.queryCapabilities);
+      if (!validated.ok) throw new Error(validated.error);
+    }
+    const { databaseId } = view;
     const key = buildDatabaseQueryKey(databaseId, state, cursor);
     const pending = inflight.get(key);
     if (pending) return pending;
@@ -555,7 +584,7 @@ export function createDatabaseRuntimeStore(
     try {
       const meta = await provider.getDatabase(view.databaseId);
       if (view.generation !== gen) return;
-      if (!meta) {
+      if (!meta || meta.id !== view.databaseId) {
         view.meta = null;
         view.metaStatus = "missing";
       } else {
@@ -628,7 +657,18 @@ export function createDatabaseRuntimeStore(
     }
     notify();
 
-    void loadMeta(view, gen);
+    const requiresMetadata = view.queryState.filters.length > 0 || view.queryState.propertySort !== null;
+    if (requiresMetadata) {
+      await loadMeta(view, gen);
+      if (view.generation !== gen) return;
+      if (view.metaStatus !== "ready") {
+        view.queryState = { ...view.queryState, filters: [], propertySort: null };
+        view.filterNotice = "Filters and property sort were cleared because database metadata is unavailable";
+        notify();
+      }
+    } else {
+      void loadMeta(view, gen);
+    }
 
     if (!provider?.listRows) {
       view.status = "empty";
@@ -637,7 +677,7 @@ export function createDatabaseRuntimeStore(
     }
 
     try {
-      const page = await fetchPage(view.databaseId, view.queryState, null);
+      const page = await fetchPage(view, view.queryState, null);
       if (view.generation !== gen) return;
       view.items = dedupeItems(page.items);
       view.schema = page.schema ?? {};
@@ -664,7 +704,7 @@ export function createDatabaseRuntimeStore(
     view.seenCursors.clear();
     notify();
     try {
-      const page = await fetchPage(view.databaseId, view.queryState, null);
+      const page = await fetchPage(view, view.queryState, null);
       if (view.generation !== gen) return;
       view.items = dedupeItems(page.items);
       view.schema = page.schema ?? {};
@@ -716,9 +756,31 @@ export function createDatabaseRuntimeStore(
       return view.cachedSnapshot;
     },
 
-    ensureView(viewKey, databaseId) {
+    ensureView(viewKey, databaseId, initialState) {
       const view = getOrCreate(viewKey, databaseId);
       if (view.status === "idle") {
+        if (initialState) {
+          const query = typeof initialState.query === "string" ? initialState.query : view.queryState.query;
+          const sortBy = initialState.sortBy === "title" ? "title" : "position";
+          const direction = initialState.direction === "desc" ? "desc" : "asc";
+          const propertySort = initialState.propertySort &&
+            typeof initialState.propertySort.propertyId === "string" &&
+            (initialState.propertySort.direction === "asc" || initialState.propertySort.direction === "desc")
+            ? { ...initialState.propertySort }
+            : null;
+          const rawFilters = Array.isArray(initialState.filters) ? initialState.filters : [];
+          const filters = rawFilters.map(parseDatabaseFilter);
+          const validFilters = filters.every((filter) => filter !== null);
+          view.queryState = {
+            ...view.queryState,
+            query: query.slice(0, 500),
+            sortBy,
+            direction,
+            filters: validFilters ? cloneFilters(filters as DatabaseFilter[]) : [],
+            propertySort
+          };
+          if (!validFilters) view.filterNotice = "Invalid saved filters were cleared";
+        }
         void loadFirstPage(view);
       }
     },
@@ -758,11 +820,7 @@ export function createDatabaseRuntimeStore(
       notify();
 
       try {
-        const page = await fetchPage(
-          view.databaseId,
-          view.queryState,
-          cursor
-        );
+        const page = await fetchPage(view, view.queryState, cursor);
         if (view.generation !== gen) return;
         view.items = dedupeItems([...view.items, ...page.items]);
         view.schema = page.schema ?? view.schema;
@@ -818,6 +876,55 @@ export function createDatabaseRuntimeStore(
         direction,
         propertySort: null
       };
+      void loadFirstPage(view);
+    },
+
+    setQueryState(viewKey, initialState, metadata) {
+      const view = requireView(viewKey);
+      let metadataChanged = false;
+      if (metadata) {
+        if (metadata.id !== view.databaseId) throw new Error("Database metadata identity did not match");
+        metadataChanged = view.meta !== metadata || view.metaStatus !== "ready";
+        view.meta = metadata;
+        view.metaStatus = "ready";
+      }
+      const query = typeof initialState.query === "string" ? initialState.query.slice(0, 500) : "";
+      const sortBy: DatabaseSortBy = initialState.sortBy === "title" ? "title" : "position";
+      const direction: DatabaseSortDirection = initialState.direction === "desc" ? "desc" : "asc";
+      const rawFilters = Array.isArray(initialState.filters) ? initialState.filters : [];
+      const filters = rawFilters.map(parseDatabaseFilter);
+      if (filters.some((filter) => filter === null)) {
+        throw new Error("Invalid filter shape or operator for property type");
+      }
+      const propertySort = initialState.propertySort ?? null;
+      const definitions = resolveDatabasePropertyDefinitions({
+        legacySchema: view.schema,
+        definitions: view.meta?.propertyDefinitions
+      });
+      const validatedFilters = validateDatabaseFilters(filters as DatabaseFilter[], definitions, view.meta?.queryCapabilities);
+      if (!validatedFilters.ok) throw new Error(validatedFilters.error);
+      if (propertySort) {
+        const validatedSort = validatePropertySort(propertySort, definitions, view.meta?.queryCapabilities);
+        if (!validatedSort.ok) throw new Error(validatedSort.error);
+      }
+      const next = {
+        ...view.queryState,
+        query,
+        sortBy,
+        direction,
+        filters: cloneFilters(validatedFilters.filters),
+        propertySort: clonePropertySort(propertySort)
+      };
+      if (
+        view.queryState.query === next.query && view.queryState.sortBy === next.sortBy &&
+        view.queryState.direction === next.direction && filtersEqual(view.queryState.filters, next.filters) &&
+        propertySortEqual(view.queryState.propertySort, next.propertySort)
+      ) {
+        if (metadataChanged) notify();
+        return;
+      }
+      view.queryState = next;
+      view.filterNotice = undefined;
       void loadFirstPage(view);
     },
 
@@ -1055,13 +1162,16 @@ export function databaseViewInstanceKey(
 }
 
 import type { DatabaseViewRuntime } from "./databaseViewRuntime.js";
+import type { DatabaseViewConfigProvider } from "./databaseViewConfig.js";
 
 export function createDatabaseViewRuntimeFromStore(
   store: DatabaseRuntimeStore,
-  provider?: DatabaseProvider
+  provider?: DatabaseProvider,
+  databaseViewConfig?: DatabaseViewConfigProvider
 ): DatabaseViewRuntime {
   return {
     database: provider,
-    store
+    store,
+    databaseViewConfig
   };
 }

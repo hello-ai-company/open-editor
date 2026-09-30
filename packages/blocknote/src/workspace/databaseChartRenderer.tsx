@@ -39,10 +39,11 @@ export function ChartRenderer(
   const baseId = useId();
   const eligible = listChartMetricProperties(definitions);
   const [metricPropertyId, setMetricPropertyId] = useState<string | null>(
-    () => resolveChartMetricProperty(definitions, null)?.id ?? null
+    () => ctx.viewConfig?.chart?.metricPropertyId ?? resolveChartMetricProperty(definitions, null)?.id ?? null
   );
 
   useEffect(() => {
+    if (snap.status === "loading" || snap.metaStatus === "idle" || snap.metaStatus === "loading") return;
     const resolved = resolveChartMetricProperty(definitions, metricPropertyId);
     const nextId = resolved?.id ?? null;
     if (nextId !== metricPropertyId) {
@@ -86,7 +87,11 @@ export function ChartRenderer(
           <select
             aria-label="Chart metric property"
             value={metric?.id ?? ""}
-            onChange={(event) => setMetricPropertyId(event.target.value)}
+            onChange={(event) => {
+              const propertyId = event.target.value || null;
+              setMetricPropertyId(propertyId);
+              ctx.onViewConfigChange?.({ chart: { metricPropertyId: propertyId } });
+            }}
           >
             {eligible.map((def) => (
               <option key={def.id} value={def.id}>

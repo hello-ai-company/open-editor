@@ -114,6 +114,10 @@ Navigation:
 - Incoming → `onOpenBacklink(item)` (`sourceDocumentId` is not assumed to be a `PageId`)
 - Outgoing → `onOpenOutgoingPage?.(pageId)`
 
+## Database views
+
+In Document mode, a `databaseView` block stores host database/view identity and view configuration; row records and access policy stay with the host. `DatabaseProvider` supplies authorized rows through the editor-scoped `DatabaseRuntimeStore`, while an optional host config provider persists view presentation settings. The built-in renderer set covers Table, Board, Calendar, List, Gallery, Timeline, Gantt, Chart, Feed, Map, and Dashboard. Hosts decide which row mutations are allowed. Canvas renders a safe static placeholder for a `databaseView`; Site and Present omit database views under the current publication allowlist. Neither static mode requests database rows. See [database table interaction](./database-table-interaction.md) for the provider and mutation contract.
+
 ## Performance rules
 
 - Typing hot path: no `searchPages` / `getPage` / `listBacklinks`
@@ -121,6 +125,6 @@ Navigation:
 - Multiple references → shared in-flight + cache
 - Picker: one search engine per provider/debounce; one query effect (no double search on open)
 
-## Non-goals (later)
+## Host-owned boundaries
 
-Database CRUD UI, board/calendar renderers, formulas, Personal AI adapter, auth, publish.
+The editor supplies interaction surfaces and provider contracts. Hosts remain responsible for page/database authorization, entity and row storage, workspace navigation, persistence, and publication/deployment. Static Site and Present output intentionally project only allowlisted content; consult the [cross-mode compatibility matrix](./cross-mode-compatibility.md) before relying on parity across modes.

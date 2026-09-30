@@ -54,14 +54,15 @@ export function CalendarRenderer(
 
   const eligible = listCalendarDateProperties(definitions);
   const [datePropertyId, setDatePropertyId] = useState<string | null>(
-    () => resolveCalendarDateProperty(definitions, null)?.id ?? null
+    () => ctx.viewConfig?.calendar?.datePropertyId ?? resolveCalendarDateProperty(definitions, null)?.id ?? null
   );
-  const [scale, setScale] = useState<CalendarScale>("month");
+  const [scale, setScale] = useState<CalendarScale>(ctx.viewConfig?.calendar?.scale ?? "month");
   const [cursorDateKey, setCursorDateKey] = useState(() =>
     todayCanonicalDateKey()
   );
 
   useEffect(() => {
+    if (snap.status === "loading" || snap.metaStatus === "idle" || snap.metaStatus === "loading") return;
     const resolved = resolveCalendarDateProperty(definitions, datePropertyId);
     const nextId = resolved?.id ?? null;
     if (nextId !== datePropertyId) {
@@ -244,7 +245,11 @@ export function CalendarRenderer(
             <select
               aria-label="Calendar date property"
               value={dateProperty?.id ?? ""}
-              onChange={(event) => setDatePropertyId(event.target.value)}
+              onChange={(event) => {
+                const propertyId = event.target.value || null;
+                setDatePropertyId(propertyId);
+                ctx.onViewConfigChange?.({ calendar: { datePropertyId: propertyId } });
+              }}
             >
               {eligible.map((def) => (
                 <option key={def.id} value={def.id}>
@@ -267,7 +272,10 @@ export function CalendarRenderer(
                 : "oe-database-view__chip"
             }
             aria-pressed={scale === "month"}
-            onClick={() => setScale("month")}
+            onClick={() => {
+              setScale("month");
+              ctx.onViewConfigChange?.({ calendar: { scale: "month" } });
+            }}
           >
             Month
           </button>
@@ -279,7 +287,10 @@ export function CalendarRenderer(
                 : "oe-database-view__chip"
             }
             aria-pressed={scale === "week"}
-            onClick={() => setScale("week")}
+            onClick={() => {
+              setScale("week");
+              ctx.onViewConfigChange?.({ calendar: { scale: "week" } });
+            }}
           >
             Week
           </button>

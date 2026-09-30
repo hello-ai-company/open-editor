@@ -10,11 +10,15 @@ import type {
   DatabaseFilter,
   DatabasePropertyType,
   DatabaseRowItem,
+  EditorDatabase,
   JsonValue
 } from "@hello-ai-company/editor-core";
 import {
+  Suspense,
   useEffect,
   useId,
+  lazy,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -22,16 +26,6 @@ import {
   type KeyboardEvent,
   type ReactElement
 } from "react";
-import { renderBoardView } from "./databaseBoardRenderer.js";
-import { renderCalendarView } from "./databaseCalendarRenderer.js";
-import { renderGalleryView } from "./databaseGalleryRenderer.js";
-import { renderListView } from "./databaseListRenderer.js";
-import { renderFeedView } from "./databaseFeedRenderer.js";
-import { renderChartView } from "./databaseChartRenderer.js";
-import { renderMapView } from "./databaseMapRenderer.js";
-import { renderDashboardView } from "./databaseDashboardRenderer.js";
-import { renderGanttView } from "./databaseGanttRenderer.js";
-import { renderTimelineView } from "./databaseTimelineRenderer.js";
 import { catchStoreMutation } from "./databaseMutationUtils.js";
 import {
   databaseViewInstanceKey,
@@ -69,6 +63,19 @@ import {
   type DatabaseViewRendererMap
 } from "./databaseViewRenderers.js";
 import type { DatabaseViewRuntime } from "./databaseViewRuntime.js";
+import { DatabaseViewPicker, type DatabaseViewPick } from "../react/databaseViewPicker.js";
+import {
+  createDatabaseViewConfigWriter,
+  createDefaultDatabaseViewConfig,
+  listDatabaseViewConfigIdentities,
+  loadDatabaseViewHydration,
+  patchDatabaseViewConfig,
+  persistDatabaseViewConfigIfAuthoritative,
+  registerDatabaseViewConfig,
+  type DatabaseViewConfigHydrationState,
+  type DatabaseViewConfigIdentity,
+  type DatabaseViewConfig
+} from "./databaseViewConfig.js";
 import {
   DATABASE_VIEW_TYPE,
   DATABASE_VIEW_TYPES,
@@ -97,16 +104,16 @@ function DeferredRenderer(ctx: DatabaseViewRendererContext): ReactElement {
 }
 
 const DEFAULT_RENDERERS: DatabaseViewRendererMap = {
-  board: renderBoardView,
-  calendar: renderCalendarView,
-  list: renderListView,
-  gallery: renderGalleryView,
-  feed: renderFeedView,
-  timeline: renderTimelineView,
-  gantt: renderGanttView,
-  chart: renderChartView,
-  map: renderMapView,
-  dashboard: renderDashboardView
+  board: lazy(() => import("./databaseBoardRenderer.js").then((m) => ({ default: m.renderBoardView }))),
+  calendar: lazy(() => import("./databaseCalendarRenderer.js").then((m) => ({ default: m.renderCalendarView }))),
+  list: lazy(() => import("./databaseListRenderer.js").then((m) => ({ default: m.renderListView }))),
+  gallery: lazy(() => import("./databaseGalleryRenderer.js").then((m) => ({ default: m.renderGalleryView }))),
+  feed: lazy(() => import("./databaseFeedRenderer.js").then((m) => ({ default: m.renderFeedView }))),
+  timeline: lazy(() => import("./databaseTimelineRenderer.js").then((m) => ({ default: m.renderTimelineView }))),
+  gantt: lazy(() => import("./databaseGanttRenderer.js").then((m) => ({ default: m.renderGanttView }))),
+  chart: lazy(() => import("./databaseChartRenderer.js").then((m) => ({ default: m.renderChartView }))),
+  map: lazy(() => import("./databaseMapRenderer.js").then((m) => ({ default: m.renderMapView }))),
+  dashboard: lazy(() => import("./databaseDashboardRenderer.js").then((m) => ({ default: m.renderDashboardView })))
 };
 
 function emptyMessage(snap: DatabaseViewSnapshot): string {
@@ -141,6 +148,184 @@ type DatabaseViewBlock = {
     titleHint: string;
   };
 };
+
+type DatabaseViewChoice = DatabaseViewPick & { label: string };
+
+function displayViewType(viewType: DatabaseViewType): string {
+  return `${viewType[0]!.toUpperCase()}${viewType.slice(1)}`;
+}
+
+function hydrationWarning(state: DatabaseViewConfigHydrationState): string | null {
+  switch (state) {
+    case "config-load-failed":
+      return "Saved view settings could not be loaded. Changes are local until a retry succeeds.";
+    case "metadata-unavailable":
+      return "Saved property settings could not be validated. Changes will not overwrite them.";
+    case "invalid":
+      return "Saved view settings are invalid. Changes will not overwrite them.";
+    case "unavailable":
+      return "Saved view settings are unavailable from the host. Changes are local.";
+    default:
+      return null;
+  }
+}
+
+function collectDatabaseViewChoices(input: {
+  databaseId: string;
+  databaseViews?: EditorDatabase["views"];
+  configuredViews?: readonly DatabaseViewConfigIdentity[];
+  currentViewId: string;
+  currentViewType: string;
+  currentTitleHint: string;
+}): DatabaseViewChoice[] {
+  const choices: DatabaseViewChoice[] = [];
+  const seen = new Set<string>();
+  const add = (viewId: unknown, viewType: unknown, title: unknown) => {
+    if (
+      typeof viewId !== "string" || !viewId.trim() || viewId.length > 256 ||
+      typeof viewType !== "string" || !isDatabaseViewType(viewType)
+    ) return;
+    const key = JSON.stringify([input.databaseId, viewId]);
+    if (seen.has(key)) return;
+    seen.add(key);
+    const cleanTitle = typeof title === "string" ? title.trim().slice(0, 200) : "";
+    const label = cleanTitle || displayViewType(viewType);
+    choices.push({
+      databaseId: input.databaseId,
+      viewId,
+      viewType,
+      titleHint: label,
+      label
+    });
+  };
+
+  if (!input.databaseId || input.databaseId.length > 256) return choices;
+  const databaseViews = Array.isArray(input.databaseViews) ? input.databaseViews : [];
+  for (const view of databaseViews) {
+    if (!view || typeof view !== "object") continue;
+    add(view.id, view.viewType, view.title);
+  }
+  for (const view of input.configuredViews ?? []) {
+    if (view.databaseId === input.databaseId) add(view.viewId, view.viewType, undefined);
+  }
+  add(input.currentViewId, input.currentViewType, input.currentTitleHint);
+  return choices;
+}
+
+/** Compact native controls; every option keeps host database/view identity. */
+export function DatabaseViewControls(props: {
+  database: EditorDatabase | null;
+  databaseId: string;
+  title: string;
+  viewId: string;
+  viewType: string;
+  views: readonly DatabaseViewChoice[];
+  canChange: boolean;
+  onChange?: (selection: DatabaseViewPick) => void;
+  viewConfigProvider?: DatabaseViewRuntime["databaseViewConfig"];
+}): ReactElement {
+  const [addViewOpen, setAddViewOpen] = useState(false);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const [registrationBusy, setRegistrationBusy] = useState(false);
+  const registrationBusyRef = useRef(false);
+  const pendingView = useRef<DatabaseViewPick | null>(null);
+  const addViewReasonId = useId();
+  const currentKey = JSON.stringify([props.databaseId, props.viewId]);
+  const selectedView = props.views.find(({ databaseId, viewId }) =>
+    JSON.stringify([databaseId, viewId]) === currentKey
+  );
+  const databaseList = props.database ? [props.database] : [];
+  const canRegisterView = Boolean(props.onChange && props.viewConfigProvider?.save && props.viewConfigProvider?.list);
+
+  const registerPendingView = async (selection: DatabaseViewPick) => {
+    if (!props.viewConfigProvider?.save || !props.viewConfigProvider.list || registrationBusyRef.current) return;
+    registrationBusyRef.current = true;
+    setRegistrationBusy(true);
+    setRegistrationError(null);
+    try {
+      await registerDatabaseViewConfig(props.viewConfigProvider, createDefaultDatabaseViewConfig(selection));
+      pendingView.current = null;
+      setAddViewOpen(false);
+      props.onChange?.(selection);
+    } catch {
+      setRegistrationError("This view is not saved yet. Retry registration or cancel to discard it.");
+    } finally {
+      registrationBusyRef.current = false;
+      setRegistrationBusy(false);
+    }
+  };
+
+  return (
+    <div className="oe-database-view__view-controls" role="group" aria-label="Database views">
+      <label className="oe-database-view__view-picker">
+        <span className="oe-sr-only">Switch database view</span>
+        <select
+          aria-label="Database view"
+          value={selectedView ? currentKey : ""}
+          disabled={!props.canChange || props.views.length === 0}
+          onChange={(event) => {
+            const next = props.views.find(({ databaseId, viewId }) =>
+              JSON.stringify([databaseId, viewId]) === event.target.value
+            );
+            if (next) props.onChange?.(next);
+          }}
+        >
+          {selectedView ? null : <option value="" disabled>Unsupported view</option>}
+          {props.views.map((view) => (
+            <option key={JSON.stringify([view.databaseId, view.viewId])} value={JSON.stringify([view.databaseId, view.viewId])}>
+              {view.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="button"
+        className="oe-database-view__chip"
+        aria-haspopup="dialog"
+        aria-describedby={addViewReasonId}
+        title={canRegisterView ? undefined : "The host must support saving and listing database views."}
+        disabled={!props.canChange || !props.database || !canRegisterView}
+        onClick={() => {
+          setRegistrationError(null);
+          pendingView.current = null;
+          setAddViewOpen(true);
+        }}
+      >
+        + View
+      </button>
+      <span className="oe-sr-only" id={addViewReasonId}>
+        {canRegisterView
+          ? "Creates a view saved and discoverable by the host."
+          : !props.onChange
+            ? "View creation is unavailable because the editor cannot update this database block."
+            : "View creation is unavailable because the host cannot save and rediscover views."}
+      </span>
+      <DatabaseViewPicker
+        open={addViewOpen}
+        databases={databaseList}
+        fixedDatabaseId={props.database?.id}
+        initialViewType={isDatabaseViewType(props.viewType) ? props.viewType : "table"}
+        allowExistingViews={false}
+        title={`Add a view to ${props.title}`}
+        errorMessage={registrationError ?? undefined}
+        onRetry={registrationError && pendingView.current ? () => void registerPendingView(pendingView.current!) : undefined}
+        retryLabel="Retry registration"
+        saving={registrationBusy}
+        selectionLocked={Boolean(registrationError)}
+        onPick={(selection) => {
+          if (!selection) {
+            pendingView.current = null;
+            setRegistrationError(null);
+            setAddViewOpen(false);
+            return;
+          }
+          pendingView.current ??= selection;
+          void registerPendingView(pendingView.current);
+        }}
+      />
+    </div>
+  );
+}
 
 let filterDraftSeq = 0;
 
@@ -444,10 +629,12 @@ function newEmptyFilterDraft(
 function DatabaseTableView(props: {
   runtime: DatabaseViewRuntime;
   block: DatabaseViewBlock;
+  onViewChange?: (selection: DatabaseViewPick) => void;
+  canChangeViews: boolean;
 }): ReactElement {
   const { runtime, block } = props;
   if (runtime.store) {
-    return <StoreBackedDatabaseView runtime={runtime} block={block} />;
+    return <StoreBackedDatabaseView {...props} />;
   }
   return (
     <LegacyDatabaseView
@@ -456,6 +643,8 @@ function DatabaseTableView(props: {
       viewId={block.props.viewId}
       viewType={block.props.viewType}
       titleHint={block.props.titleHint}
+      onViewChange={props.onViewChange}
+      canChangeViews={props.canChangeViews}
     />
   );
 }
@@ -463,25 +652,158 @@ function DatabaseTableView(props: {
 function StoreBackedDatabaseView(props: {
   runtime: DatabaseViewRuntime;
   block: DatabaseViewBlock;
+  onViewChange?: (selection: DatabaseViewPick) => void;
+  canChangeViews: boolean;
 }): ReactElement {
   const { runtime, block } = props;
   const { databaseId, viewId, viewType, titleHint } = block.props;
   const store = runtime.store!;
+  const configType = isDatabaseViewType(viewType) ? viewType : "table";
   const viewKey = databaseViewInstanceKey(
     block.id ?? "",
     databaseId,
     viewId
   );
+  const hydrationKey = JSON.stringify([databaseId, viewId || "main", viewType]);
+  const [hydration, setHydration] = useState<{
+    key: string;
+    ready: boolean;
+    config: DatabaseViewConfig;
+    state: DatabaseViewConfigHydrationState;
+    warning: string | null;
+  }>(() => ({
+    key: "",
+    ready: false,
+    config: createDefaultDatabaseViewConfig({
+      databaseId,
+      viewId: viewId || "main",
+      viewType: configType
+    }),
+    state: "unavailable",
+    warning: null
+  }));
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadRetryCount, setLoadRetryCount] = useState(0);
+  const [loadRetrying, setLoadRetrying] = useState(false);
+  const [configuredViews, setConfiguredViews] = useState<DatabaseViewConfigIdentity[]>([]);
+  const configRef = useRef(hydration.config);
+  const activeHydrationKeyRef = useRef(hydrationKey);
+  activeHydrationKeyRef.current = hydrationKey;
+  const writer = useMemo(
+    () => createDatabaseViewConfigWriter(runtime.databaseViewConfig, (error) => {
+      if (activeHydrationKeyRef.current === hydrationKey) setSaveError(error);
+    }),
+    [runtime.databaseViewConfig, hydrationKey]
+  );
 
   useEffect(() => {
-    if (databaseId) store.ensureView(viewKey, databaseId);
-  }, [store, viewKey, databaseId]);
+    let current = true;
+    setSaveError(null);
+    void loadDatabaseViewHydration({
+      provider: runtime.databaseViewConfig,
+      databaseProvider: runtime.database,
+      databaseId,
+      viewId: viewId || "main",
+      viewType: configType
+    }).then((loaded) => {
+      if (!current) return;
+      const priorIsReady = hydration.key === hydrationKey && hydration.ready;
+      let state = loaded.state;
+      let config = loaded.config;
+      if (databaseId) {
+        if (priorIsReady && (state === "ready" || state === "missing")) {
+          try {
+            if (!store.setQueryState) throw new Error("Store cannot replace hydrated query state");
+            store.setQueryState(viewKey, config, loaded.databaseMetadata);
+          } catch {
+            state = "metadata-unavailable";
+            config = configRef.current;
+          }
+        } else if (!priorIsReady) {
+          store.ensureView(viewKey, databaseId, config);
+        } else {
+          config = configRef.current;
+        }
+      }
+      // Register generated view identities for the host picker, but never replace
+      // an existing config (or a config hidden by a transient load failure).
+      if (state === "missing" && loaded.missing && runtime.databaseViewConfig?.save) {
+        void persistDatabaseViewConfigIfAuthoritative(state, writer, config).then(() =>
+          listDatabaseViewConfigIdentities(runtime.databaseViewConfig, databaseId).then((views) => {
+            if (current) setConfiguredViews(views);
+          })
+        );
+      }
+      configRef.current = config;
+      setHydration({
+        key: hydrationKey,
+        ready: true,
+        config,
+        state,
+        warning: hydrationWarning(state)
+      });
+    }).catch(() => {
+      if (!current) return;
+      const fallback = createDefaultDatabaseViewConfig({
+        databaseId,
+        viewId: viewId || "main",
+        viewType: configType
+      });
+      const priorIsReady = hydration.key === hydrationKey && hydration.ready;
+      const config = priorIsReady ? configRef.current : fallback;
+      if (databaseId && !priorIsReady) store.ensureView(viewKey, databaseId, config);
+      if (!priorIsReady) configRef.current = config;
+      setHydration({
+        key: hydrationKey,
+        ready: true,
+        config,
+        state: "config-load-failed",
+        warning: hydrationWarning("config-load-failed")
+      });
+    }).finally(() => {
+      if (current && loadRetryCount > 0) setLoadRetrying(false);
+    });
+    return () => { current = false; };
+  }, [configType, databaseId, hydrationKey, loadRetryCount, runtime.database, runtime.databaseViewConfig, store, viewId, viewKey, writer]);
+
+  useEffect(() => {
+    let current = true;
+    void listDatabaseViewConfigIdentities(runtime.databaseViewConfig, databaseId).then((views) => {
+      if (current) setConfiguredViews(views);
+    });
+    return () => { current = false; };
+  }, [databaseId, runtime.databaseViewConfig, viewId]);
+
+  const readyHydration = hydration.key === hydrationKey && hydration.ready;
+  if (readyHydration) configRef.current = hydration.config;
+  const updateConfig = (patch: Parameters<typeof patchDatabaseViewConfig>[1]) => {
+    const next = patchDatabaseViewConfig(configRef.current, patch);
+    configRef.current = next;
+    setHydration((current) => current.key === hydrationKey ? { ...current, config: next } : current);
+    void persistDatabaseViewConfigIfAuthoritative(hydration.state, writer, next);
+  };
 
   const snap = useSyncExternalStore(
     store.subscribe,
     () => store.getView(viewKey),
     () => store.getView(viewKey)
   );
+  const viewChoices = useMemo(() => collectDatabaseViewChoices({
+    databaseId,
+    databaseViews: snap.meta?.views,
+    configuredViews,
+    currentViewId: viewId,
+    currentViewType: viewType,
+    currentTitleHint: titleHint
+  }), [configuredViews, databaseId, snap.meta?.views, titleHint, viewId, viewType]);
+
+  if (!readyHydration) {
+    return (
+      <p className="oe-database-view__empty" role="status" aria-live="polite">
+        Loading saved database view…
+      </p>
+    );
+  }
 
   return (
     <SharedDatabaseViewShell
@@ -492,6 +814,23 @@ function StoreBackedDatabaseView(props: {
       viewType={viewType}
       titleHint={titleHint}
       runtime={runtime}
+      viewConfig={hydration.config}
+      onViewConfigChange={updateConfig}
+      configWarning={hydration.warning}
+      canRetryConfigLoad={Boolean(runtime.databaseViewConfig?.load && hydration.state !== "ready" && hydration.state !== "missing")}
+      configLoadRetrying={loadRetrying}
+      onRetryConfigLoad={() => {
+        setLoadRetrying(true);
+        setLoadRetryCount((count) => count + 1);
+      }}
+      configSaveError={saveError}
+      onRetryConfigSave={() => void writer.retry().then(() =>
+        listDatabaseViewConfigIdentities(runtime.databaseViewConfig, databaseId).then(setConfiguredViews)
+      )}
+      database={snap.meta}
+      availableViews={viewChoices}
+      onViewChange={props.onViewChange}
+      canChangeViews={props.canChangeViews}
     />
   );
 }
@@ -505,8 +844,26 @@ export function SharedDatabaseViewShell(props: {
   viewType: string;
   titleHint: string;
   runtime: DatabaseViewRuntime;
+  viewConfig?: DatabaseViewConfig;
+  onViewConfigChange?: (patch: Parameters<typeof patchDatabaseViewConfig>[1]) => void;
+  configWarning?: string | null;
+  canRetryConfigLoad?: boolean;
+  configLoadRetrying?: boolean;
+  onRetryConfigLoad?: () => void;
+  configSaveError?: string | null;
+  onRetryConfigSave?: () => void;
+  database?: EditorDatabase | null;
+  availableViews?: readonly DatabaseViewChoice[];
+  onViewChange?: (selection: DatabaseViewPick) => void;
+  canChangeViews?: boolean;
 }): ReactElement {
   const { snap, store, viewKey, viewId, viewType, titleHint, runtime } = props;
+  const viewConfig = props.viewConfig ?? createDefaultDatabaseViewConfig({
+    databaseId: snap.databaseId,
+    viewId: viewId || "main",
+    viewType: isDatabaseViewType(viewType) ? viewType : "table"
+  });
+  const updateViewConfig = props.onViewConfigChange;
   const getTitle = runtime.getTitle;
   const [searchInput, setSearchInput] = useState(snap.queryState.query);
   const [creating, setCreating] = useState(false);
@@ -522,6 +879,7 @@ export function SharedDatabaseViewShell(props: {
   );
   const [filterError, setFilterError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSearchRef = useRef<{ commit: () => void } | null>(null);
   const appliedFiltersRef = useRef(snap.queryState.filters);
   const baseId = useId();
 
@@ -562,8 +920,12 @@ export function SharedDatabaseViewShell(props: {
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+      const pending = pendingSearchRef.current;
+      pendingSearchRef.current = null;
+      pending?.commit();
     };
-  }, []);
+  }, [viewKey]);
 
   useEffect(() => {
     if (!mutationsAllowed) {
@@ -586,8 +948,18 @@ export function SharedDatabaseViewShell(props: {
   const onSearchChange = (value: string) => {
     setSearchInput(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    const pending = {
+      commit: () => {
+        store.setQuery(viewKey, value);
+        updateViewConfig?.({ query: value.slice(0, 500) });
+      }
+    };
+    pendingSearchRef.current = pending;
     debounceRef.current = setTimeout(() => {
-      store.setQuery(viewKey, value);
+      if (pendingSearchRef.current !== pending) return;
+      pendingSearchRef.current = null;
+      debounceRef.current = null;
+      pending.commit();
     }, 200);
   };
 
@@ -747,11 +1119,17 @@ export function SharedDatabaseViewShell(props: {
       return;
     }
     if (parsed.kind === "property") {
+      if (parsed.propertyId.length > 256) {
+        setFilterError("Property ID exceeds the saved-view limit");
+        return;
+      }
       try {
-        store.setPropertySort(viewKey, {
+        const propertySort = {
           propertyId: parsed.propertyId,
           direction: parsed.direction
-        });
+        } as const;
+        store.setPropertySort(viewKey, propertySort);
+        updateViewConfig?.({ propertySort });
       } catch (err) {
         setFilterError(
           err instanceof Error ? err.message : "Invalid property sort"
@@ -760,12 +1138,17 @@ export function SharedDatabaseViewShell(props: {
       return;
     }
     store.setSort(viewKey, parsed.sortBy, parsed.direction);
+    updateViewConfig?.({ sortBy: parsed.sortBy, direction: parsed.direction, propertySort: null });
   };
 
   const applyFilters = () => {
     setFilterError(null);
     const built: DatabaseFilter[] = [];
     for (const draftRow of filterDrafts) {
+      if (draftRow.value.length > 500 || draftRow.propertyId.length > 256) {
+        setFilterError("Filter value or property ID exceeds the saved-view limit");
+        return;
+      }
       const def = defMap.get(draftRow.propertyId);
       if (!def) {
         setFilterError(`Unknown property: ${draftRow.propertyId}`);
@@ -778,8 +1161,13 @@ export function SharedDatabaseViewShell(props: {
       }
       built.push(result.filter);
     }
+    if (built.length > 20) {
+      setFilterError("A saved database view can contain at most 20 filters");
+      return;
+    }
     try {
       store.setFilters(viewKey, built);
+      updateViewConfig?.({ filters: built });
     } catch (err) {
       setFilterError(
         err instanceof Error ? err.message : "Invalid filters"
@@ -792,6 +1180,7 @@ export function SharedDatabaseViewShell(props: {
     setFilterDrafts([]);
     try {
       store.setFilters(viewKey, []);
+      updateViewConfig?.({ filters: [] });
     } catch (err) {
       setFilterError(
         err instanceof Error ? err.message : "Failed to clear filters"
@@ -889,6 +1278,7 @@ export function SharedDatabaseViewShell(props: {
         type="text"
         aria-label={label}
         value={draftRow.value}
+        maxLength={500}
         onChange={(event) =>
           updateFilterDraft(draftRow.id, { value: event.target.value })
         }
@@ -1095,7 +1485,9 @@ export function SharedDatabaseViewShell(props: {
     definitions: resolved,
     mutationsAllowed,
     busy,
-    runtime
+    runtime,
+    viewConfig,
+    onViewConfigChange: updateViewConfig
   };
 
   const ResolvedRenderer = resolveDatabaseViewRenderer({
@@ -1110,7 +1502,17 @@ export function SharedDatabaseViewShell(props: {
     }
     // R1: always mount as a React component so host renderers may use hooks.
     if (ResolvedRenderer) {
-      return <ResolvedRenderer {...rendererContext} />;
+      return (
+        <Suspense
+          fallback={(
+            <p className="oe-database-view__empty" role="status" aria-live="polite">
+              Loading {normalizedViewType} view…
+            </p>
+          )}
+        >
+          <ResolvedRenderer {...rendererContext} />
+        </Suspense>
+      );
     }
     if (isDeferredDatabaseViewType(normalizedViewType)) {
       return <DeferredRenderer {...rendererContext} />;
@@ -1148,7 +1550,7 @@ export function SharedDatabaseViewShell(props: {
       );
     }
     return (
-      <div className="oe-database-view__table-wrap" role="region">
+      <div className="oe-database-view__table-wrap" role="region" aria-label={`${title} rows`} tabIndex={0}>
         <table className="oe-database-view__table">
           <thead>
             <tr>
@@ -1298,18 +1700,58 @@ export function SharedDatabaseViewShell(props: {
       aria-label={`${title} (${normalizedViewType})`}
     >
       <header className="oe-database-view__header">
-        <h3 className="oe-database-view__title">{title}</h3>
-        <span className="oe-database-view__meta">
-          {normalizedViewType}
-          {snap.pagination.total
-            ? ` · ${snap.items.length}/${snap.pagination.total}`
-            : snap.pagination.hasMore
-              ? ` · ${snap.items.length}+ loaded`
-              : snap.items.length
-                ? ` · ${snap.items.length} loaded`
-                : ""}
-        </span>
+        <div className="oe-database-view__heading">
+          <h3 className="oe-database-view__title">{title}</h3>
+          <span className="oe-database-view__meta">
+            {normalizedViewType}
+            {snap.pagination.total
+              ? ` · ${snap.items.length}/${snap.pagination.total}`
+              : snap.pagination.hasMore
+                ? ` · ${snap.items.length}+ loaded`
+                : snap.items.length
+                  ? ` · ${snap.items.length} loaded`
+                  : ""}
+          </span>
+        </div>
+        <DatabaseViewControls
+          database={props.database ?? snap.meta}
+          databaseId={snap.databaseId}
+          title={title}
+          viewId={viewId}
+          viewType={viewType}
+          views={props.availableViews ?? collectDatabaseViewChoices({
+            databaseId: snap.databaseId,
+            databaseViews: snap.meta?.views,
+            currentViewId: viewId,
+            currentViewType: viewType,
+            currentTitleHint: titleHint
+          })}
+          canChange={props.canChangeViews ?? false}
+          onChange={props.onViewChange}
+          viewConfigProvider={runtime.databaseViewConfig}
+        />
       </header>
+
+      {props.configWarning ? (
+        <p className="oe-database-view__notice" role="status">
+          {props.configWarning}
+          {props.canRetryConfigLoad && props.onRetryConfigLoad ? (
+            <button type="button" className="oe-database-view__chip" disabled={props.configLoadRetrying} onClick={props.onRetryConfigLoad}>
+              {props.configLoadRetrying ? "Retrying…" : "Retry load"}
+            </button>
+          ) : null}
+        </p>
+      ) : null}
+      {props.configSaveError ? (
+        <p className="oe-database-view__error" role="alert">
+          Saved view changes could not be saved. Your current view remains available.
+          {props.onRetryConfigSave ? (
+            <button type="button" className="oe-database-view__chip" onClick={props.onRetryConfigSave}>
+              Retry save
+            </button>
+          ) : null}
+        </p>
+      ) : null}
 
       <div
         className="oe-database-view__toolbar"
@@ -1323,6 +1765,7 @@ export function SharedDatabaseViewShell(props: {
             value={searchInput}
             placeholder="Search…"
             aria-label="Search rows"
+            maxLength={500}
             onChange={(event) => onSearchChange(event.target.value)}
           />
         </label>
@@ -1366,6 +1809,7 @@ export function SharedDatabaseViewShell(props: {
                   ? "oe-database-view__chip oe-database-view__chip--on"
                   : "oe-database-view__chip"
               }
+              aria-pressed={snap.queryState.trashMode === "active"}
               onClick={() => store.setTrashMode(viewKey, "active")}
             >
               Active
@@ -1377,6 +1821,7 @@ export function SharedDatabaseViewShell(props: {
                   ? "oe-database-view__chip oe-database-view__chip--on"
                   : "oe-database-view__chip"
               }
+              aria-pressed={snap.queryState.trashMode === "trash"}
               onClick={() => store.setTrashMode(viewKey, "trash")}
             >
               Trash
@@ -1473,7 +1918,7 @@ export function SharedDatabaseViewShell(props: {
             <button
               type="button"
               className="oe-database-view__chip"
-              disabled={filterableDefs.length === 0}
+              disabled={filterableDefs.length === 0 || filterDrafts.length >= 20}
               onClick={() =>
                 setFilterDrafts((prev) => [
                   ...prev,
@@ -1621,16 +2066,22 @@ function LegacyDatabaseView(props: {
   viewId: string;
   viewType: string;
   titleHint: string;
+  onViewChange?: (selection: DatabaseViewPick) => void;
+  canChangeViews: boolean;
 }): ReactElement {
   const { runtime, databaseId, viewId, viewType, titleHint } = props;
   const [items, setItems] = useState<DatabaseRowItem[]>([]);
   const [schema, setSchema] = useState<Record<string, string>>({});
+  const [databaseMeta, setDatabaseMeta] = useState<EditorDatabase | null>(null);
+  const [configuredViews, setConfiguredViews] = useState<DatabaseViewConfigIdentity[]>([]);
   const [title, setTitle] = useState(titleHint || databaseId || "Database");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    setDatabaseMeta(null);
+    setConfiguredViews([]);
     const listRows = runtime.database?.listRows;
     if (!databaseId || !listRows) {
       setItems([]);
@@ -1640,13 +2091,16 @@ function LegacyDatabaseView(props: {
     setError(null);
     void (async () => {
       try {
-        const [page, meta] = await Promise.all([
+        const [page, meta, savedViews] = await Promise.all([
           listRows(databaseId, { limit: 50 }),
-          runtime.database?.getDatabase?.(databaseId) ?? Promise.resolve(null)
+          runtime.database?.getDatabase?.(databaseId) ?? Promise.resolve(null),
+          listDatabaseViewConfigIdentities(runtime.databaseViewConfig, databaseId)
         ]);
         if (cancelled) return;
         setItems(page.items);
         setSchema(page.schema);
+        setDatabaseMeta(meta?.id === databaseId ? meta : null);
+        setConfiguredViews(savedViews);
         setTitle(
           meta?.title ||
             runtime.getTitle?.(databaseId) ||
@@ -1702,8 +2156,28 @@ function LegacyDatabaseView(props: {
       aria-label={`${title} (${knownViewType})`}
     >
       <header className="oe-database-view__header">
-        <h3 className="oe-database-view__title">{title}</h3>
-        <span className="oe-database-view__meta">{knownViewType}</span>
+        <div className="oe-database-view__heading">
+          <h3 className="oe-database-view__title">{title}</h3>
+          <span className="oe-database-view__meta">{knownViewType}</span>
+        </div>
+        <DatabaseViewControls
+          database={databaseMeta}
+          databaseId={databaseId}
+          title={title}
+          viewId={viewId}
+          viewType={viewType}
+          views={collectDatabaseViewChoices({
+            databaseId,
+            databaseViews: databaseMeta?.views,
+            configuredViews,
+            currentViewId: viewId,
+            currentViewType: viewType,
+            currentTitleHint: titleHint
+          })}
+          canChange={props.canChangeViews}
+          onChange={props.onViewChange}
+          viewConfigProvider={runtime.databaseViewConfig}
+        />
       </header>
       {!runtime.database?.listRows ? (
         <p className="oe-database-view__empty">Database provider unavailable</p>
@@ -1716,7 +2190,7 @@ function LegacyDatabaseView(props: {
       ) : items.length === 0 ? (
         <p className="oe-database-view__empty">No rows</p>
       ) : (
-        <div className="oe-database-view__table-wrap" role="region">
+        <div className="oe-database-view__table-wrap" role="region" aria-label={`${title} rows`} tabIndex={0}>
           <table className="oe-database-view__table">
             <thead>
               <tr>
@@ -1772,7 +2246,23 @@ export function createDatabaseViewBlockSpec(
     },
     {
       render: (props): ReactElement => (
-        <DatabaseTableView runtime={runtime} block={props.block} />
+        <DatabaseTableView
+          runtime={runtime}
+          block={props.block}
+          canChangeViews={props.editor.isEditable}
+          onViewChange={(selection) => {
+            if (!props.editor.isEditable) return;
+            props.editor.updateBlock(props.block, {
+              type: DATABASE_VIEW_TYPE,
+              props: {
+                databaseId: selection.databaseId,
+                viewId: selection.viewId,
+                viewType: selection.viewType,
+                titleHint: selection.titleHint
+              }
+            });
+          }}
+        />
       )
     }
   )();
