@@ -14,6 +14,8 @@ export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedS
   const [documents, setDocuments] = useState<StoredDocument[]>([]);
   const [status, setStatus] = useState("Loading saved documents…");
   const [failure, setFailure] = useState<string>();
+  const failureRef = useRef<string | undefined>(undefined);
+  failureRef.current = failure;
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const current = useRef<StoredDocument | undefined>(undefined);
@@ -53,6 +55,7 @@ export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedS
 
   const save = useCallback(async (): Promise<boolean> => {
     clearTimeout(timer.current);
+    if (failureRef.current === "save_outcome_unknown" || failureRef.current === "document_conflict") return false;
     if (pending.current) { await pending.current; return false; }
     const base = current.current, doc = content.current, generation = edited.current;
     if (!base || !doc || generation === persisted.current) return true;
@@ -116,6 +119,17 @@ export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedS
     const url = URL.createObjectURL(new Blob([JSON.stringify({ ...current.current, document: content.current }, null, 2)], { type: "application/json" }));
     const link = document.createElement("a"); link.href = url; link.download = "open-editor-document-backup.json"; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+  const reconcileSave = async () => {
+    const base = current.current, desired = content.current;
+    if (!base || !desired || hostLatch.current || pending.current) return;
+    hostLatch.current = true; setHostBusy(true);
+    try {
+      const saved = await store.load(base.id);
+      if (JSON.stringify(saved.document) === JSON.stringify(desired)) setCurrent(saved);
+      else { setFailure("document_conflict"); setStatus("Saved content differs. Your edits are kept here; choose a recovered copy or the saved version."); }
+    } catch { setStatus("Saved version could not be confirmed. Your edits are kept here."); }
+    finally { hostLatch.current = false; setHostBusy(false); }
+  };
   const switchHost = () => {
     if (dirty || saving || failure || navigating) return;
     const url = new URL(location.href); url.searchParams.delete("document");
@@ -130,6 +144,12 @@ export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedS
     try {
       const next = proposal ? await host.accept(base, proposal, ids) : await host.undo(base);
       setCurrent(next); setDocuments(rows => [...rows.filter(row => row.id !== next.id), next]);
+    } catch (error) {
+      if ((error as Error).message === "save_outcome_unknown") {
+        setFailure("save_outcome_unknown"); setDirty(true);
+        setStatus("The save may have completed. Check the saved version before another write.");
+      }
+      throw error;
     } finally { hostLatch.current = false; setHostBusy(false); }
   };
   if (!record) return <main className="demo-feedback" role={failure ? "alert" : "status"}><p>{status}</p>{failure ? <button className="chip" onClick={() => location.reload()}>Retry opening</button> : null}</main>;
@@ -137,12 +157,12 @@ export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedS
     <section className="local-document-controls" aria-label="Local documents" inert={hostBusy || navigating}>
       <label>Document <select aria-label="Saved document" value={record.id} disabled={dirty || saving} onChange={event => { void switchDocument(event.target.value); }}>{documents.map(row => <option key={row.id} value={row.id}>{row.title}</option>)}</select></label>
       <button className="chip" onClick={() => { void create(); }} disabled={saving || Boolean(failure)}>New document</button>
-      <button className="chip" onClick={() => { void save(); }} disabled={saving || !dirty || failure === "document_conflict"}>Save <kbd>⌘S</kbd></button>
+      <button className="chip" onClick={() => { void save(); }} disabled={saving || !dirty || failure === "document_conflict" || failure === "save_outcome_unknown"}>Save <kbd>⌘S</kbd></button>
       <button className="chip" onClick={exportCopy}>Export backup</button>
       {location.hostname === "127.0.0.1" ? <button className="chip" disabled={dirty || saving || Boolean(failure)} onClick={switchHost}>{host ? "Return to browser documents" : "Personal-AI local test"}</button> : null}
       <p role="status" data-testid="document-save-status">{status}</p>
       <small>{host ? "Synthetic documents are saved in the local SQLite host. This is a separate test account." : "This browser only. Clear site data removes local documents."} External pages and database rows remain host-owned.</small>
-      {failure ? <div role="alert"><button className="chip" onClick={() => { void create(true); }} disabled={saving}>Save edits as a new copy</button>{failure === "document_conflict" ? <button className="chip" onClick={() => { void store.load(record.id).then(setCurrent).catch(() => setStatus("Saved version could not open. Your edits are kept.")); }}>Replace these edits with saved version</button> : <button className="chip" onClick={() => { void save(); }} disabled={saving}>Retry save</button>}</div> : null}
+      {failure ? <div role="alert"><button className="chip" onClick={() => { void create(true); }} disabled={saving}>Save edits as a new copy</button>{failure === "save_outcome_unknown" ? <button className="chip" onClick={() => { void reconcileSave(); }}>Check saved version</button> : failure === "document_conflict" ? <button className="chip" onClick={() => { void store.load(record.id).then(setCurrent).catch(() => setStatus("Saved version could not open. Your edits are kept.")); }}>Replace these edits with saved version</button> : <button className="chip" onClick={() => { void save(); }} disabled={saving}>Retry save</button>}</div> : null}
     </section>
     {host && hostRevision ? <LocalPersonalAiReview host={host} document={hostRevision} dirty={dirty} busy={saving || hostBusy} onAccept={hostCommit} onUndo={() => hostCommit()} /> : null}
     <SaveShortcut onSave={save} />

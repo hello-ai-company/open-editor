@@ -25,7 +25,6 @@ export function LocalPersonalAiReview({ host, document, dirty, busy, onAccept, o
     setLoading(true);
     try {
       const refs = selected.map(id => { const m = memories.find(row => row.id === id)!; return { memory_id: id, version: m.version }; });
-      await host.verify(document, refs);
       const next = await host.propose(document, refs);
       setProposal(next); setDecision(undefined); setStatus("Mock proposal prepared after local API permission and version checks. Choose what to apply.");
     } catch (error) { setProposal(undefined); setStatus(`Nothing applied: ${(error as Error).message}`); }
@@ -36,7 +35,7 @@ export function LocalPersonalAiReview({ host, document, dirty, busy, onAccept, o
     operationLatch.current = true;
     setLoading(true);
     try { await operation(); setDecision(result); setStatus("Local API transaction completed and saved."); }
-    catch (error) { setStatus(`Nothing applied here: ${(error as Error).message}. Reload approved memories before preparing a new proposal.`); }
+    catch (error) { setStatus((error as Error).message === "save_outcome_unknown" ? "The save may have completed. Check the saved version in Document controls before trying again." : `Nothing applied here: ${(error as Error).message}. Reload approved memories before preparing a new proposal.`); }
     finally { operationLatch.current = false; setLoading(false); }
   };
   return <section className="local-ai-review" aria-label="Personal-AI local review">

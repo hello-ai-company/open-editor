@@ -41,7 +41,7 @@ describe("local Personal-AI host response boundaries", () => {
       const host = createLocalPersonalAiHost();
       const doc = validateStoredDocument({ ...saved(), ...syntheticHostScope, revision: 4 }, syntheticHostScope);
       const memories = [{ memory_id: "00000000-0000-4000-8000-000000000010", version: 3 }];
-      await expect(host.verify(doc, memories)).rejects.toThrow("editor_document_version_conflict");
+      await expect(host.verify(doc, memories)).rejects.toThrow("document_conflict");
       expect(posted).toEqual({ document_id: doc.id, document_version: 4, memories });
     } finally { globalThis.fetch = fetch; }
   });
