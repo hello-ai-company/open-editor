@@ -714,13 +714,13 @@ function StoreBackedDatabaseView(props: {
         if (priorIsReady && (state === "ready" || state === "missing")) {
           try {
             if (!store.setQueryState) throw new Error("Store cannot replace hydrated query state");
-            store.setQueryState(viewKey, config, loaded.databaseMetadata);
+            store.setQueryState(viewKey, config, loaded.databaseMetadata, loaded.databaseSchema);
           } catch {
             state = "metadata-unavailable";
             config = configRef.current;
           }
         } else if (!priorIsReady) {
-          store.ensureView(viewKey, databaseId, config);
+          store.ensureView(viewKey, databaseId, config, loaded.databaseSchema);
         } else {
           config = configRef.current;
         }

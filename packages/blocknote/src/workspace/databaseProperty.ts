@@ -566,6 +566,9 @@ export function validateDatabaseFilter(
   return { ok: true, filter };
 }
 
+/** Shared bound for runtime queries and durable view settings. */
+export const MAX_DATABASE_FILTERS = 20;
+
 export function validateDatabaseFilters(
   filters: readonly unknown[],
   defs: readonly ResolvedPropertyDefinition[],
@@ -573,6 +576,9 @@ export function validateDatabaseFilters(
 ):
   | { ok: true; filters: readonly DatabaseFilter[] }
   | { ok: false; error: string } {
+  if (filters.length > MAX_DATABASE_FILTERS) {
+    return { ok: false, error: `A database query can contain at most ${MAX_DATABASE_FILTERS} filters` };
+  }
   if (filters.length === 0) {
     return { ok: true, filters: [] };
   }

@@ -32,6 +32,7 @@ import {
   cloneFilters,
   clonePropertySort,
   filtersEqual,
+  MAX_DATABASE_FILTERS,
   parseDatabaseFilter,
   propertySortEqual,
   resolveDatabasePropertyDefinitions,
@@ -40,6 +41,7 @@ import {
   validateDatabaseFilters,
   validatePropertySort
 } from "./databaseProperty.js";
+import { loadLegacyDatabaseSchema } from "./databaseLegacySchema.js";
 
 export type DatabaseViewStatus =
   | "idle"
@@ -145,7 +147,8 @@ export type DatabaseRuntimeStore = {
   ensureView: (
     viewKey: string,
     databaseId: string,
-    initialState?: DatabaseViewInitialQueryState
+    initialState?: DatabaseViewInitialQueryState,
+    legacySchema?: Record<string, string>
   ) => void;
   load: (viewKey: string) => Promise<void>;
   refresh: (viewKey: string) => Promise<void>;
@@ -160,7 +163,8 @@ export type DatabaseRuntimeStore = {
   setQueryState?: (
     viewKey: string,
     state: DatabaseViewInitialQueryState,
-    metadata?: EditorDatabase
+    metadata?: EditorDatabase,
+    legacySchema?: Record<string, string>
   ) => void;
   /**
    * Apply validated AND filters. Clones input — caller-owned arrays are not retained.
@@ -590,6 +594,14 @@ export function createDatabaseRuntimeStore(
       } else {
         view.meta = meta;
         view.metaStatus = "ready";
+        // Legacy metadata has no property definitions. Obtain its authoritative
+        // row-page schema before validating the first filtered query; discard rows.
+        if (meta.propertyDefinitions == null && Object.keys(view.schema).length === 0 &&
+          (view.queryState.filters.length > 0 || view.queryState.propertySort !== null)) {
+          const schema = await loadLegacyDatabaseSchema(provider, view.databaseId);
+          if (view.generation !== gen) return;
+          view.schema = schema;
+        }
         // Metadata refresh may invalidate active filters / propertySort.
         const defs = resolveDatabasePropertyDefinitions({
           legacySchema: view.schema,
@@ -756,9 +768,13 @@ export function createDatabaseRuntimeStore(
       return view.cachedSnapshot;
     },
 
-    ensureView(viewKey, databaseId, initialState) {
+    ensureView(viewKey, databaseId, initialState, legacySchema) {
+      if (initialState?.filters && initialState.filters.length > MAX_DATABASE_FILTERS) {
+        throw new Error(`A database query can contain at most ${MAX_DATABASE_FILTERS} filters`);
+      }
       const view = getOrCreate(viewKey, databaseId);
       if (view.status === "idle") {
+        if (legacySchema) view.schema = { ...legacySchema };
         if (initialState) {
           const query = typeof initialState.query === "string" ? initialState.query : view.queryState.query;
           const sortBy = initialState.sortBy === "title" ? "title" : "position";
@@ -879,8 +895,12 @@ export function createDatabaseRuntimeStore(
       void loadFirstPage(view);
     },
 
-    setQueryState(viewKey, initialState, metadata) {
+    setQueryState(viewKey, initialState, metadata, legacySchema) {
       const view = requireView(viewKey);
+      const rawFilters = Array.isArray(initialState.filters) ? initialState.filters : [];
+      if (rawFilters.length > MAX_DATABASE_FILTERS) {
+        throw new Error(`A database query can contain at most ${MAX_DATABASE_FILTERS} filters`);
+      }
       let metadataChanged = false;
       if (metadata) {
         if (metadata.id !== view.databaseId) throw new Error("Database metadata identity did not match");
@@ -888,10 +908,10 @@ export function createDatabaseRuntimeStore(
         view.meta = metadata;
         view.metaStatus = "ready";
       }
+      if (legacySchema) view.schema = { ...legacySchema };
       const query = typeof initialState.query === "string" ? initialState.query.slice(0, 500) : "";
       const sortBy: DatabaseSortBy = initialState.sortBy === "title" ? "title" : "position";
       const direction: DatabaseSortDirection = initialState.direction === "desc" ? "desc" : "asc";
-      const rawFilters = Array.isArray(initialState.filters) ? initialState.filters : [];
       const filters = rawFilters.map(parseDatabaseFilter);
       if (filters.some((filter) => filter === null)) {
         throw new Error("Invalid filter shape or operator for property type");
