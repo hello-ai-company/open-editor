@@ -3,10 +3,12 @@ import type {
   DatabaseFilter,
   DatabasePropertySort,
   DatabaseQueryCapabilities,
+  DatabaseProvider,
   EditorDatabase
 } from "@hello-ai-company/editor-core";
 import {
   hostSupportsPropertyFilters,
+  MAX_DATABASE_FILTERS,
   parseDatabaseFilter,
   resolveDatabasePropertyDefinitions,
   sanitizeFiltersAgainstMetadata,
@@ -14,10 +16,10 @@ import {
   type ResolvedPropertyDefinition
 } from "./databaseProperty.js";
 import { isDatabaseViewType, type DatabaseViewType } from "./types.js";
+import { loadLegacyDatabaseSchema } from "./databaseLegacySchema.js";
 
 const MAX_ID_LENGTH = 256;
 const MAX_QUERY_LENGTH = 500;
-const MAX_FILTERS = 20;
 
 export type DatabaseViewConfig = {
   schemaVersion: 1;
@@ -69,6 +71,8 @@ export type DatabaseViewConfigHydration = DatabaseViewConfigValidation & {
   state: DatabaseViewConfigHydrationState;
   /** Metadata used to validate persisted property IDs, when the config referenced properties. */
   databaseMetadata?: EditorDatabase;
+  /** Validated host schema only; probe rows are never retained. */
+  databaseSchema?: Record<string, string>;
 };
 
 export type DatabaseViewConfigHydrationState =
@@ -165,7 +169,7 @@ function boundedId(value: unknown): value is string {
 }
 
 function parseFilters(value: unknown): DatabaseFilter[] | null {
-  if (!Array.isArray(value) || value.length > MAX_FILTERS) return null;
+  if (!Array.isArray(value) || value.length > MAX_DATABASE_FILTERS) return null;
   const filters: DatabaseFilter[] = [];
   for (const raw of value) {
     const parsed = parseDatabaseFilter(raw);
@@ -230,6 +234,7 @@ export function validateDatabaseViewConfig(input: {
   viewId: string;
   viewType: DatabaseViewType;
   database?: EditorDatabase | null;
+  legacySchema?: Record<string, string>;
 }): DatabaseViewConfigValidation {
   const fallback = createDefaultDatabaseViewConfig(input);
   const warnings: string[] = [];
@@ -249,7 +254,7 @@ export function validateDatabaseViewConfig(input: {
     return { config: fallback, warnings: ["Saved database view config was invalid; defaults were used"], valid: false };
   }
   const definitions = resolveDatabasePropertyDefinitions({
-    legacySchema: {},
+    legacySchema: input.legacySchema ?? {},
     definitions: input.database?.propertyDefinitions
   });
   const caps: DatabaseQueryCapabilities | undefined = input.database?.queryCapabilities;
@@ -330,7 +335,7 @@ export function validateDatabaseViewConfig(input: {
 /** Load+validate config and metadata before the caller starts the first row query. */
 export async function loadDatabaseViewHydration(input: {
   provider?: DatabaseViewConfigProvider;
-  databaseProvider?: { getDatabase?: (databaseId: string) => Promise<EditorDatabase | null> };
+  databaseProvider?: Pick<DatabaseProvider, "getDatabase" | "listRows">;
   databaseId: string;
   viewId: string;
   viewType: DatabaseViewType;
@@ -367,6 +372,7 @@ export async function loadDatabaseViewHydration(input: {
   }
 
   let metadata: EditorDatabase | null = null;
+  let legacySchema: Record<string, string> | undefined;
   if (hasMetadataBoundSettings(raw)) {
     if (!input.databaseProvider?.getDatabase) {
       return unavailable("metadata-unavailable", "Database metadata is unavailable; saved property settings were not restored or overwritten.");
@@ -380,15 +386,20 @@ export async function loadDatabaseViewHydration(input: {
     } catch {
       return unavailable("metadata-unavailable", "Database metadata is unavailable; saved property settings were not restored or overwritten.");
     }
+    if (metadata.propertyDefinitions == null) {
+      try { legacySchema = await loadLegacyDatabaseSchema(input.databaseProvider, input.databaseId); }
+      catch { return unavailable("metadata-unavailable", "Legacy database schema is unavailable; saved property settings were not restored or overwritten."); }
+    }
   }
-  const validated = validateDatabaseViewConfig({ ...input, value: raw, database: metadata });
+  const validated = validateDatabaseViewConfig({ ...input, value: raw, database: metadata, legacySchema });
   const state = !validated.valid || validated.warnings.length > 0 ? "invalid" : "ready";
   return {
     ...validated,
     warnings: [...warnings, ...validated.warnings],
     missing: false,
     state,
-    ...(metadata ? { databaseMetadata: metadata } : {})
+    ...(metadata ? { databaseMetadata: metadata } : {}),
+    ...(legacySchema ? { databaseSchema: legacySchema } : {})
   };
 }
 
@@ -407,6 +418,9 @@ export function patchDatabaseViewConfig(
   current: DatabaseViewConfig,
   patch: Partial<Omit<DatabaseViewConfig, "schemaVersion" | "databaseId" | "viewId" | "viewType">>
 ): DatabaseViewConfig {
+  if ((patch.filters ?? current.filters).length > MAX_DATABASE_FILTERS) {
+    throw new Error(`A database view can contain at most ${MAX_DATABASE_FILTERS} filters`);
+  }
   const next: DatabaseViewConfig = {
     schemaVersion: 1,
     databaseId: current.databaseId,

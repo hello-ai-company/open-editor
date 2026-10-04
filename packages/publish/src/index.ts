@@ -151,10 +151,10 @@ export function renderOpenEditorPresentation(
   options: OpenEditorSiteOptions = {}
 ): string {
   const nodes = projectExportIR(document);
-  const context = knowledgeFromNodes(nodes, options);
+  const context = canvasKnowledgeContext(document, nodes, options);
   const title = cleanText(options.title) || context.title;
   const canvasRoots = options.canvasSpec
-    ? presentationCanvasRoots(options.canvasSpec) ?? [options.canvasSpec.root]
+    ? presentationCanvasRoots(options.canvasSpec, options.canvasRenderState) ?? [options.canvasSpec.root]
     : null;
   const canvas = options.canvasSpec
     ? renderCanvasLayout(options.canvasSpec, document, nodes, options.canvasRenderState, canvasRoots ?? undefined)
@@ -780,8 +780,10 @@ function normalizeCanvasRenderState(
   return { hiddenNodeIds, alignmentByNodeId };
 }
 
-function presentationCanvasRoots(spec: CanvasLayoutSpec): CanvasLayoutNode[] | null {
+function presentationCanvasRoots(spec: CanvasLayoutSpec, renderState?: CanvasRenderState): CanvasLayoutNode[] | null {
   const root = spec.root;
+  // Promoting children to slide roots must retain their ancestor's visibility.
+  if (normalizeCanvasRenderState(renderState, spec).hiddenNodeIds.has(root.id)) return [];
   if ((root.type !== "stack" && root.type !== "grid") || root.children.length === 0) return null;
   return root.children;
 }
