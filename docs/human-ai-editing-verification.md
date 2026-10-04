@@ -102,7 +102,9 @@ measurements are not directly compared.
 Real authenticated Personal-AI API/host verification, model generation, recording
 APIs, private persistence, atomic real-document writes, multi-device coordination
 and native visibility behavior remain unconnected/unverified. Original Document
-is session-only; only the clearly labeled synthetic workbench has local storage.
+was session-only in PR31; the subsequent [local persistence change](./local-document-personal-ai.md)
+adds separate normal Document storage and a synthetic API host. The performance
+measurements above describe PR31, not that later version.
 Safari/Firefox, physical touch and assistive technology are unverified. This PR
 does not change versions, dependencies, workflows, repository visibility,
 authentication, service settings or production databases, and does not publish

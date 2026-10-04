@@ -53,9 +53,10 @@ explicitly reactivates synthetic verification. A pending proposal and an accepte
 change both survive save/reload/restore with these checks. Workbench navigation
 also retains mounted state.
 
-Main Document still correctly says `Session only · not saved` and resets on
-reload. Durable main-document storage was not part of the supplied seven-file
-synthetic workbench; it remains host-owned.
+At PR31, Main Document said `Session only · not saved` and reset on reload.
+The subsequent [local Document persistence and host contract](./local-document-personal-ai.md)
+adds independent IndexedDB storage for normal Document and an opt-in synthetic
+SQLite/API host. It does not turn this workbench's saved state into a grant.
 
 ## Assets and verification
 
@@ -86,7 +87,7 @@ substitution was used to claim completion. The app code is unchanged; the test
 browser and dedicated preview were closed. The verification summary records
 these observations; raw generated logs are retained locally only.
 
-The blank-document guide was tested by deleting the sample text and remaining
+In PR31, the blank-document guide was tested by deleting the sample text and remaining
 independent blocks using the real editor's Block actions. It shows the blank
 guide, focuses editing on Start writing, hides after input, keeps text across
 views and resets on reload according to its session-only label. The misleading

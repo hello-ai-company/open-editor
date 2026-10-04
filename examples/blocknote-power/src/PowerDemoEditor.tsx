@@ -111,7 +111,10 @@ function selectedPlainParagraph(editor: {
   return selectedText === text.text ? { blockId: block.id, text: text.text } : null;
 }
 
-export function PowerDemoEditor({ onOpenPersonalContext }: { onOpenPersonalContext?: () => void } = {}) {
+export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampleDocument, documentTitle = "Workspace primitives", onDocumentChange, saveStatus = "Session only · not saved", readOnly = false }: {
+  onOpenPersonalContext?: () => void; initialDocument?: EditorDocument; documentTitle?: string;
+  onDocumentChange?: (document: EditorDocument) => void; saveStatus?: string; readOnly?: boolean;
+} = {}) {
   const index = useMemo(() => createDocumentIndex(), []);
   const relationIndex = useMemo(() => createRelationIndex(), []);
   const [pageRevision, setPageRevision] = useState(0);
@@ -302,14 +305,22 @@ export function PowerDemoEditor({ onOpenPersonalContext }: { onOpenPersonalConte
 
   const options = useMemo(() => preset.editorOptions(), [preset]);
   const initialContent = useMemo(
-    () => toBlockNoteForSchema(sampleDocument, options.schema),
-    [options.schema]
+    () => toBlockNoteForSchema(initialDocument, options.schema),
+    [initialDocument, options.schema]
   );
 
   const editor = useCreateBlockNote({
     ...options,
     initialContent: initialContent as never
   });
+
+  useEffect(() => editor.onChange((_editor, context) => {
+    // setEditable emits update even for a no-op transaction. Persist actual
+    // block changes only, so locking/unmounting an old view cannot save its
+    // snapshot over a newly committed host revision.
+    if (context.getChanges().length) onDocumentChange?.(fromBlockNote(editor.document as never));
+  }), [editor, onDocumentChange]);
+  useEffect(() => { editor.isEditable = !readOnly; }, [editor, readOnly]);
 
   useEffect(() => {
     preset.blockReferenceRuntime.onNavigate = (blockId) => {
@@ -346,13 +357,13 @@ export function PowerDemoEditor({ onOpenPersonalContext }: { onOpenPersonalConte
   const [json, setJson] = useState(() => serializeEditorDocument(sampleDocument));
   const [actionsOpen, setActionsOpen] = useState(false);
   const [mode, setMode] = useState<DemoMode>("document");
-  const [guideOpen, setGuideOpen] = useState(true);
+  const [guideOpen, setGuideOpen] = useState(() => initialDocument.blocks.length === 0 || initialDocument.blocks.every(block => block.type === "paragraph" && Array.isArray(block.content) && block.content.length === 0 && !block.children?.length));
   const [emptyDocument, setEmptyDocument] = useState(false);
   const [editorActive, setEditorActive] = useState(false);
   const motionOnce = useRef(false);
   const [focusMode, setFocusMode] = useState(false);
-  const [previewDocument, setPreviewDocument] = useState<EditorDocument>(sampleDocument);
-  const [canvasSpec, setCanvasSpec] = useState(() => createMagicLayoutSpec(sampleDocument, "report"));
+  const [previewDocument, setPreviewDocument] = useState<EditorDocument>(initialDocument);
+  const [canvasSpec, setCanvasSpec] = useState(() => createMagicLayoutSpec(initialDocument, "report"));
   const [canvasViewState, setCanvasViewState] = useState<CanvasEditorViewState>();
   const [reviewSuggestion, setReviewSuggestion] = useState<PendingDemoSuggestion | null>(null);
   const [publishedPreview, setPublishedPreview] = useState<PublishedPreview | null>(null);
@@ -787,7 +798,7 @@ export function PowerDemoEditor({ onOpenPersonalContext }: { onOpenPersonalConte
           <span className="demo-brand__name">OpenEditor</span>
         </div>
         <div className="demo-breadcrumb" aria-label="Current document">
-          <span>Workspace</span><span aria-hidden="true">/</span><strong>Workspace primitives</strong>
+          <span>Workspace</span><span aria-hidden="true">/</span><strong>{documentTitle}</strong>
         </div>
         <div className="demo-toolbar" role="group" aria-label="Workspace controls">
           <div className="demo-toolbar__utilities" aria-hidden={focusMode} inert={focusMode}>
@@ -905,9 +916,9 @@ export function PowerDemoEditor({ onOpenPersonalContext }: { onOpenPersonalConte
           <div className="demo-page-heading">
             <div>
               <p className="demo-eyebrow">Your workspace</p>
-              <h1>Workspace primitives</h1>
+              <h1>{documentTitle}</h1>
             </div>
-            <span className="demo-local-label" title="Changes stay in this session. Reloading resets the demo.">Session only · not saved</span>
+            <span className="demo-local-label">{saveStatus}</span>
           </div>
           {lastOpenedPage ? (
             <p className="demo-open-hint" role="status">
