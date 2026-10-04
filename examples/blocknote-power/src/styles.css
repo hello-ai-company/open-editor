@@ -824,3 +824,24 @@ iframe:focus-visible {
   .demo-writing-guide__actions .chip { flex: 1 1 auto; }
   .demo-review__actions { flex-wrap: wrap; }
 }
+/* Local persistence and explicitly selected synthetic API review. */
+.local-document-controls, .local-ai-review {
+  max-width: 1320px; margin: 12px auto; padding: 16px 24px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+}
+.local-document-controls p, .local-document-controls small, .local-ai-review p { flex-basis: 100%; margin: 0; }
+.local-document-controls select { max-width: min(65vw, 380px); }
+.local-document-controls label { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.local-document-controls select { min-height: 44px; padding: 8px 12px; border: 1px solid var(--demo-border); border-radius: 12px; color: var(--demo-ink); background: var(--demo-panel); }
+.local-document-controls small, .local-ai-review small { color: var(--demo-muted); font-size: .78rem; line-height: 1.5; }
+.local-document-controls p { color: var(--demo-muted); font-size: .86rem; }
+.local-ai-review { border: 1px solid var(--demo-border, #d8ded8); border-radius: 12px; }
+.local-ai-review h2 { width: 100%; margin: 0; font-size: 1.1rem; }
+.local-ai-review label, .local-ai-review > div { width: 100%; overflow-wrap: anywhere; }
+.local-ai-review label { display: block; min-height: 44px; padding: 8px 0; }
+.local-ai-review small { display: block; }
+@media (max-width: 760px) {
+  /* Keep the drawer's close control above the header after storage controls
+     or context review move that header further down the page. */
+  .demo-outline { z-index: 45; }
+}
