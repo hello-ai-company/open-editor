@@ -1,0 +1,39 @@
+.contextWorkbench { font: 16px/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif; }
+.contextHeader { display: flex; align-items: center; gap: 24px; padding: 16px 24px; border-bottom: 1px solid var(--demo-border); background: var(--demo-panel); }
+.contextHeader span { color: var(--demo-muted); font-size: 13px; }
+.contextBody { width: min(100%, 1120px); padding: 32px 24px 64px; margin: auto; }
+.contextBody h1 { margin: 8px 0 16px; font-size: clamp(28px, 4vw, 40px); line-height: 1.3; font-weight: 550; letter-spacing: normal; }
+.contextBody h2 { font-size: 24px; font-weight: 550; line-height: 1.3; margin: 0 0 16px; }
+.contextBody h3 { font-size: 18px; font-weight: 550; }
+.contextBody p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.contextBody small { display: block; color: var(--demo-muted); font-size: 13px; }
+.contextBoundary { margin: 24px 0; border-block: 1px solid var(--demo-border); padding: 24px; background: var(--demo-accent-soft); }
+.contextWorkbench button { min-height: 44px; padding: 8px 16px; border: 1px solid var(--demo-border); border-radius: 12px; color: var(--demo-ink); background: var(--demo-panel); cursor: pointer; font: inherit; }
+.contextWorkbench button:hover:not(:disabled) { background: var(--demo-accent-soft); }
+.contextWorkbench button:disabled { opacity: .5; cursor: default; }
+.contextWorkbench button:focus-visible, .contextWorkbench input:focus-visible, .contextWorkbench textarea:focus-visible, .contextWorkbench select:focus-visible, .contextWorkbench summary:focus-visible { outline: 2px solid var(--demo-accent); outline-offset: 3px; }
+.contextColumns, .contextDiff { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 32px; }
+.contextColumns > section { min-width: 0; }
+.contextSectionHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.contextSectionHeading span, .contextSaveStatus { font-size: 13px; color: var(--demo-muted); }
+.contextWorkbench label { display: grid; gap: 8px; }
+.contextWorkbench textarea { min-height: 280px; width: 100%; padding: 16px; border: 1px solid var(--demo-border); border-radius: 12px; background: var(--demo-panel); color: var(--demo-ink); resize: vertical; font: inherit; }
+.contextWorkbench input, .contextWorkbench select { max-width: 100%; min-height: 44px; color: var(--demo-ink); font: inherit; }
+.contextWorkbench input[type=file] { width: 100%; font-size: 13px; }
+.contextWorkbench input[type=file]::file-selector-button { padding: 8px 12px; min-height: 44px; border: 1px solid var(--demo-border); background: var(--demo-panel); color: var(--demo-ink); border-radius: 12px; margin-right: 8px; }
+.contextWorkbench select { background: var(--demo-panel); border: 1px solid var(--demo-border); border-radius: 12px; padding: 8px; }
+.contextWorkbench fieldset { min-width: 0; padding: 0; margin: 16px 0; border: 0; }
+.contextWorkbench legend { color: var(--demo-muted); font-size: 13px; margin-bottom: 8px; }
+.contextMemories > div { padding: 16px 0; border-top: 1px solid var(--demo-border); }
+.contextMemories label, .contextDiff label { display: flex; gap: 12px; align-items: flex-start; padding-block: 8px; min-height: 44px; cursor: pointer; }
+.contextMemories input, .contextDiff input { min-height: 0; flex: 0 0 auto; width: 18px; height: 18px; margin-top: 4px; accent-color: var(--demo-accent); }
+.contextMemories label > span, .contextDiff label > span { min-width: 0; }
+.contextMemories span span, .contextDiff span span, .contextDiff strong { display: block; margin-block: 4px; }
+.contextMemories strong { font-size: 13px; font-weight: 550; }
+.contextMemories summary { min-height: 44px; padding: 8px; color: var(--demo-accent); font-size: 13px; cursor: pointer; }
+.contextMemories details p { font-size: 13px; color: var(--demo-muted); }
+.contextActions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.contextReview { margin: 32px 0; padding-top: 32px; border-top: 1px solid var(--demo-border); }
+.contextDiff > div { min-width: 0; padding: 16px; background: var(--demo-panel); border: 1px solid var(--demo-border); border-radius: 12px; }
+.contextEmpty, .contextMessage { padding: 16px; background: var(--demo-panel); border: 1px solid var(--demo-border); border-radius: 12px; }
+@media (max-width: 760px) { .contextHeader { flex-wrap: wrap; padding: 12px; gap: 8px; } .contextBody { padding: 24px 16px 48px; } .contextColumns, .contextDiff { grid-template-columns: minmax(0,1fr); gap: 24px; } .contextBoundary { padding: 16px; } .contextBody h1 { font-size: 28px; } }
