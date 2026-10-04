@@ -89,7 +89,7 @@ export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedS
     return () => clearTimeout(timer.current);
   }, [dirty, saving, failure, save, status]);
   useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => { if (edited.current !== persisted.current) { event.preventDefault(); event.returnValue = ""; } };
+    const warn = (event: BeforeUnloadEvent) => { if (edited.current !== persisted.current || failureRef.current === "save_outcome_unknown") { event.preventDefault(); event.returnValue = ""; } };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, []);
@@ -97,7 +97,11 @@ export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedS
     if (JSON.stringify(content.current) === JSON.stringify(document)) return;
     content.current = document; edited.current++;
     setDirty(true); setStatus("Unsaved changes");
-  }, []);
+    // Repeated setDirty(true) does not rerender: reset on EACH real edit, rather
+    // than allowing the first edit's timer to save during continuous typing.
+    clearTimeout(timer.current);
+    if (!failureRef.current) timer.current = setTimeout(() => { void save(); }, 300);
+  }, [save]);
   const switchDocument = async (id: string) => {
     if (dirty || saving || navigationLatch.current) return;
     navigationLatch.current = true; setNavigating(true);
@@ -129,6 +133,13 @@ export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedS
       else { setFailure("document_conflict"); setStatus("Saved content differs. Your edits are kept here; choose a recovered copy or the saved version."); }
     } catch { setStatus("Saved version could not be confirmed. Your edits are kept here."); }
     finally { hostLatch.current = false; setHostBusy(false); }
+  };
+  const replaceWithSaved = async () => {
+    if (!current.current || pending.current || navigationLatch.current) return;
+    navigationLatch.current = true; setNavigating(true);
+    try { setCurrent(await store.load(current.current.id)); }
+    catch { setStatus("Saved version could not open. Your edits are kept."); }
+    finally { navigationLatch.current = false; setNavigating(false); }
   };
   const switchHost = () => {
     if (dirty || saving || failure || navigating) return;
@@ -162,7 +173,7 @@ export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedS
       {location.hostname === "127.0.0.1" ? <button className="chip" disabled={dirty || saving || Boolean(failure)} onClick={switchHost}>{host ? "Return to browser documents" : "Personal-AI local test"}</button> : null}
       <p role="status" data-testid="document-save-status">{status}</p>
       <small>{host ? "Synthetic documents are saved in the local SQLite host. This is a separate test account." : "This browser only. Clear site data removes local documents."} External pages and database rows remain host-owned.</small>
-      {failure ? <div role="alert"><button className="chip" onClick={() => { void create(true); }} disabled={saving}>Save edits as a new copy</button>{failure === "save_outcome_unknown" ? <button className="chip" onClick={() => { void reconcileSave(); }}>Check saved version</button> : failure === "document_conflict" ? <button className="chip" onClick={() => { void store.load(record.id).then(setCurrent).catch(() => setStatus("Saved version could not open. Your edits are kept.")); }}>Replace these edits with saved version</button> : <button className="chip" onClick={() => { void save(); }} disabled={saving}>Retry save</button>}</div> : null}
+      {failure ? <div role="alert"><button className="chip" onClick={() => { void create(true); }} disabled={saving}>Save edits as a new copy</button>{failure === "save_outcome_unknown" ? <button className="chip" onClick={() => { void reconcileSave(); }}>Check saved version</button> : failure === "document_conflict" ? <button className="chip" onClick={() => { void replaceWithSaved(); }}>Replace these edits with saved version</button> : <button className="chip" onClick={() => { void save(); }} disabled={saving}>Retry save</button>}</div> : null}
     </section>
     {host && hostRevision ? <LocalPersonalAiReview host={host} document={hostRevision} dirty={dirty} busy={saving || hostBusy} onAccept={hostCommit} onUndo={() => hostCommit()} /> : null}
     <SaveShortcut onSave={save} />

@@ -128,6 +128,9 @@ Verified using synthetic data and mock generation only:
   tabs and recovery copies; injected quota failure/retry; New document; 300-paragraph
   clipboard paste/reload; all modes; 320px; Reduced Motion; corrupt storage retention;
   actual loopback API partial double-click adoption, reload and history undo.
+- Continuous typing starts no host save; the quiet period produces one save and
+  retains the text on reload. Repeated rejection writes nothing; a later human
+  save invalidates the proposal; delayed explicit recovery locks editing.
 - A real API PUT was allowed to commit before its response was deliberately lost:
   human text survived, Cmd+S made no additional PUT, owner GET reconciled the saved
   body, and reload retained it.
@@ -160,13 +163,13 @@ about physical keyboard latency. Earlier historical measurements are not combine
 
 | Median | Retained R3 build | Current build |
 | --- | ---: | ---: |
-| Editor paint | 405.5ms | 358.4ms |
-| First contentful paint | 344ms | 152ms |
-| Normal input | 14.0ms | 18.3ms |
-| Input after insertion | 14.2ms | 15.3ms |
-| 500-block paste | 623ms | 546ms |
+| Editor paint | 405.5ms | 352.0ms |
+| First contentful paint | 344ms | 148ms |
+| Normal input | 14.0ms | 16.1ms |
+| Input after insertion | 14.2ms | 14.8ms |
+| 500-block paste | 623ms | 531ms |
 
 Startup and paste were faster in this run; input was slower. Durable validation and
 saving add work, and these measurements do not establish which change caused the
 difference or a universal speedup. Main JS grew from 1333.58kB/gzip401.79kB to
-1373.68kB/gzip414.44kB. The existing large-chunk warning remains.
+1373.91kB/gzip414.46kB. The existing large-chunk warning remains.
