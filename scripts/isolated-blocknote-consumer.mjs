@@ -236,8 +236,12 @@ import type {
   DatabaseFeedRowMediaRequest,
   DatabaseMapLocation,
   DatabaseMapLocationRequest,
+  DatabaseRuntimeStore,
   DatabaseRowMedia,
   DatabaseRowMediaRequest,
+  DatabaseViewConfigHydrationState,
+  DatabaseViewConfig,
+  DatabaseViewConfigProvider,
   DatabaseViewRuntime
 } from "@hello-ai-company/editor-blocknote";
 
@@ -303,11 +307,36 @@ const runtimeAll: DatabaseViewRuntime = {
   resolveMapLocation: mapResolver
 };
 
+const savedViewProvider: DatabaseViewConfigProvider = {
+  async load(databaseId: string, viewId: string): Promise<unknown | null> {
+    void databaseId;
+    void viewId;
+    return null;
+  },
+  async save(config: DatabaseViewConfig): Promise<void> {
+    const version: 1 = config.schemaVersion;
+    void version;
+  },
+  async list(databaseId: string) {
+    return [{ databaseId, viewId: "calendar-main", viewType: "calendar" }];
+  }
+};
+
+const runtimeWithSavedViews: DatabaseViewRuntime = {
+  databaseViewConfig: savedViewProvider
+};
+
+declare const databaseRuntimeStore: DatabaseRuntimeStore;
+databaseRuntimeStore.setQueryState?.("tasks::chart", {});
+const hydrationState: DatabaseViewConfigHydrationState = "metadata-unavailable";
+
 void runtime;
 void runtimeGalleryTyped;
 void runtimeFeed;
 void runtimeMap;
 void runtimeAll;
+void runtimeWithSavedViews;
+void hydrationState;
 `
   );
 

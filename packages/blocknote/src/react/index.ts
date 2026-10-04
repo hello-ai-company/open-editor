@@ -85,6 +85,11 @@ export {
   type PageMentionSuggestionItem
 } from "./pageMentionSuggestion.js";
 export {
+  DatabaseViewPicker,
+  type DatabaseViewPick,
+  type DatabaseViewPickerProps
+} from "./databaseViewPicker.js";
+export {
   createRelationIndex,
   type RelationIndex
 } from "../workspace/relationIndex.js";

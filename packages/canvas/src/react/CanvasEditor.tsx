@@ -1,4 +1,4 @@
-import { createElement, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactElement } from "react";
+import { createElement, Fragment, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactElement } from "react";
 import type { EditorBlock, EditorDocument } from "@hello-ai-company/editor-core";
 import {
   CANVAS_THEME_PRESETS,
@@ -53,6 +53,9 @@ type CanvasPointerDrag = {
 };
 
 const MAX_PREVIEW_TEXT = 4000;
+const MAX_PREVIEW_TABLE_ROWS = 40;
+const MAX_PREVIEW_TABLE_COLUMNS = 12;
+const MAX_PREVIEW_TABLE_CELL_TEXT = 300;
 const EMPTY_CANVAS_SPEC: CanvasLayoutSpec = {
   template: "report",
   breakpoints: { tablet: 768, desktop: 1024 },
@@ -64,9 +67,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function extractText(value: unknown): string {
+function titleHintFrom(value: unknown): string | undefined {
+  if (!isRecord(value) || typeof value.titleHint !== "string") return undefined;
+  const titleHint = value.titleHint.trim();
+  return titleHint ? titleHint.slice(0, MAX_PREVIEW_TEXT) : undefined;
+}
+
+function extractText(value: unknown, maxLength = MAX_PREVIEW_TEXT): string {
   const parts: string[] = [];
-  let remaining = MAX_PREVIEW_TEXT;
+  let remaining = maxLength;
   function visit(current: unknown): void {
     if (remaining <= 0) return;
     if (typeof current === "string") {
@@ -80,16 +89,16 @@ function extractText(value: unknown): string {
       return;
     }
     if (!isRecord(current)) return;
-    if (current.type === "pageMention" && isRecord(current.props) && typeof current.props.pageId === "string") {
-      visit(`@${current.props.pageId}`);
+    if (current.type === "pageMention" && isRecord(current.props)) {
+      visit(`@${titleHintFrom(current.props) ?? "Linked page"}`);
       return;
     }
-    if (current.type === "blockReference" && isRecord(current.props) && typeof current.props.blockId === "string") {
-      visit(`→ ${current.props.blockId}`);
+    if (current.type === "blockReference" && isRecord(current.props)) {
+      visit(`→ ${titleHintFrom(current.props) ?? "Referenced block"}`);
       return;
     }
-    if (current.type === "databaseRelation" && isRecord(current.props) && typeof current.props.databaseId === "string" && typeof current.props.rowId === "string") {
-      visit(`↗ ${current.props.databaseId}/${current.props.rowId}`);
+    if (current.type === "databaseRelation" && isRecord(current.props)) {
+      visit(`↗ ${titleHintFrom(current.props) ?? "Linked database row"}`);
       return;
     }
     if (typeof current.text === "string") {
@@ -103,6 +112,118 @@ function extractText(value: unknown): string {
   }
   visit(value);
   return parts.join("");
+}
+
+type ListBlock = EditorBlock & {
+  type: "bulletListItem" | "numberedListItem" | "checkListItem";
+};
+
+function isListBlock(block: EditorBlock): block is ListBlock {
+  return block.type === "bulletListItem" || block.type === "numberedListItem" || block.type === "checkListItem";
+}
+
+function visibleChildren(block: EditorBlock, references: ReadonlySet<string>): EditorBlock[] {
+  return (block.children ?? []).filter((child) => !references.has(child.id));
+}
+
+function contentForBlocks(blocks: readonly EditorBlock[], references: ReadonlySet<string>): ReactElement[] {
+  const result: ReactElement[] = [];
+  for (let index = 0; index < blocks.length; index += 1) {
+    const block = blocks[index]!;
+    if (!isListBlock(block)) {
+      result.push(<Fragment key={block.id}>{contentForBlock(block, references)}</Fragment>);
+      continue;
+    }
+
+    const listType = block.type;
+    const items: ListBlock[] = [];
+    while (blocks[index] && isListBlock(blocks[index]!) && blocks[index]!.type === listType) {
+      items.push(blocks[index]! as ListBlock);
+      index += 1;
+    }
+    index -= 1;
+
+    const itemElements = items.map((item) => {
+      const text = extractText(item.content) || extractText(item.props?.text);
+      const nested = contentForBlocks(visibleChildren(item, references), references);
+      return (
+        <li key={item.id}>
+          {listType === "checkListItem" ? (
+            <input
+              type="checkbox"
+              checked={item.props?.checked === true}
+              disabled
+              aria-label={text ? `Checklist item: ${text}` : "Checklist item"}
+            />
+          ) : null}
+          {text ? <span>{text}</span> : null}
+          {nested.length > 0 ? <div className="oe-canvas__nested-content">{nested}</div> : null}
+        </li>
+      );
+    });
+
+    result.push(listType === "numberedListItem"
+      ? <ol key={items[0]?.id}>{itemElements}</ol>
+      : <ul key={items[0]?.id} className={listType === "checkListItem" ? "oe-canvas__checklist" : undefined}>{itemElements}</ul>);
+  }
+  return result;
+}
+
+function tablePreview(block: EditorBlock): ReactElement | null {
+  const content = block.content;
+  if (!isRecord(content) || content.type !== "tableContent" || !Array.isArray(content.rows)) return null;
+
+  const sourceRows = content.rows.flatMap((row): Array<{ cells: unknown[] }> => {
+    if (!isRecord(row) || !Array.isArray(row.cells)) return [];
+    return [{ cells: row.cells }];
+  });
+  const rows = sourceRows.slice(0, MAX_PREVIEW_TABLE_ROWS);
+  if (rows.length === 0) return null;
+  const columnCount = Math.min(MAX_PREVIEW_TABLE_COLUMNS, Math.max(0, ...rows.map((row) => row.cells.length)));
+  if (columnCount === 0) return null;
+
+  const headerRows = typeof content.headerRows === "number" && Number.isInteger(content.headerRows)
+    ? Math.max(0, Math.min(content.headerRows, rows.length))
+    : 0;
+  const headerCols = typeof content.headerCols === "number" && Number.isInteger(content.headerCols)
+    ? Math.max(0, Math.min(content.headerCols, columnCount))
+    : 0;
+  const title = titleHintFrom(block.props);
+  const truncated = content.rows.length > rows.length || sourceRows.some((row) => row.cells.length > columnCount);
+  const renderRow = (row: { cells: unknown[] }, rowIndex: number, inHeader: boolean) => {
+    const cells = row.cells.slice(0, columnCount);
+    return (
+      <tr key={`${block.id}-row-${rowIndex}`}>
+        {Array.from({ length: columnCount }, (_, columnIndex) => {
+          const value = extractText(cells[columnIndex], MAX_PREVIEW_TABLE_CELL_TEXT);
+          const isHeader = inHeader || columnIndex < headerCols;
+          const key = `${block.id}-${rowIndex}-${columnIndex}`;
+          const scope = (inHeader ? "col" : "row") as "col" | "row";
+          return isHeader ? <th key={key} scope={scope}>{value}</th> : <td key={key}>{value}</td>;
+        })}
+      </tr>
+    );
+  };
+
+  return (
+    <div className="oe-canvas__table-wrap" role="region" aria-label={title ? `${title} table preview` : "Table preview"} tabIndex={0}>
+      <table className="oe-canvas__table">
+        {title ? <caption>{title}</caption> : null}
+        {headerRows > 0 ? <thead>{rows.slice(0, headerRows).map((row, index) => renderRow(row, index, true))}</thead> : null}
+        <tbody>{rows.slice(headerRows).map((row, index) => renderRow(row, index + headerRows, false))}</tbody>
+      </table>
+      {truncated ? <p className="oe-canvas__table-note" role="status">Table preview shortened.</p> : null}
+    </div>
+  );
+}
+
+function staticPlaceholder(label: string, detail?: string): ReactElement {
+  return (
+    <div className="oe-canvas__placeholder" role="note">
+      <strong>{label}</strong>
+      {detail ? <span>{detail}</span> : null}
+    </div>
+  );
 }
 
 function flattenDocument(blocks: readonly EditorBlock[]): Map<string, EditorBlock> {
@@ -246,11 +367,15 @@ function safeImageSource(value: unknown): string | undefined {
 }
 
 function contentForBlock(block: EditorBlock, references: ReadonlySet<string>): ReactElement {
+  if (isListBlock(block)) return <>{contentForBlocks([block], references)}</>;
+
   const text = extractText(block.content) || extractText(block.props?.text);
   const type = block.type.toLowerCase();
   let main: ReactElement;
   if (type === "divider" || type === "horizontalrule") {
     main = <>{createElement("hr", { className: "oe-canvas__divider" })}{text ? <p>{text}</p> : null}</>;
+  } else if (type === "table") {
+    main = tablePreview(block) ?? staticPlaceholder("Table preview unavailable");
   } else if (type === "image") {
     const src = safeImageSource(block.props?.url ?? block.props?.src);
     const alt = typeof block.props?.alt === "string" ? block.props.alt : text;
@@ -264,17 +389,40 @@ function contentForBlock(block: EditorBlock, references: ReadonlySet<string>): R
     main = <blockquote>{text}</blockquote>;
   } else if (type === "code" || type === "codeblock") {
     main = <pre><code>{text}</code></pre>;
+  } else if (type === "callout") {
+    const variant = ["info", "warning", "success", "danger"].includes(String(block.props?.variant))
+      ? String(block.props?.variant)
+      : "info";
+    const title = typeof block.props?.title === "string" ? block.props.title : "";
+    main = (
+      <aside className={`oe-canvas__callout oe-canvas__callout--${variant}`} role="note">
+        {title ? <strong className="oe-canvas__callout-title">{title}</strong> : null}
+        <div>{text}</div>
+      </aside>
+    );
+  } else if (type === "status") {
+    const state = typeof block.props?.state === "string" ? block.props.state : "todo";
+    const labels: Record<string, string> = { todo: "To do", doing: "Doing", done: "Done", blocked: "Blocked" };
+    const label = typeof block.props?.label === "string" && block.props.label.trim()
+      ? block.props.label
+      : labels[state] ?? "Status unavailable";
+    main = <span className="oe-canvas__status" data-status={state} role="status">{label}</span>;
+  } else if (type === "pagecard" || type === "childpage" || type === "pagetransclusion") {
+    main = staticPlaceholder("Linked page", titleHintFrom(block.props) ?? "Page content is not included in this preview.");
+  } else if (type === "databaseview") {
+    main = staticPlaceholder(titleHintFrom(block.props) ?? "Database view", "Rows are host-owned and are not included in this preview.");
   } else if (type === "button") {
     main = <span className="oe-canvas__button-preview">{text || "Button"}</span>;
   } else if (type === "chart" || type === "chartplaceholder" || type === "embed" || type === "webembed" || type === "video" || type === "audio") {
     const label = typeof block.props?.title === "string" ? block.props.title : type === "chart" || type === "chartplaceholder" ? "Chart" : "Embed";
     main = <div className="oe-canvas__placeholder" role="img" aria-label={`${label} preview`}>{text || `${label} preview`}</div>;
   } else {
-    main = <p>{text}</p>;
+    main = staticPlaceholder("Content preview", text || titleHintFrom(block.props) || "This content type is shown as a static placeholder.");
   }
 
-  const unplacedChildren = (block.children ?? []).filter((child) => !references.has(child.id));
-  return <>{main}{unplacedChildren.length > 0 ? <div className="oe-canvas__nested-content">{unplacedChildren.map((child) => <div className="oe-canvas__nested-block" key={child.id}>{contentForBlock(child, references)}</div>)}</div> : null}</>;
+  const unplacedChildren = visibleChildren(block, references);
+  const nested = contentForBlocks(unplacedChildren, references);
+  return <>{main}{nested.length > 0 ? <div className="oe-canvas__nested-content">{nested}</div> : null}</>;
 }
 
 function renderBlockElement(
@@ -343,6 +491,10 @@ const CANVAS_CSS = `
 .oe-canvas__group[data-kind=frame]{box-shadow:0 5px 18px rgb(25 35 27 / 8%)}
 .oe-canvas__card{min-width:0;padding:var(--oe-canvas-space-md);border:1px solid var(--oe-canvas-border);border-radius:var(--oe-canvas-radius);background:var(--oe-canvas-surface)}
 .oe-canvas__image{margin:0}.oe-canvas__image img{display:block;width:100%;height:auto;max-height:420px;object-fit:cover;border-radius:calc(var(--oe-canvas-radius) * .75)}.oe-canvas__image figcaption{margin-top:8px;color:var(--oe-canvas-muted);font-size:.9em}
+.oe-canvas__callout{display:grid;gap:var(--oe-canvas-space-xs);padding:var(--oe-canvas-space-md);border-inline-start:3px solid var(--oe-canvas-accent);border-radius:8px;background:var(--oe-canvas-surface)}.oe-canvas__callout--warning{border-inline-start-color:#a16207}.oe-canvas__callout--success{border-inline-start-color:#15803d}.oe-canvas__callout--danger{border-inline-start-color:#b91c1c}.oe-canvas__callout-title{font-weight:650}
+.oe-canvas__status{display:inline-flex;min-height:28px;align-items:center;border:1px solid var(--oe-canvas-border);border-radius:999px;background:var(--oe-canvas-surface);padding:3px 10px;font-size:.85em;font-weight:600}.oe-canvas__status[data-status=done]{border-color:#15803d}.oe-canvas__status[data-status=blocked]{border-color:#b91c1c}
+.oe-canvas__checklist{list-style:none;padding-inline-start:0}.oe-canvas__checklist input{margin-inline-end:.45rem}
+.oe-canvas__table-wrap{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}.oe-canvas__table-wrap:focus-visible{outline:3px solid var(--oe-canvas-accent);outline-offset:2px}.oe-canvas__table{width:100%;border-collapse:collapse;text-align:left}.oe-canvas__table caption{text-align:left;font-weight:650}.oe-canvas__table th,.oe-canvas__table td{min-width:5rem;border:1px solid var(--oe-canvas-border);padding:.4rem .55rem;vertical-align:top}.oe-canvas__table-note{margin:.35rem 0;color:var(--oe-canvas-muted);font-size:.85em}
 .oe-canvas__divider{height:0;border:0;border-top:1px solid var(--oe-canvas-border);margin:var(--oe-canvas-space-md) 0}
 .oe-canvas__button-preview{display:inline-flex;align-items:center;min-height:40px;border-radius:999px;background:var(--oe-canvas-accent);color:var(--oe-canvas-accent-ink);padding:8px 16px;font-weight:600}
 .oe-canvas__placeholder{display:grid;min-height:100px;place-items:center;border:1px dashed var(--oe-canvas-border);border-radius:var(--oe-canvas-radius);background:var(--oe-canvas-surface);color:var(--oe-canvas-muted);padding:18px;text-align:center}

@@ -34,16 +34,17 @@ export function DashboardRenderer(
   const dateEligible = listDashboardDateProperties(definitions);
 
   const [categoricalId, setCategoricalId] = useState<string | null>(
-    () => resolveDashboardCategoricalProperty(definitions, null)?.id ?? null
+    () => ctx.viewConfig?.dashboard?.categoricalPropertyId ?? resolveDashboardCategoricalProperty(definitions, null)?.id ?? null
   );
   const [numericId, setNumericId] = useState<string | null>(
-    () => resolveDashboardNumericProperty(definitions, null)?.id ?? null
+    () => ctx.viewConfig?.dashboard?.numericPropertyId ?? resolveDashboardNumericProperty(definitions, null)?.id ?? null
   );
   const [dateId, setDateId] = useState<string | null>(
-    () => resolveDashboardDateProperty(definitions, null)?.id ?? null
+    () => ctx.viewConfig?.dashboard?.datePropertyId ?? resolveDashboardDateProperty(definitions, null)?.id ?? null
   );
 
   useEffect(() => {
+    if (snap.status === "loading" || snap.metaStatus === "idle" || snap.metaStatus === "loading") return;
     const next =
       resolveDashboardCategoricalProperty(definitions, categoricalId)?.id ??
       null;
@@ -51,12 +52,14 @@ export function DashboardRenderer(
   }, [definitions, categoricalId]);
 
   useEffect(() => {
+    if (snap.status === "loading" || snap.metaStatus === "idle" || snap.metaStatus === "loading") return;
     const next =
       resolveDashboardNumericProperty(definitions, numericId)?.id ?? null;
     if (next !== numericId) setNumericId(next);
   }, [definitions, numericId]);
 
   useEffect(() => {
+    if (snap.status === "loading" || snap.metaStatus === "idle" || snap.metaStatus === "loading") return;
     const next =
       resolveDashboardDateProperty(definitions, dateId)?.id ?? null;
     if (next !== dateId) setDateId(next);
@@ -121,7 +124,11 @@ export function DashboardRenderer(
             <select
               aria-label="Dashboard categorical property"
               value={categorical?.id ?? ""}
-              onChange={(event) => setCategoricalId(event.target.value)}
+              onChange={(event) => {
+                const propertyId = event.target.value || null;
+                setCategoricalId(propertyId);
+                ctx.onViewConfigChange?.({ dashboard: { categoricalPropertyId: propertyId } });
+              }}
             >
               {categoricalEligible.map((def) => (
                 <option key={def.id} value={def.id}>
@@ -137,7 +144,11 @@ export function DashboardRenderer(
             <select
               aria-label="Dashboard numeric property"
               value={numeric?.id ?? ""}
-              onChange={(event) => setNumericId(event.target.value)}
+              onChange={(event) => {
+                const propertyId = event.target.value || null;
+                setNumericId(propertyId);
+                ctx.onViewConfigChange?.({ dashboard: { numericPropertyId: propertyId } });
+              }}
             >
               {numericEligible.map((def) => (
                 <option key={def.id} value={def.id}>
@@ -153,7 +164,11 @@ export function DashboardRenderer(
             <select
               aria-label="Dashboard date property"
               value={dateProperty?.id ?? ""}
-              onChange={(event) => setDateId(event.target.value)}
+              onChange={(event) => {
+                const propertyId = event.target.value || null;
+                setDateId(propertyId);
+                ctx.onViewConfigChange?.({ dashboard: { datePropertyId: propertyId } });
+              }}
             >
               {dateEligible.map((def) => (
                 <option key={def.id} value={def.id}>

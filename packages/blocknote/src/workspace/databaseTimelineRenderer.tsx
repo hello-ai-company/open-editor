@@ -54,10 +54,11 @@ export function TimelineRenderer(
 
   const eligible = listCalendarDateProperties(definitions);
   const [datePropertyId, setDatePropertyId] = useState<string | null>(
-    () => resolveCalendarDateProperty(definitions, null)?.id ?? null
+    () => ctx.viewConfig?.timeline?.datePropertyId ?? resolveCalendarDateProperty(definitions, null)?.id ?? null
   );
 
   useEffect(() => {
+    if (snap.status === "loading" || snap.metaStatus === "idle" || snap.metaStatus === "loading") return;
     const resolved = resolveCalendarDateProperty(definitions, datePropertyId);
     const nextId = resolved?.id ?? null;
     if (nextId !== datePropertyId) {
@@ -318,7 +319,11 @@ export function TimelineRenderer(
             <select
               aria-label="Timeline date property"
               value={dateProperty?.id ?? ""}
-              onChange={(event) => setDatePropertyId(event.target.value)}
+              onChange={(event) => {
+                const propertyId = event.target.value || null;
+                setDatePropertyId(propertyId);
+                ctx.onViewConfigChange?.({ timeline: { datePropertyId: propertyId } });
+              }}
             >
               {eligible.map((def) => (
                 <option key={def.id} value={def.id}>

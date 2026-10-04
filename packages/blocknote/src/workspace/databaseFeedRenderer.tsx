@@ -51,10 +51,11 @@ export function FeedRenderer(
 
   const eligible = listFeedDateProperties(definitions);
   const [datePropertyId, setDatePropertyId] = useState<string | null>(
-    () => resolveFeedDateProperty(definitions, null)?.id ?? null
+    () => ctx.viewConfig?.feed?.datePropertyId ?? resolveFeedDateProperty(definitions, null)?.id ?? null
   );
 
   useEffect(() => {
+    if (snap.status === "loading" || snap.metaStatus === "idle" || snap.metaStatus === "loading") return;
     const resolved = resolveFeedDateProperty(definitions, datePropertyId);
     const nextId = resolved?.id ?? null;
     if (nextId !== datePropertyId) {
@@ -84,7 +85,11 @@ export function FeedRenderer(
             <select
               aria-label="Feed date property"
               value={dateProperty?.id ?? ""}
-              onChange={(event) => setDatePropertyId(event.target.value)}
+              onChange={(event) => {
+                const propertyId = event.target.value || null;
+                setDatePropertyId(propertyId);
+                ctx.onViewConfigChange?.({ feed: { datePropertyId: propertyId } });
+              }}
             >
               {eligible.map((def) => (
                 <option key={def.id} value={def.id}>

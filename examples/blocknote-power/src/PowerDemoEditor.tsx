@@ -27,6 +27,7 @@ import {
 import {
   BacklinksPanel,
   BlockActionMenu,
+  DatabaseViewPicker,
   createPageMentionSuggestionGetItems,
   DocumentOutline,
   jumpToBlock,
@@ -34,6 +35,7 @@ import {
   useQuickNavShortcut,
   WorkspacePagePicker
 } from "@hello-ai-company/editor-blocknote/react";
+import type { DatabaseViewPick } from "@hello-ai-company/editor-blocknote/react";
 import type { SuggestionGroup } from "@hello-ai-company/editor-ai";
 import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createMagicLayoutSpec } from "@hello-ai-company/editor-canvas";
@@ -47,6 +49,7 @@ import {
 import {
   createEditorDocument,
   serializeEditorDocument,
+  type EditorDatabase,
   type EditorDocument
 } from "@hello-ai-company/editor-core";
 import {
@@ -56,6 +59,7 @@ import {
 } from "./demoProviders";
 import { sampleDocument } from "./sampleDocument";
 import type { EditorPageLink } from "@hello-ai-company/editor-core";
+import { createCanvasPublicationOptions } from "./canvasPublication";
 
 const CanvasEditor = lazy(() =>
   import("@hello-ai-company/editor-canvas/react").then(({ CanvasEditor }) => ({
@@ -157,6 +161,12 @@ export function PowerDemoEditor() {
   >(null);
   const [pickOpen, setPickOpen] = useState(false);
   const [pickExclude, setPickExclude] = useState<readonly string[]>([]);
+  const databasePickResolverRef = useRef<((pick: DatabaseViewPick | null) => void) | null>(null);
+  const databasePickRequestRef = useRef(0);
+  const [databasePickOpen, setDatabasePickOpen] = useState(false);
+  const [databasePickLoading, setDatabasePickLoading] = useState(false);
+  const [databasePickError, setDatabasePickError] = useState<string | undefined>();
+  const [availableDatabases, setAvailableDatabases] = useState<EditorDatabase[]>([]);
 
   const pagePickResolverRef = useRef<
     ((page: { pageId: string; title?: string } | null) => void) | null
@@ -222,6 +232,7 @@ export function PowerDemoEditor() {
       childPageRuntime: runtimes.childPageRuntime,
       databaseViewRuntime: {
         database: databaseProvider,
+        databaseViewConfig: databaseProvider.databaseViewConfig,
         store: databaseRuntimeStore,
         onOpenRow: (request) => {
           setLastOpenedRow(
@@ -377,13 +388,37 @@ export function PowerDemoEditor() {
     });
   }, []);
 
-  const requestDatabaseViewPick = useCallback(async () => {
-    return {
-      databaseId: "tasks",
-      viewId: "main-table",
-      viewType: "table" as const,
-      titleHint: "Tasks"
-    };
+  const requestDatabaseViewPick = useCallback(() => {
+    return new Promise<DatabaseViewPick | null>((resolve) => {
+      databasePickResolverRef.current?.(null);
+      databasePickResolverRef.current = resolve;
+      const requestId = ++databasePickRequestRef.current;
+      setPaletteOpen(false);
+      requestAnimationFrame(() => {
+        if (requestId === databasePickRequestRef.current) setDatabasePickOpen(true);
+      });
+      setDatabasePickLoading(true);
+      setDatabasePickError(undefined);
+      void databaseProvider.listDatabases()
+        .then((databases) => {
+          if (requestId === databasePickRequestRef.current) setAvailableDatabases(databases);
+        })
+        .catch((error: unknown) => {
+          if (requestId !== databasePickRequestRef.current) return;
+          setAvailableDatabases([]);
+          setDatabasePickError(error instanceof Error ? error.message : "Could not load host databases.");
+        })
+        .finally(() => {
+          if (requestId === databasePickRequestRef.current) setDatabasePickLoading(false);
+        });
+    });
+  }, [databaseProvider]);
+
+  const closeDatabasePick = useCallback((pick: DatabaseViewPick | null) => {
+    databasePickRequestRef.current += 1;
+    databasePickResolverRef.current?.(pick);
+    databasePickResolverRef.current = null;
+    setDatabasePickOpen(false);
   }, []);
 
   const ctx = useMemo(
@@ -598,9 +633,14 @@ export function PowerDemoEditor() {
     void import("@hello-ai-company/editor-publish")
       .then(({ renderOpenEditorPresentation, renderOpenEditorSite }) => {
         if (cancelled) return;
+        const options = createCanvasPublicationOptions(
+          "Workspace primitives",
+          canvasSpec,
+          canvasViewState
+        );
         const html = mode === "present"
-          ? renderOpenEditorPresentation(previewDocument, { title: "Workspace primitives" })
-          : renderOpenEditorSite(previewDocument, { title: "Workspace primitives" });
+          ? renderOpenEditorPresentation(previewDocument, options)
+          : renderOpenEditorSite(previewDocument, options);
         setPublishedPreview({ mode, document: previewDocument, html });
       })
       .catch((error: unknown) => {
@@ -614,7 +654,7 @@ export function PowerDemoEditor() {
     return () => {
       cancelled = true;
     };
-  }, [mode, previewDocument]);
+  }, [mode, previewDocument, canvasSpec, canvasViewState]);
 
   const activePublishedPreview =
     (mode === "present" || mode === "site") &&
@@ -998,6 +1038,13 @@ export function PowerDemoEditor() {
         onOpenChange={setNavOpen}
         index={index}
         editor={editor as never}
+      />
+      <DatabaseViewPicker
+        open={databasePickOpen}
+        databases={availableDatabases}
+        loading={databasePickLoading}
+        errorMessage={databasePickError}
+        onPick={closeDatabasePick}
       />
       <ReferencePicker
         open={pickOpen}

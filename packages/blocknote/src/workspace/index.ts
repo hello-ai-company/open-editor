@@ -176,9 +176,26 @@ export {
   type DatabaseViewQueryState,
   type DatabaseViewSnapshot,
   type DatabaseViewStatus,
+  type DatabaseViewInitialQueryState,
   type DatabaseSortBy,
   type DatabaseSortDirection
 } from "./databaseRuntimeStore.js";
+
+export {
+  createDefaultDatabaseViewConfig,
+  validateDatabaseViewConfig,
+  loadDatabaseViewHydration,
+  patchDatabaseViewConfig,
+  createDatabaseViewConfigWriter,
+  listDatabaseViewConfigIdentities,
+  validateDatabaseViewConfigIdentities,
+  type DatabaseViewConfig,
+  type DatabaseViewConfigHydration,
+  type DatabaseViewConfigIdentity,
+  type DatabaseViewConfigProvider,
+  type DatabaseViewConfigHydrationState,
+  type DatabaseViewConfigValidation
+} from "./databaseViewConfig.js";
 
 export {
   buildCreateRowPayload,

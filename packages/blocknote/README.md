@@ -46,6 +46,51 @@ const power = createOpenEditorPowerPreset({
 | `./code` | Optional Shiki syntax highlighting |
 | `./power.css` | OpenEditor-owned UI styles |
 
+## Host-owned saved database views
+
+Database presentation settings are optional host-owned state. Pass a
+`DatabaseViewConfigProvider` through `DatabaseViewRuntime.databaseViewConfig`
+(or as the third argument to `createDatabaseViewRuntimeFromStore`). The
+provider stores one versioned config per database and view identity; it does
+not change `EditorDocument` or the editor-core database model.
+
+```ts
+import type { DatabaseViewConfig, DatabaseViewConfigProvider } from
+  "@hello-ai-company/editor-blocknote";
+
+const configs = new Map<string, DatabaseViewConfig>();
+const key = (databaseId: string, viewId: string) => JSON.stringify([databaseId, viewId]);
+const databaseViewConfig: DatabaseViewConfigProvider = {
+  async load(databaseId, viewId) {
+    return configs.get(key(databaseId, viewId)) ?? null;
+  },
+  async save(config) {
+    configs.set(key(config.databaseId, config.viewId), config);
+  },
+  async list(databaseId) {
+    return [...configs.values()]
+      .filter((config) => config.databaseId === databaseId)
+      .map(({ databaseId, viewId, viewType }) => ({ databaseId, viewId, viewType }));
+  }
+};
+```
+
+`load` is validated before the initial row query. Property-bound filters,
+sorts, and renderer selectors are checked against current database metadata.
+The optional `list(databaseId)` returns only view identities and lets hosts
+discover generated view IDs that are not present in `EditorDatabase.views`.
+If a load succeeds with no config, OpenEditor saves a validated default so the
+new view can be listed. Saves contain query, filters, sort, and presentation
+selectors only; row data, trash, pagination, focus, and loading state are never
+part of `DatabaseViewConfig`. A save failure leaves the current view usable
+and exposes a retry action.
+
+If `load` fails, or property metadata needed to validate a saved setting is
+unavailable, OpenEditor shows a local fallback and blocks config writes until
+an explicit retry successfully rehydrates the view. `+ View` is enabled only
+when the host implements both `save` and `list`; registration is confirmed by
+rediscovery before the editor switches to the new identity.
+
 ## License boundary
 
 - Never depend on `@blocknote/xl-*`

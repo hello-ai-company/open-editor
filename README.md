@@ -66,6 +66,17 @@ Public shape: **Small Core + Adapters + Docs + Examples**.
 
 See [docs/architecture.md](./docs/architecture.md), [docs/AI_INTEGRATION.md](./docs/AI_INTEGRATION.md), [docs/AGENT_INTEGRATION.md](./docs/AGENT_INTEGRATION.md), [docs/CANVAS.md](./docs/CANVAS.md), [docs/PUBLISHING.md](./docs/PUBLISHING.md), [docs/PLUGIN_API.md](./docs/PLUGIN_API.md), [docs/SECURITY.md](./docs/SECURITY.md), and [docs/MIGRATION.md](./docs/MIGRATION.md).
 
+## Product mode map
+
+| Mode | Current capability | Boundary |
+| --- | --- | --- |
+| **Document** | BlockNote editing, workspace references, and host-backed database views | Host providers own entity metadata, row data, persistence, and access control. |
+| **Canvas** | Responsive layout editing, inspector controls, and static semantic previews | Workspace references use safe labels/placeholders; database rows are never loaded into Canvas. Pointer dragging applies to positioned items; there are no resize handles. |
+| **Present** | Accessible static slide player from allowlisted content or Canvas frames | Uses the Publish projection; unsupported/private blocks and workspace references are omitted. |
+| **Site** | Static allowlisted HTML with optional responsive Canvas layout | Does not fetch host metadata or database rows; unsupported/private content is omitted. |
+
+See the [cross-mode compatibility matrix](./docs/cross-mode-compatibility.md) for per-block behavior and the intentionally lossy static projections.
+
 ## Roadmap
 
 The published 0.x core and BlockNote lines remain stable at their current versions. The R3 source adds opt-in AI, Canvas, and publishing packages:
