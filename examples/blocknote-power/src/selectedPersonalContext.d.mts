@@ -1,0 +1,16 @@
+export type SelectedMemory = { memory_id: string; version: number; kind: string; assertion: string; content: string; rationale: string; source_turn_id: string; source_date: string; recording_source: Record<string, unknown> | null };
+export type SelectedContext = { schema_version: 1; document_id: string; document_version: number; document_title: string; created_at: string; usage: "one_document_snapshot_requires_revalidation"; memories: SelectedMemory[] };
+export type ReviewState = { schema_version: 1; document_id: string; version: number; text: string; proposal: { base: string; base_version: number; text: string; context: SelectedContext } | null; undo: { before: string; after: string; after_version: number; context: SelectedContext } | null };
+export type VerifyRequest = { document_id: string; document_version: number; memories: { memory_id: string; version: number }[] };
+export type HostVerifier = (request: VerifyRequest) => Promise<SelectedContext>;
+export const syntheticDocumentID: string;
+export function parseContext(raw: unknown): SelectedContext;
+export function newState(): ReviewState;
+export function edit(state: ReviewState, value: string): ReviewState;
+export function propose(state: ReviewState, context: SelectedContext, verifier?: HostVerifier): Promise<ReviewState>;
+export function accept(state: ReviewState, verifier?: HostVerifier, selectedIds?: string[]): Promise<ReviewState>;
+export function reject(state: ReviewState): ReviewState;
+export function undo(state: ReviewState): ReviewState;
+export function restore(raw: string): ReviewState;
+export function syntheticContext(version?: number): SelectedContext;
+export const syntheticVerifier: HostVerifier;

@@ -1,0 +1,9 @@
+Original asset provenance and reuse
+
+This kit was created for the requesting user on 4 October 2026 with procedural Blender modeling, original materials, lighting, animation, scripts, and integration guidance. No external models, photographs, texture maps, logos, stock motion, or audio are included in the Blender visual assets. No font files are redistributed. The labeled overview rasterizes installed DejaVu Sans text; the HTML preview uses system fonts. Blender and FFmpeg were used as tools; those applications are not redistributed in this kit.
+
+To the extent rights exist in these generated assets and authored source files, the requesting user is permitted to use, copy, modify, combine, distribute, sublicense, and sell them, including in Personal AI, OpenEditor, commercial products, and private work. No attribution is required for this kit. This statement makes no assertion that an AI-generated work is independently copyrightable in every jurisdiction or that similar simple geometric forms cannot exist elsewhere.
+
+The supplied files are provided as-is, without warranties of fitness, merchantability, non-infringement, device performance, or uninterrupted compatibility. The creator has not searched all existing artwork or trademarks. Review the actual target integration, accessibility, and performance before release.
+
+No personal data or third-party confidential content is embedded in the assets. The modeled shapes are abstract decorative objects and do not represent live application data, processing progress, microphone input, or completed work.

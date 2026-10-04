@@ -10,7 +10,7 @@
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present && npm run test:type-exports && npm run test:release-guards && npm run test:demo-ai-state && npm run test:canvas-publication",
-    "test:demo-ai-state": "node --test examples/blocknote-power/test/demo-ai-state.test.mjs",
+    "test:demo-ai-state": "node --test examples/blocknote-power/test/demo-ai-state.test.mjs examples/blocknote-power/test/selected-personal-context.test.mjs",
     "test:type-exports": "node --test scripts/lib/type-exports.test.mjs",
     "test:release-guards": "node --test scripts/release/validate-public-core-release.test.mjs scripts/release/validate-public-blocknote-release.test.mjs scripts/release/publish-public-blocknote-workflow.test.mjs scripts/release/validate-public-package-release.test.mjs scripts/release/publish-public-package-workflows.test.mjs scripts/release/prepare-first-public-release.test.mjs scripts/release/verify-public-package-published.test.mjs scripts/release/expected-tarball-files.test.mjs scripts/lib/core-registry-probe.test.mjs scripts/lib/tarball.test.mjs",
     "test:canvas-publication": "vitest run --config examples/blocknote-power/vitest.config.ts",
