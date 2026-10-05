@@ -85,6 +85,20 @@ describe("Bounded ahead collaboration", () => {
     expect(() => session.resume()).toThrow();
     expect(session.getSnapshot().runsUsed).toBe(3);
   });
+  it("treats distinct Unicode property keys consistently during adoption and Undo", async () => {
+    const source: EditorDocument = { schemaVersion: 1, blocks: [{ id: "human", type: "paragraph", props: { "é": 1, "e\u0301": 2 } }] };
+    const session = fixture().create({ document: source }); session.start("Explain"); await tick(); await session.pause();
+    const reordered: EditorDocument = { schemaVersion: 1, blocks: [{ id: "human", type: "paragraph", props: { "e\u0301": 2, "é": 1 } }] };
+    session.updateDocument(reordered);
+    expect(session.getSnapshot().revision).toBe(0);
+    let adopted!: EditorDocument;
+    session.adopt(session.getSnapshot().proposals[0]!.group.id, [0], reordered, (_expected, next) => { adopted = next; return true; }, "human");
+    expect(adopted.blocks[0]!.props).toEqual(source.blocks[0]!.props);
+    const writer = vi.fn(() => true);
+    session.undo(adopted, writer); expect(writer).toHaveBeenCalledTimes(1);
+    const changed: EditorDocument = { ...reordered, blocks: [{ ...reordered.blocks[0]!, props: { "é": 2, "e\u0301": 1 } }] };
+    session.updateDocument(changed); expect(session.getSnapshot().revision).toBe(3);
+  });
   it("cancels stale work and ignores a buffered old response after a human edit", async () => {
     const host = fixture({ hold: true }), session = host.create();
     session.start("Explain"); await tick();
@@ -114,6 +128,28 @@ describe("Bounded ahead collaboration", () => {
     expect(session.getSnapshot().proposals).toHaveLength(0);
     expect(() => session.resume()).toThrow();
     expect(host.requests).toHaveLength(1);
+  });
+  it.each(["cancel-first", "pause-first"] as const)("keeps cancellation terminal when stops overlap: %s", async order => {
+    const host = fixture({ hold: true });
+    let acknowledge!: () => void;
+    host.cancel.mockImplementation(() => new Promise<void>(resolve => { acknowledge = resolve; }));
+    const session = host.create(); session.start("Explain"); await tick();
+    const first = order === "cancel-first" ? session.cancel() : session.pause();
+    await tick();
+    const second = order === "cancel-first" ? session.pause() : session.cancel();
+    expect(() => session.resume()).toThrow();
+    acknowledge(); await Promise.all([first, second]); await tick();
+    expect(session.getSnapshot().status).toBe("cancelled");
+    await session.pause();
+    expect(session.getSnapshot().status).toBe("cancelled");
+    expect(() => session.resume()).toThrow();
+    expect(() => session.refine("Try again")).toThrow();
+    host.releases[0]!(); await tick();
+    expect(host.requests).toHaveLength(1);
+    expect(host.cancel).toHaveBeenCalledTimes(1);
+    expect(session.getSnapshot().proposals).toHaveLength(0);
+    session.start("A new explicit goal"); await tick();
+    expect(host.requests).toHaveLength(2);
   });
   it.each(["reject", "hang"] as const)("blocks further execution when cancellation %s cannot be confirmed", async cancel => {
     const host = fixture({ hold: true, cancel }), session = host.create();

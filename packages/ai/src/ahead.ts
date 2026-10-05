@@ -96,6 +96,8 @@ export function createAheadSession(options: {
   let message = "";
   let intended = false;
   let disposed = false;
+  let cancellationRequested = false;
+  let stopSerial = 0;
   let active: ActiveRun | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let undoReceipt: { before: EditorDocument; afterKey: string } | undefined;
@@ -121,9 +123,10 @@ export function createAheadSession(options: {
     timer = setTimeout(() => { timer = undefined; void execute(); }, debounceMs);
   }
   async function interrupt(finalStatus: AheadStatus): Promise<void> {
+    const serial = ++stopSerial;
     clearTimer();
     const run = active;
-    if (!run) { status = finalStatus; emit(); return; }
+    if (!run) { status = cancellationRequested ? "cancelled" : finalStatus; emit(); return; }
     run.interrupted = true;
     status = "stopping"; emit();
     if (!run.cancellation) {
@@ -145,8 +148,8 @@ export function createAheadSession(options: {
     }
     try { await run.cancellation; }
     catch { return; }
-    if (disposed || snapshot.status === "blocked") return;
-    status = finalStatus;
+    if (disposed || snapshot.status === "blocked" || serial !== stopSerial) return;
+    status = cancellationRequested ? "cancelled" : finalStatus;
     emit();
     if (intended) schedule();
   }
@@ -241,12 +244,13 @@ export function createAheadSession(options: {
       requireUsable();
       if (active || intended || proposals.length || status === "blocked") throw new AIContractValidationError("Stop and resolve the current work before starting another goal.");
       goal = requireString(value, "goal", 4000);
+      stopSerial++; cancellationRequested = false;
       runsUsed = 0; phaseIndex = 0; prepared = []; direction = ""; directions = []; message = ""; seenProposalIds.clear();
       intended = true; schedule();
     },
     refine(value) {
       requireUsable();
-      if (!goal || status === "cancelled" || status === "blocked") throw new AIContractValidationError("This session cannot accept a new direction.");
+      if (!goal || cancellationRequested || status === "blocked") throw new AIContractValidationError("This session cannot accept a new direction.");
       direction = requireString(value, "direction", 3000);
       directions = [...directions, direction];
       while (directions.length > 5 || directions.join("\n").length > 3000) directions.shift();
@@ -264,16 +268,16 @@ export function createAheadSession(options: {
     },
     async pause() {
       requireUsable(); intended = false;
-      if (status === "blocked") return;
+      if (status === "blocked" || cancellationRequested) return;
       await interrupt("paused");
     },
     resume() {
       requireUsable();
-      if (active || status === "blocked" || status === "cancelled" || status === "idle" || runsUsed >= maxRuns || !goal) throw new AIContractValidationError("This session cannot resume.");
+      if (active || status === "blocked" || cancellationRequested || status === "idle" || runsUsed >= maxRuns || !goal) throw new AIContractValidationError("This session cannot resume.");
       intended = true; schedule();
     },
     async cancel() {
-      requireUsable(); intended = false; proposals = []; prepared = [];
+      requireUsable(); intended = false; cancellationRequested = true; proposals = []; prepared = [];
       if (status === "blocked") { emit(); return; }
       await interrupt("cancelled");
     },

@@ -495,6 +495,6 @@ function documentsEqual(left: EditorDocument, right: EditorDocument): boolean {
 function stableSerialize(value: JsonValue | EditorDocument | EditorBlock): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map((item) => stableSerialize(item)).join(",")}]`;
-  const entries = Object.entries(value).sort(([left], [right]) => left.localeCompare(right));
+  const entries = Object.entries(value).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
   return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableSerialize(item as JsonValue)}`).join(",")}}`;
 }
