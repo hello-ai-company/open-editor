@@ -37,7 +37,7 @@ import {
 } from "@hello-ai-company/editor-blocknote/react";
 import type { DatabaseViewPick } from "@hello-ai-company/editor-blocknote/react";
 import type { SuggestionGroup } from "@hello-ai-company/editor-ai";
-import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Component, lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createMagicLayoutSpec } from "@hello-ai-company/editor-canvas";
 import type { CanvasEditorViewState } from "@hello-ai-company/editor-canvas/react";
 import {
@@ -65,6 +65,9 @@ import { IdeaUnfold } from "./IdeaUnfold";
 import { sampleDocument } from "./sampleDocument";
 import type { EditorPageLink } from "@hello-ai-company/editor-core";
 import { createCanvasPublicationOptions } from "./canvasPublication";
+import type { AheadEditorPort } from "./AheadPanel";
+
+const AheadPanel = lazy(() => import("./AheadPanel").then(module => ({ default: module.AheadPanel })));
 
 const CanvasEditor = lazy(() =>
   import("@hello-ai-company/editor-canvas/react").then(({ CanvasEditor }) => ({
@@ -111,9 +114,9 @@ function selectedPlainParagraph(editor: {
   return selectedText === text.text ? { blockId: block.id, text: text.text } : null;
 }
 
-export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampleDocument, documentTitle = "Workspace primitives", onDocumentChange, saveStatus = "Session only · not saved", readOnly = false }: {
+export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampleDocument, documentTitle = "Workspace primitives", onDocumentChange, saveStatus = "Session only · not saved", readOnly = false, allowLocalAhead = true, workspaceActive = true }: {
   onOpenPersonalContext?: () => void; initialDocument?: EditorDocument; documentTitle?: string;
-  onDocumentChange?: (document: EditorDocument) => void; saveStatus?: string; readOnly?: boolean;
+  onDocumentChange?: (document: EditorDocument) => void; saveStatus?: string; readOnly?: boolean; allowLocalAhead?: boolean; workspaceActive?: boolean;
 } = {}) {
   const index = useMemo(() => createDocumentIndex(), []);
   const relationIndex = useMemo(() => createRelationIndex(), []);
@@ -371,6 +374,29 @@ export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampl
   const [aiAction, setAiAction] = useState<DemoAiAction>(null);
   const aiOperationRef = useRef(false);
   const toolsRef = useRef<HTMLDetailsElement>(null);
+  const [aheadOpen, setAheadOpen] = useState(false);
+  const [aheadVisited, setAheadVisited] = useState(false);
+  const aheadEditable = useRef(false);
+  aheadEditable.current = mode === "document" && !readOnly && workspaceActive;
+  const aheadPort = useMemo<AheadEditorPort>(() => ({
+    getDocument: () => fromBlockNote(editor.document as never),
+    subscribe: listener => editor.onChange((_editor, context) => { if (context.getChanges().length) listener(); }),
+    commit: (expected, next) => {
+      if (!aheadEditable.current || !sameEditorJson(fromBlockNote(editor.document as never), expected)) return false;
+      const same = sameEditorJson;
+      // This local preview supports append-only changes and their exact undo.
+      // Preserve existing rich blocks, focus, selection and editor-owned history.
+      if (next.blocks.length > expected.blocks.length && expected.blocks.every((block, index) => same(block, next.blocks[index]))) {
+        const additions = toBlockNoteForSchema(createEditorDocument(next.blocks.slice(expected.blocks.length)), options.schema);
+        const last = editor.document.at(-1);
+        if (!last || !additions.length) return false;
+        editor.insertBlocks(additions as never, last.id, "after");
+      } else if (expected.blocks.length > next.blocks.length && next.blocks.length && next.blocks.every((block, index) => same(block, expected.blocks[index]))) {
+        editor.removeBlocks(expected.blocks.slice(next.blocks.length).map(block => block.id));
+      } else return false;
+      return sameEditorJson(fromBlockNote(editor.document as never), next);
+    }
+  }), [editor, options.schema]);
   const [acceptedSuggestion, setAcceptedSuggestion] = useState<{
     original: typeof editor.document[number];
     accepted: typeof editor.document[number];
@@ -830,6 +856,7 @@ export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampl
                   toolsRef.current?.querySelector<HTMLElement>("summary")?.focus();
                 }
               }}>
+                {allowLocalAhead ? <button type="button" className="chip" aria-expanded={aheadOpen} onClick={() => { openMode("document"); setAheadVisited(true); setAheadOpen(value => !value); if (window.matchMedia("(max-width: 760px)").matches) setOutlineOpen(false); }}>先行AI共同作業</button> : null}
                 <button type="button" className="chip" onClick={() => { openMode("document"); setGuideOpen(true); }}>Writing guide</button>
                 {onOpenPersonalContext ? <button type="button" className="chip" onClick={onOpenPersonalContext}>Personal context demo</button> : null}
                 <button
@@ -901,7 +928,7 @@ export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampl
         ))}
       </nav>
 
-      <div className={`demo-workspace${outlineOpen ? " demo-workspace--outline" : ""}${(reviewSuggestion || relationsOpen || actionsOpen) ? " demo-workspace--context" : ""}`}>
+      <div className={`demo-workspace${outlineOpen ? " demo-workspace--outline" : ""}${((aheadOpen && mode === "document") || reviewSuggestion || relationsOpen || actionsOpen) ? " demo-workspace--context" : ""}`}>
         {outlineOpen ? (
           <OutlinePanel
             editor={editor as never}
@@ -1038,7 +1065,10 @@ export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampl
           ) : null}
         </main>
 
-        {reviewSuggestion ? (
+        {aheadVisited ? <aside className="demo-context demo-ahead-shell" hidden={!aheadOpen || mode !== "document"} aria-hidden={focusMode} inert={focusMode} data-focus-hidden={focusMode ? "true" : "false"}>
+          <AheadBoundary onClose={() => setAheadOpen(false)}><Suspense fallback={<p role="status">先行作業を読み込み中…</p>}><AheadPanel port={aheadPort} active={aheadOpen && !focusMode && mode === "document" && !readOnly && workspaceActive} onClose={() => setAheadOpen(false)} /></Suspense></AheadBoundary>
+        </aside> : null}
+        {!aheadOpen && reviewSuggestion ? (
           <aside
             id="demo-context-panel"
             className="demo-context demo-review"
@@ -1111,7 +1141,7 @@ export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampl
             </div>
             <p className="demo-review__note">{reviewSuggestion.decided ? reviewSuggestion.decided === "accepted" ? "Your selected change is applied. Undo it here, or close this review." : reviewSuggestion.decided === "undone" ? "This change was undone. Your original paragraph is restored." : "This suggestion was not applied. Your paragraph is unchanged." : mode !== "document" ? "Return to Document to accept this suggestion." : !reviewSuggestion.choices.clarity && !reviewSuggestion.choices.reach ? "Select at least one change, or reject the suggestion." : "Only selected changes enter your document. You can undo them after acceptance."}</p>
           </aside>
-        ) : relationsOpen || actionsOpen ? (
+        ) : !aheadOpen && (relationsOpen || actionsOpen) ? (
           <aside
             id="demo-context-panel"
             className="demo-context"
@@ -1501,4 +1531,21 @@ function DemoChangeObserver(props: {
     props.index.replaceFromBlocks(fromBlockNote(props.editor.document as never).blocks);
   }, [props.editor, props.index]);
   return null;
+}
+
+class AheadBoundary extends Component<{ children: ReactNode; onClose: () => void }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() {
+    return this.state.failed ? <section role="alert"><p>先行作業を開けませんでした。文書は保持しています。</p><button className="chip" onClick={this.props.onClose}>文書に戻る</button></section> : this.props.children;
+  }
+}
+
+// Both operands are host-owned or validated editor JSON. Preserve array order,
+// while allowing the editor to reorder object keys during normalization.
+function sameEditorJson(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== "object" || typeof b !== "object") return false;
+  if (Array.isArray(a) || Array.isArray(b)) return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((item, index) => sameEditorJson(item, b[index]));
+  return Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([key, value]) => Object.hasOwn(b, key) && sameEditorJson(value, (b as Record<string, unknown>)[key]));
 }

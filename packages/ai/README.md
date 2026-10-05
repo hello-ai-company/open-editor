@@ -1,5 +1,13 @@
 # `@hello-ai-company/editor-ai`
 
+`createAheadSession` adds bounded, opt-in look-ahead over the existing
+`AgentAdapter`: outline → research → draft, a review queue, conversation
+refinement, pause/resume/cancel and explicit partial adoption/Undo. It does not
+execute models or write a document by itself. Hosts own authorization, billing,
+acknowledged cancellation and document CAS. The OpenEditor example uses an
+explicitly labeled local synthetic adapter; real-model integration remains
+pending. See [implementation and host gates](../../docs/proactive-ai-collaboration.md).
+
 Provider-neutral contracts and pure helpers for connecting an agent to an OpenEditor host. This package has no model or provider dependency and does not persist runs, suggestions, provenance, comments, or learning signals.
 
 ## Suggestions are proposals

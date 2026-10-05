@@ -20,7 +20,7 @@ export function App() {
     requestAnimationFrame(() => { window.scrollTo(0, editorScroll.current); document.getElementById("demo-main")?.focus({ preventScroll: true }); });
   };
   return <>
-    <div hidden={contextOpen}><LocalDocumentWorkspace host={host} store={host?.store} onOpenPersonalContext={() => { editorScroll.current = window.scrollY; setContextVisited(true); setContextOpen(true); window.scrollTo(0, 0); }} /></div>
+    <div hidden={contextOpen}><LocalDocumentWorkspace host={host} store={host?.store} active={!contextOpen} onOpenPersonalContext={() => { editorScroll.current = window.scrollY; setContextVisited(true); setContextOpen(true); window.scrollTo(0, 0); }} /></div>
     {contextVisited ? <div hidden={!contextOpen}><ContextBoundary onBack={back}><Suspense fallback={<p role="status">Loading local context review…</p>}><PersonalContextWorkbench active={contextOpen} onBack={back} /></Suspense></ContextBoundary></div> : null}
   </>;
 }
