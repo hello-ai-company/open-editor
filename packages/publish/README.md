@@ -1,8 +1,8 @@
 # `@hello-ai-company/editor-publish`
 
-## 0.2.0 candidate
+## 0.2.0
 
-Prepared locally; not published. Requires `editor-core ^0.2.0` and
+Requires `editor-core ^0.2.0` and
 `editor-canvas ^0.2.0`. Hidden Canvas content is excluded from derived Site/Present
 titles and descriptions; a hidden parent remains hidden when children become
 slide roots. Existing rendering APIs remain. These corrected projections can

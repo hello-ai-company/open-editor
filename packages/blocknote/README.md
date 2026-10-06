@@ -1,8 +1,8 @@
 # @hello-ai-company/editor-blocknote
 
-## 0.2.0 candidate
+## 0.2.0
 
-Prepared locally; not published. Requires `editor-core ^0.2.0`; BlockNote peers
+Requires `editor-core ^0.2.0`; BlockNote peers
 remain `^0.54.2`, with math/diagram/code optional. Adds optional persistent database
 view configuration contracts and an accessible `BlockEditDialog`, improves
 outline/navigation and editing controls, and retains legacy database filter
@@ -113,4 +113,4 @@ Use `createBlockChangeBridge` / `useOpenEditorBlockChanges` and `createDocumentI
 
 ## Publication
 
-Metadata targets public npmjs (`publishConfig.access: public`). Versions `0.1.0` and `0.1.1` are already published and immutable. Candidate `0.2.0` requires a separately reviewed main commit and an owner-triggered release; this repository does **not** auto-publish on merge.
+Metadata targets public npmjs (`publishConfig.access: public`). Versions `0.1.0` and `0.1.1` are already published and immutable. Publishing `0.2.0` requires a reviewed main commit and an owner-triggered release; this repository does **not** auto-publish on merge.

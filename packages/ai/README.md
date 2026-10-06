@@ -1,8 +1,8 @@
 # `@hello-ai-company/editor-ai`
 
-## 0.2.0 candidate
+## 0.2.0
 
-Prepared locally; not published. Requires `editor-core ^0.2.0`. Existing APIs remain
+Requires `editor-core ^0.2.0`. Existing APIs remain
 available; bounded `createAheadSession` is opt-in. Its cancellation acknowledgement
 must mean execution stopped, and its synchronous writer must atomically compare
 and commit the reviewed document. A remote host needs an asynchronous approval,
