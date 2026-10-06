@@ -42,7 +42,7 @@ export function toSerializedEditorDocument(document: EditorDocument): Serialized
   }
   return {
     schemaVersion: document.schemaVersion,
-    blocks: document.blocks.map(normalizeEditorBlock)
+    blocks: normalizeEditorBlocks(document.blocks)
   };
 }
 
@@ -64,13 +64,20 @@ export function fromSerializedEditorDocument(payload: unknown): EditorDocument {
   }
   return {
     schemaVersion,
-    blocks: record.blocks.map((block, index) => {
-      if (!isEditorBlock(block)) {
-        throw new EditorDocumentSerializationError(`Editor document block at index ${index} is invalid.`);
-      }
-      return normalizeEditorBlock(block);
-    })
+    blocks: normalizeEditorBlocks(record.blocks)
   };
+}
+
+function normalizeEditorBlocks(blocks: unknown[]): EditorBlock[] {
+  const normalized: EditorBlock[] = [];
+  // entries() visits sparse slots too, so all ingress paths reject missing roots.
+  for (const [index, block] of blocks.entries()) {
+    if (!isEditorBlock(block)) {
+      throw new EditorDocumentSerializationError(`Editor document block at index ${index} is invalid.`);
+    }
+    normalized.push(normalizeEditorBlock(block));
+  }
+  return normalized;
 }
 
 function normalizeEditorBlock(block: EditorBlock): EditorBlock {

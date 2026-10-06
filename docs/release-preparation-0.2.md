@@ -1,5 +1,10 @@
 # 0.2.0 release preparation record
 
+Historical snapshot at `1e4e071`. Its Core acceptance scope, test totals and
+artifact hashes are superseded by the [Core contract alignment record](release-preparation-0.2-core-contract.md).
+The old local artifacts/logs are retained; this record is not evidence for the
+revised final candidate set.
+
 Prepared 2026-10-06 on `codex/npm-release-preparation`, based on local
 `8b306a028a3b07ed0d5aad6be9616fad64ae2c77`, including main
 `f46cf9c548128a9b6d03134e2983e91e53b85626`. This preparation changes metadata,

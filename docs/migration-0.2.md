@@ -21,26 +21,48 @@ still round-trip.
 
 ## Core validation changes
 
-`isEditorDocument`, `createEditorDocument` and `cloneEditorBlocks` share a whole
-document budget of 20,000 blocks, 128 block depth and 50,000 JSON nodes. JSON depth
-is bounded to 128. `isEditorBlock`/`cloneEditorBlock` and `isJsonValue` apply their
-own corresponding budgets. Cycles, non-finite numbers and unsupported primitives
-fail validation; shared acyclic objects are permitted. Supply JSON-shaped plain
-objects: the current object predicate does not check prototypes, so values such
-as Date or Map may pass and change shape when cloned through JSON. Normalize
-such host objects explicitly before passing them to these APIs. For rejected
-inputs, the predicates return false;
-creation/cloning reject invalid or oversized values with TypeError.
+All Core document predicates, creation, cloning and codec paths now validate
+**each root subtree independently**, matching the existing codec's acceptance
+scope. They no longer reject a document solely for combining valid roots.
+20,001 flat root paragraphs and multiple roots whose combined JSON nodes exceed
+50,000 therefore remain readable, creatable, clonable and serializable.
 
-Serialization has its own validation/error contract and validates individual
-root blocks rather than imposing that whole-document aggregate block ceiling.
-For example, 20,001 root paragraphs can currently deserialize/serialize while
-`isEditorDocument` returns false and `createEditorDocument` throws. Do not claim
-the same size limit is enforced at every ingress. Preserve source bytes, validate
-the result with the API your host actually uses, handle
-`EditorDocumentSerializationError` separately, and do not overwrite a saved record
-on a failed open. Back up large documents, split them explicitly or reduce their
-depth with user review before adopting the new host validation behavior.
+| Scope | Retained limit |
+| --- | --- |
+| Each root plus all its descendants | 20,000 blocks, including that root |
+| Block depth | 128, counting the root as 0 (129 levels) |
+| All props/content values across one root subtree | 50,000 JSON nodes; containers and scalar values each count as one |
+| JSON depth | 128, counting each props/content value root as 0 |
+
+The budgets reset between roots, not between descendants or a block's props and
+content. `isEditorBlock`/`cloneEditorBlock` apply the same subtree limits;
+`isJsonValue` applies the JSON budget to its one input. Shared acyclic values are
+allowed and count on each visit. Cycles, non-finite numbers, unsupported
+primitives, sparse/malformed roots and oversized subtrees fail validation.
+Predicates return false; creation/cloning throw TypeError; invalid blocks at both
+codec ingress paths throw EditorDocumentSerializationError, with no partial
+document returned. Codec normalization of empty props/children and legacy missing
+schemaVersion defaulting to 1 remain.
+
+There is **no Core aggregate document block/node/character/byte quota**, and JSON
+parsing occurs before validation. Core's per-root limits do not guarantee bounded
+total memory or work. Hosts must retain their own total-size and operation quotas;
+the browser store's existing serialized-record length limit is 4,194,304 JavaScript
+string code units, and AI contracts independently retain their total block/node/
+text budgets. A document accepted by Core can still be too large for a host or AI
+operation; never silently truncate or split it to satisfy those limits.
+
+Unlike published 0.1.1, retained subtree/depth ceilings may reject a legacy single
+large or deeply nested root. Preserve source bytes and the current editable
+document on a failed open/save. Do not fall back to an empty document and autosave
+over the record. Keep the previous package line available for such records until
+an explicit, reviewed migration or host policy is chosen. Any split/depth change
+requires user review and a separate copy; this preparation performs neither.
+
+Supply JSON-shaped plain objects: prototype validation remains unchanged, so
+Date/Map values may pass and change shape when cloned through JSON. Normalize
+such host objects explicitly. Validate before plain JSON.stringify too, which
+otherwise converts Infinity to null and loses the original invalid value.
 
 ## Host integration
 

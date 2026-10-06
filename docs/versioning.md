@@ -17,8 +17,10 @@ Policy for `@hello-ai-company/editor-core` (MIT, npmjs). This document does **no
 `0.1.1` is an **additive** release over published `0.1.0` (database/relation provider APIs used by `@hello-ai-company/editor-blocknote`).
 
 The five 0.2.0 candidates contain unpublished runtime changes relative to their
-integrity-verified npm baselines. Core's bounded creation/cloning validation may
-reject formerly valid large values. Before 1.0, the minor boundary is the explicit
+integrity-verified npm baselines. Core's per-root-subtree validation may reject
+formerly valid single large/deep roots. All Core document APIs use the same
+root-level budget; combining valid roots does not add an aggregate Core quota.
+Hosts and AI operations retain independent total-size budgets. Before 1.0, the minor boundary is the explicit
 compatibility boundary: ^0.1.x does not select 0.2.0. Once stable 1.x is declared,
 incompatible changes require a major bump. See [migration](migration-0.2.md) and
 [release runbook](public-release-runbook.md). Package version changes do not

@@ -34,7 +34,9 @@ export type EditorDocument = {
   blocks: EditorBlock[];
 };
 
-// ponytail: validator ceilings keep untrusted documents bounded; raise them only when real documents need it.
+// Bounds apply to each root subtree, matching the document codec. Hosts own
+// aggregate document/text limits; validating or cloning a saved document must
+// not reject it solely because otherwise valid root subtrees are combined.
 const MAX_MODEL_BLOCKS = 20_000;
 const MAX_MODEL_BLOCK_DEPTH = 128;
 const MAX_MODEL_JSON_NODES = 50_000;
@@ -111,9 +113,8 @@ export function isEditorDocument(value: unknown): value is EditorDocument {
   const document = value as Record<string, unknown>;
   if (!isSupportedSchemaVersion(document.schemaVersion)) return false;
   if (!Array.isArray(document.blocks)) return false;
-  const budget: ModelValidationBudget = { blocks: 0, jsonNodes: 0 };
   for (const block of document.blocks) {
-    if (!isEditorBlockWithin(block, budget)) return false;
+    if (!isEditorBlock(block)) return false;
   }
   return true;
 }

@@ -10,6 +10,18 @@ describe("local saved documents", () => {
     expect(JSON.stringify(restored)).toContain("Synthetic");
     expect(JSON.stringify(restored)).not.toContain("Later edit");
   });
+  it("opens legacy wide documents within the existing host storage quota without truncating", () => {
+    const raw = {
+      ...saved(),
+      document: { schemaVersion: 1, blocks: Array.from({ length: 20_001 }, (_, index) => ({ id: `p-${index}`, type: "paragraph", content: "Keep me" })) }
+    };
+    const snapshot = JSON.stringify(raw);
+    const restored = validateStoredDocument(raw, browserScope);
+    expect(restored.document.blocks).toHaveLength(20_001);
+    expect(restored.document.blocks[20_000]?.content).toBe("Keep me");
+    restored.document.blocks[0]!.content = "Detached change";
+    expect(JSON.stringify(raw)).toBe(snapshot);
+  });
   it("rejects other owners, workspaces, unsupported schema, duplicates and oversized storage", () => {
     for (const patch of [{ actorId: "other" }, { workspaceId: "other" }, { schemaVersion: 2 }, { revision: 0 }, { document: { schemaVersion: 2, blocks: [] } }, { title: "a".repeat(501) }]) {
       expect(() => validateStoredDocument({ ...saved(), ...patch }, browserScope)).toThrow();

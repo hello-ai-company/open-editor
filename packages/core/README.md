@@ -4,11 +4,15 @@
 
 This version is prepared locally and is not published. The document schema stays
 at `1`, with the same exports and optional provider types. Document creation,
-cloning and validators now bound blocks, depth and JSON nodes, reject cycles and
-unsupported primitives and may reject previously accepted large documents. Supply
-JSON-shaped objects; prototype validation is not enforced. These are a
-pre-1.0 compatibility change, not a universal drop-in patch. Preserve originals
-and validate before upgrading; serialization has separate per-root-block limits.
+cloning, validators and serialization share per-root-subtree bounds: 20,000 blocks
+including the root, block depth 128 (root 0), 50,000 props/content JSON nodes and
+JSON depth 128 (value root 0). Combining valid roots does not impose a document
+aggregate ceiling. Cycles and unsupported primitives are rejected; a formerly
+accepted single large/deep root can still fail. Supply JSON-shaped objects;
+prototype validation is not enforced. Hosts own total document/text quotas.
+These are pre-1.0 compatibility changes. Preserve originals on failed open/save;
+invalid blocks produce TypeError for creation/cloning and
+EditorDocumentSerializationError for the codec, without returning partial output.
 See the [migration guide](https://github.com/hello-ai-company/open-editor/blob/main/docs/migration-0.2.md).
 
 Portable TypeScript document model, JSON serialization, and optional provider types.

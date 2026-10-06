@@ -90,8 +90,9 @@ describe("editorCore model", () => {
     }
     expect(isEditorBlock(deepBlock)).toBe(false);
 
-    const tooManyBlocks = Array.from({ length: 20_001 }, (_, index) => ({ id: `b-${index}`, type: "paragraph" }));
-    expect(isEditorDocument({ schemaVersion: 1, blocks: tooManyBlocks })).toBe(false);
-    expect(() => createEditorDocument(tooManyBlocks)).toThrow(/supported size limits/);
+    const tooManyChildren = Array.from({ length: 20_000 }, (_, index) => ({ id: `b-${index}`, type: "paragraph" }));
+    const oversizedRoot = { id: "root", type: "group", children: tooManyChildren };
+    expect(isEditorDocument({ schemaVersion: 1, blocks: [oversizedRoot] })).toBe(false);
+    expect(() => createEditorDocument([oversizedRoot])).toThrow(/supported size limits/);
   });
 });

@@ -6,8 +6,11 @@ Compared against integrity-verified npm releases on 2026-10-06: core/blocknote
 0.1.1 and ai/canvas/publish 0.1.0. All five contain unpublished runtime changes.
 This preparation includes main `f46cf9c` and local collaboration `8b306a0`.
 
-- **editor-core 0.1.1 → 0.2.0:** bounded, cycle-safe document/JSON validation and
-  checked cloning/creation. Some formerly accepted large values are rejected.
+- **editor-core 0.1.1 → 0.2.0:** bounded, cycle-safe validation and checked
+  cloning/creation. All document APIs share per-root-subtree budgets, preserving
+  wide legacy documents and combined JSON beyond one root's quota. Single
+  oversized/deep roots may still be rejected. Both codec directions reject sparse
+  or invalid roots with EditorDocumentSerializationError, without partial output.
   Public exports and document schema 1 remain unchanged.
 - **editor-blocknote 0.1.1 → 0.2.0:** optional saved database view contracts,
   accessible block edit dialog, editing/navigation improvements, robust unknown

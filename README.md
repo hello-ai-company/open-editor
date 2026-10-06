@@ -17,7 +17,7 @@ The public package is [`@hello-ai-company/editor-core`](./packages/core). It is 
 | Release candidates | core/blocknote/ai/canvas/publish `0.2.0`; see [changes](./CHANGELOG.md) and [migration](./docs/migration-0.2.md) |
 | Runtime dependencies (core) | none |
 
-See the [0.2.0 preparation record](./docs/release-preparation-0.2.md) for checked
+See the [current 0.2.0 preparation record](./docs/release-preparation-0.2-core-contract.md) for checked
 candidate artifacts, verification results and remaining owner release steps.
 
 ## Install
