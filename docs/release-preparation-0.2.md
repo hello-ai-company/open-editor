@@ -1,5 +1,10 @@
 # 0.2.0 release preparation record
 
+This is a historical preparation snapshot. All five 0.2.0 packages are now
+published; the [actual release record](release-0.2.md) contains final hashes,
+hosted checks, registry consumers and provenance. Preserve the measurements below
+as evidence for their original source and environment.
+
 Historical snapshot at `1e4e071`. Its Core acceptance scope, test totals and
 artifact hashes are superseded by the [Core contract alignment record](release-preparation-0.2-core-contract.md).
 The old local artifacts/logs are retained; this record is not evidence for the

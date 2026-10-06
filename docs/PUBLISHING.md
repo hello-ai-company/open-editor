@@ -6,30 +6,23 @@ The renderer accepts a fixed semantic block allowlist, omits hidden/private/inte
 
 `getPublicKnowledgeContext` returns `trust: "untrusted"`; keep published text separate from trusted model instructions because public content can contain prompt injection.
 
-## 0.2.0 release preparation
+## Published 0.2.0
 
-Registry reads on 2026-10-06 verified live core/blocknote 0.1.1 and
-AI/Canvas/Publish 0.1.0. Integrity-verified registry tarballs differ from the current
-runtime build in all five packages. All five 0.2.0 manifests are local candidates;
-none was published by this preparation. See [CHANGELOG](../CHANGELOG.md),
-[migration](migration-0.2.md) and the [owner runbook](public-release-runbook.md).
+All five 0.2.0 packages were published on 2026-10-06 from reviewed main
+`43ee878310690b5265c8e6bd31b5f027d1998eb7`. Core was released first, then
+BlockNote, AI and Canvas, followed by Publish after exact Canvas was live.
+Every internal Core and Canvas dependency/peer floor is ^0.2.0. Official registry
+bytes, isolated dependency resolution and cryptographic provenance verification
+passed. See the [release record](release-0.2.md), [CHANGELOG](../CHANGELOG.md),
+[migration](migration-0.2.md) and [owner runbook](public-release-runbook.md).
 
-Publish order after separate approval is core 0.2.0 first, then BlockNote, AI and
-Canvas 0.2.0, then Publish 0.2.0 after exact Canvas is live. Every internal core
-and Canvas dependency/peer floor is ^0.2.0. Registry failure/ambiguity or an existing
-candidate version stops publication; core also requires its known published
-0.1.0 anchor. Exact release dependencies must exist at the actual publish gate.
-Local candidate-consumer tests deliberately use unpublished tarballs and do not
-prove those dependencies are registry-live.
-
-All five manual OIDC workflows require an exact reviewed main SHA, pinned Actions
-and npm 11.20.0, lifecycle-disabled installation/publication, inspected immutable
-artifacts, SHA-256/source-SHA binding and post-publish npm identity/SHA-512 proof.
-The core workflow now uses the shared reviewed-SHA guard. No workflow was
-triggered. Existing Trusted Publisher and public-npmjs Environment account settings
-must be confirmed by the owner before dispatch; no credentials, binding or
-permissions were changed. Bootstrap instructions/scripts are historical first
-publication tools and are not used for these existing package updates.
+Existing manual Trusted Publisher OIDC workflows used the exact reviewed main
+SHA, pinned Actions/npm 11.20.0, lifecycle-disabled installation/publication,
+inspected immutable artifacts and SHA-256/source-SHA binding. Normal public-npmjs
+Environment approvals were used. No credentials, bindings or account permissions
+were changed. AI's publish step succeeded; its post-publish read failed and was
+recovered by read-only verification without republishing. Published 0.2.0 versions
+are immutable. Bootstrap tools are historical and were not used.
 
 The local example has explicitly selected synthetic proposals only. editor-ai
 ships a provider-neutral controller, not connected model execution. Personal-AI

@@ -1,16 +1,16 @@
-# Migrating to the 0.2.0 candidate line
+# Migrating to 0.2.0
 
-These five packages are local candidates, not npm-published versions. Keep using
-the live 0.1 releases until a separately authorized release is verified. No
-stored document is rewritten by this preparation.
+All five packages are published on npm as 0.2.0. See the
+[verified release record](release-0.2.md). Installing the release does not rewrite
+stored documents; review the compatibility boundaries below before upgrading.
 
 ## Package and runtime compatibility
 
-All five candidates are 0.2.0 and require core ^0.2.0; Publish also requires
+All five packages are 0.2.0; adapters require core ^0.2.0, and Publish also requires
 Canvas ^0.2.0. Core's stricter input behavior is a pre-1.0 compatibility boundary,
 so 0.2.0 is deliberate rather than a silent patch. Caret ^0.1.x dependencies do
-not update to 0.2.0. Upgrade related host dependencies and lockfiles together after
-publication, then run that host's codec, ownership, save and UI tests.
+not update to 0.2.0. Upgrade related host dependencies and lockfiles together,
+then run that host's codec, ownership, save and UI tests.
 
 Node >=20 and ESM remain required. There is no CommonJS export. BlockNote ^0.54.2,
 optional math/diagram/code peers and React peer ranges remain unchanged. Existing
@@ -57,7 +57,7 @@ large or deeply nested root. Preserve source bytes and the current editable
 document on a failed open/save. Do not fall back to an empty document and autosave
 over the record. Keep the previous package line available for such records until
 an explicit, reviewed migration or host policy is chosen. Any split/depth change
-requires user review and a separate copy; this preparation performs neither.
+requires user review and a separate copy; this release performs neither.
 
 Supply JSON-shaped plain objects: prototype validation remains unchanged, so
 Date/Map values may pass and change shape when cloned through JSON. Normalize
