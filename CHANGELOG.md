@@ -1,10 +1,10 @@
 # Changelog
 
-## 0.2.0 — local release candidates, not published
+## 0.2.0 — 2026-10-06
 
 Compared against integrity-verified npm releases on 2026-10-06: core/blocknote
-0.1.1 and ai/canvas/publish 0.1.0. All five contain unpublished runtime changes.
-This preparation includes main `f46cf9c` and local collaboration `8b306a0`.
+0.1.1 and ai/canvas/publish 0.1.0. All five 0.2.0 packages are published.
+Release source: reviewed main `43ee878310690b5265c8e6bd31b5f027d1998eb7`.
 
 - **editor-core 0.1.1 → 0.2.0:** bounded, cycle-safe validation and checked
   cloning/creation. All document APIs share per-root-subtree budgets, preserving
@@ -39,6 +39,8 @@ performed here.
 
 The manual release workflow for core now uses the same exact reviewed main SHA,
 pinned Actions/npm, immutable inspected artifact and post-publish registry proof
-as the other current workflows. Local candidate consumers test unpublished
-dependency tarballs; actual release guards still require live exact dependencies.
-No workflow dispatch, registry publish, tag, release or deployment was performed.
+as the other current workflows. All five packages were published through existing
+Trusted Publisher OIDC workflows, in dependency order. Official registry bytes,
+isolated installs and cryptographic provenance were verified; see the
+[release record](docs/release-0.2.md), including the AI post-publish verification
+recovery. No GitHub Release, tag, deployment or Personal-AI upgrade was performed.

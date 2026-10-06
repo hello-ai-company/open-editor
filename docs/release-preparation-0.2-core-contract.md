@@ -1,4 +1,11 @@
-# 0.2.0 Core contract alignment: current preparation record
+# 0.2.0 Core contract alignment: historical preparation record
+
+Historical local preparation snapshot. All five 0.2.0 packages have since been
+published from reviewed main `43ee878`; see the [actual release record](release-0.2.md)
+for final artifact hashes, hosted checks, registry installs and provenance.
+The candidate hashes and release gates below describe the earlier snapshot and
+remain preserved as evidence. Final package payloads changed only README wording
+relative to these candidates; runtime bytes were retained.
 
 Local follow-up to `1e4e071` on `codex/npm-release-preparation`, 2026-10-06.
 This record supersedes the earlier [preparation snapshot](release-preparation-0.2.md)

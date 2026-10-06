@@ -7,8 +7,8 @@ Policy for `@hello-ai-company/editor-core` (MIT, npmjs). This document does **no
 | Field | Value |
 | --- | --- |
 | Name | `@hello-ai-company/editor-core` |
-| Workspace / candidate version | `0.2.0` (local candidate; not published) |
-| Published on npmjs (immutable) | `0.1.0`, `0.1.1` — do **not** republish |
+| Workspace / current release | `0.2.0` (published; see [verification](release-0.2.md)) |
+| Published on npmjs (immutable) | `0.1.0`, `0.1.1`, `0.2.0` — do **not** republish |
 | License | MIT |
 | Registry | `https://registry.npmjs.org` |
 | Access | public |
@@ -16,7 +16,7 @@ Policy for `@hello-ai-company/editor-core` (MIT, npmjs). This document does **no
 
 `0.1.1` is an **additive** release over published `0.1.0` (database/relation provider APIs used by `@hello-ai-company/editor-blocknote`).
 
-The five 0.2.0 candidates contain unpublished runtime changes relative to their
+The five published 0.2.0 packages contain runtime changes relative to their
 integrity-verified npm baselines. Core's per-root-subtree validation may reject
 formerly valid single large/deep roots. All Core document APIs use the same
 root-level budget; combining valid roots does not add an aggregate Core quota.
@@ -64,10 +64,11 @@ A package bump without a schema bump is possible. Introducing `schemaVersion: 2`
 
 The 0.2.0 line requires editor-core ^0.2.0; Publish also requires Canvas ^0.2.0.
 BlockNote peers remain ^0.54.2, and optional modules remain optional. Runtime and
-type exports are checked against installed candidate tarballs without --force or
---legacy-peer-deps. Local preparation uses candidate dependencies; actual release
-guards require exact core/Canvas 0.2.0 already live in dependency order. Do not
-mistake local install success for registry publication evidence.
+type exports are checked against installed tarballs without --force or
+--legacy-peer-deps. Actual release guards require exact core/Canvas 0.2.0 live in
+dependency order. The [0.2.0 release record](release-0.2.md) separately verifies
+official registry installs, transitive Core/Canvas resolution and exact lockfile
+integrities. Local preparation checks continue to use candidate dependencies.
 
 ## Document JSON
 
