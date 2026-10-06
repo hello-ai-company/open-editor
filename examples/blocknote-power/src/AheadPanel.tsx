@@ -5,6 +5,7 @@ import { createSyntheticAheadAdapter } from "./syntheticAhead";
 import "./aheadPanel.css";
 
 export type AheadEditorPort = {
+  getElement?(): HTMLElement | undefined;
   getDocument(): EditorDocument;
   subscribe(listener: () => void): () => void;
   commit: AheadDocumentWriter;
