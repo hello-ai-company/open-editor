@@ -8,6 +8,20 @@ import { exportLegacyNotesBlocks, importLegacyNotesBlocks } from "../src/documen
 import { createDocumentWorkspaceFeature } from "../src/document/workspaceFeature.js";
 
 describe("real BlockNote document compatibility", () => {
+  it("edits a body-only HTML widget through the native schema and saves synchronized fields", () => {
+    const raw = [{ id: "widget", type: "editorTool", toolKind: "htmlEmbed", toolBody: "<b>old</b>", future: { keep: true } }, { id: "p", type: "paragraph", text: "Retained" }];
+    const imported = importLegacyNotesBlocks(raw), options = createOpenEditorPowerPreset({ features: [createDocumentWorkspaceFeature()] }).editorOptions();
+    const editor = BlockNoteEditor.create({ ...options, initialContent: toBlockNoteForSchema(imported.document, options.schema) as never });
+    try {
+      expect(editor.getBlock("widget")!.props).toMatchObject({ html: "<b>old</b>" });
+      expect(exportLegacyNotesBlocks(fromBlockNote(editor.document), imported.archive, raw)).toEqual(raw);
+      editor.updateBlock("widget", { props: { html: "<i>new</i>" } } as never);
+      const saved = exportLegacyNotesBlocks(fromBlockNote(editor.document), imported.archive, raw) as Record<string, unknown>[];
+      expect(saved[0]).toMatchObject({ toolBody: "<i>new</i>", future: { keep: true } });
+      expect(JSON.parse(saved[0]!.toolData as string).html).toBe("<i>new</i>");
+      expect(importLegacyNotesBlocks(saved).document.blocks[0]!.props!.html).toBe("<i>new</i>");
+    } finally { editor._tiptapEditor.destroy(); }
+  });
   it("saves an unchanged native editor without losing raw fields or creating default fields", () => {
     const input = [{ id: "p", type: "paragraph", text: "Hello", version: 7, unknownFuture: { preserved: true } }, { id: "h", type: "heading", text: "Heading" }, { id: "c", type: "code", text: "const n = 1", codeLanguage: "typescript" }];
     const imported = importLegacyNotesBlocks(input), preset = createOpenEditorPowerPreset({ features: [createDocumentWorkspaceFeature()] });

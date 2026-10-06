@@ -53,6 +53,14 @@ parseQuietPreparationContext({documentId:'note',revision:'r1',secretaryId:'secre
 validateNotesPropertyValue({type:'multi_select',optionIds:['a','b']},['b']);
 const edited=applyNotesMetadataEdits([{id:'table',type:'table',tableProps:{width:100,future:true}}],[{blockId:'table',field:'tableProps',key:'width',expected:{present:true,value:100},value:120}]);
 if(JSON.stringify(edited)!==JSON.stringify([{id:'table',type:'table',tableProps:{width:120,future:true}}]))throw new Error('Metadata loss');
+const widget=[{id:'h',type:'editorTool',toolKind:'htmlEmbed',toolBody:'old',toolData:'{"html":"old","future":42}'}];
+const loaded=importLegacyNotesBlocks(widget); loaded.document.blocks[0]!.props!.html='new';
+const synced=exportLegacyNotesBlocks(loaded.document,loaded.archive,widget) as Record<string,unknown>[];
+if(synced[0]!.toolBody!=='new'||JSON.parse(synced[0]!.toolData as string).html!=='new'||JSON.parse(synced[0]!.toolData as string).future!==42)throw new Error('HTML body/data regression');
+const bodyOnly=[{id:'body',type:'editorTool',toolKind:'htmlEmbed',toolBody:'<b>legacy</b>'}];
+if(importLegacyNotesBlocks(bodyOnly).document.blocks[0]!.props!.html!=='<b>legacy</b>')throw new Error('Body fallback regression');
+const blank=importLegacyNotesBlocks([]),created=exportLegacyNotesBlocks(createEditorDocument([{id:'new',type:'oeHtmlWidget',props:{html:'new',css:'',javascript:''}}]),blank.archive,[]) as Record<string,unknown>[];
+if(created[0]!.toolBody!=='new'||JSON.parse(created[0]!.toolData as string).html!=='new')throw new Error('New HTML synchronization regression');
 console.log('Candidate public runtime and declarations PASS');
 `;
 writeFileSync(join(consumer,'index.ts'),source);

@@ -77,7 +77,9 @@ function project(raw: RecordData): EditorBlock {
   if (type === DOCUMENT_COLUMNS_TYPE) props.gap = 16;
   if (isWidget(raw)) {
     const data = typeof raw.toolData === "string" ? record(copyJson(JSON.parse(raw.toolData))) : record(raw.toolData ?? {});
-    const source = parseHtmlWidgetSource({ html: data.html ?? "", css: data.css ?? "", javascript: data.javascript ?? data.js ?? "" });
+    // Explicit data.html (including empty) is canonical; body is an older fallback.
+    const html = Object.hasOwn(data, "html") ? data.html : Object.hasOwn(raw, "toolBody") ? raw.toolBody : "";
+    const source = parseHtmlWidgetSource({ html, css: data.css ?? "", javascript: data.javascript ?? data.js ?? "" });
     Object.assign(props, source, { title: typeof raw.toolTitle === "string" ? raw.toolTitle : "HTML widget" });
   }
   if (Object.keys(props).length) block.props = props;
@@ -197,9 +199,12 @@ export function exportLegacyNotesBlocks(document: EditorDocument, archive: Legac
         if (block.type === HTML_WIDGET_TYPE) {
           const source = parseHtmlWidgetSource(block.props);
           if (!same(source, { html: expected.props?.html, css: expected.props?.css, javascript: expected.props?.javascript })) {
+            // Body changes can be hidden by canonical data.html; never erase a concurrent edit.
+            if (!same(baseline.toolBody, result.toolBody)) throw new Error("Host HTML body changed; refresh before saving");
             const data = typeof result.toolData === "string" ? record(copyJson(JSON.parse(result.toolData))) : record(result.toolData ?? {});
             const next = { ...data, html: source.html, css: source.css, ...(Object.hasOwn(data, "js") && !Object.hasOwn(data, "javascript") ? { js: source.javascript } : { javascript: source.javascript }) };
-            result.toolData = typeof result.toolData === "string" ? JSON.stringify(next) : next;
+            result.toolData = result.toolData == null || typeof result.toolData === "string" ? JSON.stringify(next) : next;
+            result.toolBody = source.html;
           }
           if (!same(block.props?.title, expected.props?.title)) result.toolTitle = block.props?.title ?? "";
         }
@@ -219,7 +224,9 @@ export function exportLegacyNotesBlocks(document: EditorDocument, archive: Legac
         if (block.content !== undefined) throw new Error("Widget content must use its source fields");
         fresh.toolKind = "htmlEmbed";
         fresh.toolTitle = block.props?.title ?? "HTML widget";
-        fresh.toolData = JSON.stringify(parseHtmlWidgetSource(block.props));
+        const source = parseHtmlWidgetSource(block.props);
+        fresh.toolData = JSON.stringify(source);
+        fresh.toolBody = source.html;
       }
       for (const [field, prop] of Object.entries(fields[legacyType] ?? {})) if (block.props?.[prop] !== undefined) fresh[field] = block.props[prop]!;
       result = fresh;
