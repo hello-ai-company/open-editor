@@ -8,7 +8,7 @@ import { assertExactTarballFiles, expectedTarballFiles } from "./release/expecte
 import { packageConfig, tarballFilename, validatePackageManifest } from "./release/public-package-config.mjs";
 
 const [, , key, tarball] = process.argv;
-if (!key || !tarball) throw new Error("Usage: node scripts/inspect-public-tarballs.mjs <ai|canvas|publish> <tarball>");
+if (!key || !tarball) throw new Error("Usage: node scripts/inspect-public-tarballs.mjs <core|ai|canvas|publish> <tarball>");
 const config = packageConfig(key);
 if (basename(tarball) !== tarballFilename(config)) throw new Error(`Unexpected tarball filename for ${config.name}`);
 const root = dirname(dirname(fileURLToPath(import.meta.url)));

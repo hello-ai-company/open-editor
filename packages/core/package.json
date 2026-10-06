@@ -1,6 +1,6 @@
 {
   "name": "@hello-ai-company/editor-core",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "license": "MIT",
   "description": "Portable TypeScript document model, JSON serialization, and optional provider types. A small host-neutral document layer - not a rich-text editor.",
   "keywords": [

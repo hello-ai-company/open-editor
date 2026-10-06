@@ -1,6 +1,6 @@
 {
   "name": "@hello-ai-company/editor-blocknote",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "license": "MIT",
   "description": "OpenEditor BlockNote power layer: adapter, schema, commands, document index, navigation, and optional math/diagram/code. Requires BlockNote ^0.54.2.",
   "keywords": [
@@ -62,7 +62,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@hello-ai-company/editor-core": "^0.1.1"
+    "@hello-ai-company/editor-core": "^0.2.0"
   },
   "peerDependencies": {
     "@blocknote/core": "^0.54.2",

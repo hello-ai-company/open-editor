@@ -1,6 +1,6 @@
 {
   "name": "@hello-ai-company/editor-publish",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "description": "Safe HTML, Markdown, presentation, DOCX, and PDF-print exports for OpenEditor documents.",
   "type": "module",
@@ -29,8 +29,8 @@
     "directory": "packages/publish"
   },
   "dependencies": {
-    "@hello-ai-company/editor-canvas": "^0.1.0",
-    "@hello-ai-company/editor-core": "^0.1.1",
+    "@hello-ai-company/editor-canvas": "^0.2.0",
+    "@hello-ai-company/editor-core": "^0.2.0",
     "docx": "^9.7.2"
   },
   "publishConfig": {

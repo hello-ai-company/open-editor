@@ -37,3 +37,6 @@ export {
 } from "./suggestions.js";
 
 export { AIContractValidationError } from "./validation.js";
+
+export { createAheadSession, type AheadSession, type AheadSnapshot, type AheadStatus,
+  type AheadPhase, type AheadProposal, type AheadDocumentWriter } from "./ahead.js";

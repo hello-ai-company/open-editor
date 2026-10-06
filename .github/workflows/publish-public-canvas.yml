@@ -17,7 +17,7 @@ on:
         required: true
         type: string
       confirmation:
-        description: 'Type exactly: PUBLISH @hello-ai-company/editor-canvas@0.1.0'
+        description: 'Type exactly: PUBLISH @hello-ai-company/editor-canvas@0.2.0'
         required: true
         type: string
 

@@ -7,7 +7,7 @@ Policy for `@hello-ai-company/editor-core` (MIT, npmjs). This document does **no
 | Field | Value |
 | --- | --- |
 | Name | `@hello-ai-company/editor-core` |
-| Workspace / candidate version | `0.1.1` (**published** on npmjs) |
+| Workspace / candidate version | `0.2.0` (local candidate; not published) |
 | Published on npmjs (immutable) | `0.1.0`, `0.1.1` — do **not** republish |
 | License | MIT |
 | Registry | `https://registry.npmjs.org` |
@@ -16,19 +16,15 @@ Policy for `@hello-ai-company/editor-core` (MIT, npmjs). This document does **no
 
 `0.1.1` is an **additive** release over published `0.1.0` (database/relation provider APIs used by `@hello-ai-company/editor-blocknote`).
 
-Correct release sequence:
-
-1. R2 review of PR #23 — **DONE**
-2. **Merge** #23 — **DONE** (`main@45928118…`)
-3. Main publishes core `0.1.1` — **DONE** (npmjs LIVE)
-4. Registry prove (adaptive isolated consumer / fail-closed versions list) — **DONE**
-5. Publish BlockNote `0.1.0` — **DONE** (npmjs LIVE, immutable). The R2 `0.1.1` candidate and post-review package sequence are in [PUBLISHING.md](./PUBLISHING.md).
-6. Personal AI baseline integration on published BlockNote `0.1.0` — **DONE**; R2 package consumption remains gated on review and release.
-
-The OpenEditor draft PR adds guarded release paths for future candidates. It does
-not dispatch a workflow, publish a package, tag, or create a GitHub Release.
-
-The historical private GitHub Packages prerelease `0.0.0-phase3.e17b4b5` is **immutable** and must not be reused on npmjs.
+The five 0.2.0 candidates contain unpublished runtime changes relative to their
+integrity-verified npm baselines. Core's per-root-subtree validation may reject
+formerly valid single large/deep roots. All Core document APIs use the same
+root-level budget; combining valid roots does not add an aggregate Core quota.
+Hosts and AI operations retain independent total-size budgets. Before 1.0, the minor boundary is the explicit
+compatibility boundary: ^0.1.x does not select 0.2.0. Once stable 1.x is declared,
+incompatible changes require a major bump. See [migration](migration-0.2.md) and
+[release runbook](public-release-runbook.md). Package version changes do not
+rewrite saved documents or authorize publication.
 
 ## Two version layers
 
@@ -40,7 +36,8 @@ A package bump without a schema bump is possible. Introducing `schemaVersion: 2`
 ## Supported runtimes
 
 - Node `>=20` (`engines` in the workspace and the package).
-- CI verifies Node 20 and Node 22.
+- CI preflight is configured for Node 20 and Node 22; hosted checks on the final
+  reviewed main SHA remain required before release.
 - Module format: ESM only. No CommonJS export. No subpath exports unless an isolated tarball consumer later proves a need.
 
 ## Additive vs breaking
@@ -53,7 +50,7 @@ A package bump without a schema bump is possible. Introducing `schemaVersion: 2`
 - New block `type` strings and extra `props` / `content` keys (`JsonValue`)
 - Documentation and CI-only changes
 
-**Breaking** (future major):
+**Breaking** (0.x minor compatibility boundary; stable 1.x major):
 
 - Removing or renaming exports; changing function signatures
 - Changing `EDITOR_DOCUMENT_SCHEMA_VERSION` or accepting schema `2` without a migration story
@@ -63,23 +60,14 @@ A package bump without a schema bump is possible. Introducing `schemaVersion: 2`
 - Adding CJS / subpaths that split the public contract
 - Removing the legacy deserialize behavior that defaults a missing `schemaVersion` to `1`
 
-## editor-blocknote floor
+## Internal dependency floors and consumer gates
 
-`@hello-ai-company/editor-blocknote` depends on `@hello-ai-company/editor-core` **`^0.1.1`**. Published `0.1.0` lacks APIs required by the BlockNote power layer (`withRelationEdgeId`, `DatabaseFilter`, `EditorDatabase`, …).
-
-Isolated consumer gates (`npm run verify:isolated-blocknote`):
-
-| Gate | Behavior |
-| --- | --- |
-| Static | `editor-blocknote` dependency === `^0.1.1` |
-| Positive pre-publish | core `0.1.1` candidate tarball + blocknote candidate → ordinary install **PASS** |
-| Registry adaptive | If `core@0.1.1` **absent** on npmjs → blocknote-only registry resolve unavailable is **expected** (no forever-fail on top-level `0.1.0`). If **present** → blocknote candidate + registry core → **PASS** with installed core `>=0.1.1` |
-
-With core `0.1.1` **LIVE** on npmjs, the registry adaptive gate must take the **POST-PUBLISH** path (ordinary install of blocknote candidate resolving registry core).
-
-OIDC publish path (manual only): `.github/workflows/publish-public-blocknote.yml` — prepare packs immutable tarball+digest → Environment `public-npmjs` → publish downloads/rechecks/publishes tarball under `id-token`. **TRUSTED PUBLISHER: OWNER CONFIGURATION REQUIRED** for this workflow filename (do not claim npm-side TP is already bound). Do not `workflow_dispatch` until ChatGPT review + owner TP config.
-
-No `--legacy-peer-deps` / `--force` on the release consumer path.
+The 0.2.0 line requires editor-core ^0.2.0; Publish also requires Canvas ^0.2.0.
+BlockNote peers remain ^0.54.2, and optional modules remain optional. Runtime and
+type exports are checked against installed candidate tarballs without --force or
+--legacy-peer-deps. Local preparation uses candidate dependencies; actual release
+guards require exact core/Canvas 0.2.0 already live in dependency order. Do not
+mistake local install success for registry publication evidence.
 
 ## Document JSON
 

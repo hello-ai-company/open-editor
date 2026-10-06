@@ -4,10 +4,10 @@ import rootPackageJsonSource from "../../../package.json?raw";
 
 const AUTHORIZED_NAME = "@hello-ai-company/editor-core";
 const AUTHORIZED_REGISTRY = "https://registry.npmjs.org";
-const AUTHORIZED_VERSION = "0.1.1";
+const AUTHORIZED_VERSION = "0.2.0";
 const AUTHORIZED_LICENSE = "MIT";
 const AUTHORIZED_ACCESS = "public";
-/** Published 0.1.0 is immutable; never republish. Candidate line is 0.1.1. */
+/** Published 0.1.0 is immutable; never republish. Candidate line is 0.2.0. */
 const FORBIDDEN_VERSIONS = [
   "0.0.0-private",
   "latest",
@@ -37,7 +37,7 @@ describe("public npmjs publish gate", () => {
     }
   });
 
-  it("fails unless version is the authorized public 0.1.1 candidate", () => {
+  it("fails unless version is the authorized public 0.2.0 candidate", () => {
     expect(pkg.name).toBe(AUTHORIZED_NAME);
     expect(pkg.version).toBe(AUTHORIZED_VERSION);
     for (const version of FORBIDDEN_VERSIONS) {

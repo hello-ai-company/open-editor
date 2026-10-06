@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 
 const root = process.cwd();
 const cases = [
+  ["core", "@hello-ai-company/editor-core"],
   ["ai", "@hello-ai-company/editor-ai"],
   ["canvas", "@hello-ai-company/editor-canvas"],
   ["publish", "@hello-ai-company/editor-publish"]
@@ -27,14 +28,14 @@ for (const [key, name] of cases) {
     });
 
     it("requires exact package confirmation, version, and owner OIDC environment", () => {
-      assert.match(yaml, new RegExp(`PUBLISH ${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}@0\\.1\\.0`));
+      assert.match(yaml, new RegExp(`PUBLISH ${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}@0\\.2\\.0`));
       assert.match(yaml, /environment: public-npmjs/);
       assert.match(publishJob, /id-token:\s*write/);
       assert.match(publishJob, /--registry=https:\/\/registry\.npmjs\.org/);
       assert.match(publishJob, /--access public/);
     });
 
-    it("documents interactive bootstrap before a later OIDC release", () => {
+    if (key !== "core") it("documents interactive bootstrap before a later OIDC release", () => {
       assert.match(yaml, /interactive 2FA bootstrap/);
       assert.match(yaml, /later version is reviewed/);
     });

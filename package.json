@@ -21,7 +21,7 @@
     "inspect:blocknote-tarball": "node scripts/inspect-blocknote-tarball.mjs",
     "compat:blocknote": "node scripts/blocknote-compat-matrix.mjs",
     "verify:isolated": "node scripts/isolated-consumer.mjs",
-    "verify:isolated-blocknote": "node scripts/isolated-blocknote-consumer.mjs",
+    "verify:isolated-blocknote": "node scripts/isolated-blocknote-consumer.mjs --candidate-core",
     "security:scan": "node scripts/security-scan.mjs",
     "verify:api": "node scripts/api-contract.mjs",
     "verify:blocknote": "npm run typecheck -w @hello-ai-company/editor-blocknote && npm run test -w @hello-ai-company/editor-blocknote && npm run build -w @hello-ai-company/editor-blocknote && npm run bench:smoke -w @hello-ai-company/editor-blocknote && npm run verify:isolated-blocknote",

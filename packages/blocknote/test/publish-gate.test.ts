@@ -4,7 +4,7 @@ import rootPackageJsonSource from "../../../package.json?raw";
 
 const AUTHORIZED_NAME = "@hello-ai-company/editor-blocknote";
 const AUTHORIZED_REGISTRY = "https://registry.npmjs.org";
-const AUTHORIZED_VERSION = "0.1.1";
+const AUTHORIZED_VERSION = "0.2.0";
 const AUTHORIZED_LICENSE = "MIT";
 const AUTHORIZED_ACCESS = "public";
 const AUTHORIZED_CORE_DEP = "@hello-ai-company/editor-core";
@@ -38,7 +38,7 @@ describe("public npmjs publish gate — editor-blocknote", () => {
     }
   });
 
-  it("fails unless version is the authorized R2 candidate 0.1.1", () => {
+  it("fails unless version is the authorized R2 candidate 0.2.0", () => {
     expect(pkg.name).toBe(AUTHORIZED_NAME);
     expect(pkg.version).toBe(AUTHORIZED_VERSION);
     for (const version of FORBIDDEN_VERSIONS) {
@@ -63,7 +63,7 @@ describe("public npmjs publish gate — editor-blocknote", () => {
 
   it("depends only on published editor-core", () => {
     expect(Object.keys(pkg.dependencies ?? {})).toEqual([AUTHORIZED_CORE_DEP]);
-    expect(pkg.dependencies?.[AUTHORIZED_CORE_DEP]).toBe("^0.1.1");
+    expect(pkg.dependencies?.[AUTHORIZED_CORE_DEP]).toBe("^0.2.0");
   });
 
   it("keeps the workspace root private and never publishable", () => {

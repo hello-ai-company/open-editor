@@ -1,0 +1,31 @@
+.ahead-panel { margin: 0 0 1.5rem; padding: 1.25rem; border: 1px solid var(--demo-border); border-radius: 1rem; background: var(--demo-panel); overflow-wrap: anywhere; }
+.ahead-panel[hidden] { display: none; }
+.ahead-panel header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.ahead-panel h2, .ahead-panel h3 { margin: 0.25rem 0 0.75rem; }
+.ahead-panel p { line-height: 1.6; }
+.ahead-connection, .ahead-note, .ahead-before { color: var(--demo-muted); font-size: 0.875rem; }
+.ahead-goal { display: grid; gap: 0.5rem; }
+.ahead-goal textarea { box-sizing: border-box; width: 100%; min-width: 0; resize: vertical; padding: 0.75rem; font: inherit; color: inherit; background: var(--demo-bg); border: 1px solid var(--demo-border); border-radius: 0.65rem; }
+.ahead-settings, .ahead-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 0.75rem 0; }
+.ahead-settings label { display: flex; align-items: center; gap: 0.5rem; }
+.ahead-settings select { font: inherit; padding: 0.25rem; }
+.ahead-panel small { display: block; color: var(--demo-muted); margin-bottom: 0.75rem; }
+.ahead-purpose strong { display: block; margin-bottom: 0.5rem; }
+.ahead-plan { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; padding: 0; }
+.ahead-plan li { flex: 1 1 7rem; padding: 0.6rem; border-radius: 0.6rem; border: 1px solid var(--demo-border); }
+.ahead-plan span { display: block; font-size: 0.75rem; color: var(--demo-muted); }
+.ahead-plan [data-ready="true"] { background: var(--demo-accent-soft); }
+.ahead-status { margin-bottom: 0.5rem; }
+.ahead-proposal { margin: 1rem 0; padding: 1rem; border: 1px solid var(--demo-border); border-radius: 0.75rem; }
+.ahead-proposal fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.ahead-proposal legend { margin-bottom: 0.75rem; font-weight: 600; }
+.ahead-proposal label { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.75rem 0; border-top: 1px solid var(--demo-border); }
+.ahead-proposal input { flex-shrink: 0; margin-top: 0.25rem; }
+.ahead-panel button, .ahead-panel select { min-height: 2.75rem; }
+.ahead-conversation { border-left: 2px solid var(--demo-accent); padding-left: 0.75rem; }
+.ahead-conversation strong { font-size: 0.85rem; }
+.ahead-conversation form { margin-top: 0.75rem; }
+.ahead-preview { margin-top: 0.75rem; }
+.ahead-preview summary { cursor: pointer; min-height: 2.75rem; }
+.ahead-preview p { padding: 0.75rem; border-left: 2px solid var(--demo-accent); background: var(--demo-accent-soft); }
+@media (max-width: 480px) { .ahead-panel, .ahead-proposal { padding: 0.8rem; } .ahead-actions .chip { max-width: 100%; white-space: normal; } }

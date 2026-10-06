@@ -10,8 +10,8 @@ import { packageConfig, RELEASE_REGISTRY, tarballFilename } from "./public-packa
 
 const BLOCKNOTE = Object.freeze({
   name: "@hello-ai-company/editor-blocknote",
-  version: "0.1.1",
-  filename: "hello-ai-company-editor-blocknote-0.1.1.tgz"
+  version: "0.2.0",
+  filename: "hello-ai-company-editor-blocknote-0.2.0.tgz"
 });
 const RETRY_DELAYS = Object.freeze([2000, 5000, 10000, 20000, 30000, 45000, 60000, 60000, 60000]);
 const RETRY_BUDGET_MS = 300000;
@@ -142,7 +142,7 @@ export async function verifyPublishedPackage({
 
 async function main(argv) {
   const [, , key, tarballPath] = argv;
-  if (!key || !tarballPath) throw new Error("Usage: node scripts/release/verify-public-package-published.mjs <blocknote|ai|canvas|publish> <verified-tarball>");
+  if (!key || !tarballPath) throw new Error("Usage: node scripts/release/verify-public-package-published.mjs <core|blocknote|ai|canvas|publish> <verified-tarball>");
   const result = await verifyPublishedPackage({ key, tarballPath });
   console.log(`Published registry proof passed: ${result.name}@${result.version} (${result.integrity}; attempts=${result.attempts}; elapsed=${result.elapsedMs}ms)`);
 }

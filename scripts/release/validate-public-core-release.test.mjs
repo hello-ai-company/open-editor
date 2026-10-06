@@ -17,7 +17,7 @@ import {
 function basePkg(overrides = {}) {
   return {
     name: EXPECTED_NAME,
-    version: "0.1.1",
+    version: "0.2.0",
     license: "MIT",
     publishConfig: {
       registry: "https://registry.npmjs.org",
@@ -54,7 +54,7 @@ test("candidate absent PASS", () => {
   const result = validatePublicCoreRelease(
     baseEnv({ versionsList: [ANCHOR_PUBLISHED_VERSION, "0.0.9"] })
   );
-  assert.equal(result.version, "0.1.1");
+  assert.equal(result.version, "0.2.0");
   assert.equal(result.name, EXPECTED_NAME);
 });
 
@@ -63,7 +63,7 @@ test("candidate present FAIL", () => {
     () =>
       validatePublicCoreRelease(
         baseEnv({
-          versionsList: [ANCHOR_PUBLISHED_VERSION, "0.1.1"],
+          versionsList: [ANCHOR_PUBLISHED_VERSION, "0.2.0"],
         })
       ),
     /VERSION ALREADY EXISTS/
@@ -179,7 +179,7 @@ test("wrong repo/ref FAIL", () => {
 
 test("assertRegistryEligible rejects non-array", () => {
   assertFails(
-    () => assertRegistryEligible({ versions: ["0.1.0"] }, "0.1.1"),
+    () => assertRegistryEligible({ versions: ["0.1.0"] }, "0.2.0"),
     /not a JSON array/
   );
 });

@@ -10,7 +10,7 @@ import {
   fetchCorePublishedVersions,
   parseCoreVersionsStdout,
   probeCoreCandidatePublication,
-  satisfiesCaretZeroOneOne
+  satisfiesCoreDependencyRange
 } from "./core-registry-probe.mjs";
 
 function assertFails(fn, snippet) {
@@ -34,13 +34,13 @@ describe("core-registry-probe fail-closed", () => {
     );
   });
 
-  it('["0.1.0","0.1.1"] → published candidate state', () => {
+  it('["0.1.0","0.2.0"] → published candidate state', () => {
     const result = probeCoreCandidatePublication({
-      versionsList: ["0.1.0", "0.1.1"]
+      versionsList: ["0.1.0", "0.2.0"]
     });
     assert.equal(result.state, "published_candidate");
     assert.equal(
-      classifyCoreCandidateState(["0.1.0", "0.1.1"], CORE_CANDIDATE_VERSION),
+      classifyCoreCandidateState(["0.1.0", "0.2.0"], CORE_CANDIDATE_VERSION),
       "published_candidate"
     );
   });
@@ -69,13 +69,13 @@ describe("core-registry-probe fail-closed", () => {
 
   it("missing 0.1.0 → FAIL", () => {
     assertFails(
-      () => assertCoreVersionsListShape(["0.2.0", "0.1.1"]),
+      () => assertCoreVersionsListShape(["0.2.0", "0.2.0"]),
       /missing anchor/
     );
     assertFails(
       () =>
         probeCoreCandidatePublication({
-          versionsList: ["0.1.1"]
+          versionsList: ["0.2.0"]
         }),
       /missing anchor/
     );
@@ -93,12 +93,14 @@ describe("core-registry-probe fail-closed", () => {
     );
   });
 
-  it("^0.1.1 caret: 0.1.1+ on 0.1.x only", () => {
-    assert.equal(satisfiesCaretZeroOneOne("0.1.1"), true);
-    assert.equal(satisfiesCaretZeroOneOne("0.1.2"), true);
-    assert.equal(satisfiesCaretZeroOneOne("0.1.0"), false);
-    assert.equal(satisfiesCaretZeroOneOne("0.2.0"), false);
-    assert.equal(satisfiesCaretZeroOneOne("1.0.0"), false);
+  it("^0.2.0 caret: 0.2.0+ on 0.2.x only", () => {
+    assert.equal(satisfiesCoreDependencyRange("0.2.0"), true);
+    assert.equal(satisfiesCoreDependencyRange("0.2.1"), true);
+    assert.equal(satisfiesCoreDependencyRange("0.1.0"), false);
+    assert.equal(satisfiesCoreDependencyRange("0.1.1"), false);
+    assert.equal(satisfiesCoreDependencyRange("1.0.0"), false);
+    assert.equal(satisfiesCoreDependencyRange("0.2.0-beta.1"), false);
+    assert.equal(satisfiesCoreDependencyRange("0.2.0+build.1"), true);
   });
 
   it("blocknote publish requires core floor on registry", () => {
@@ -108,8 +110,8 @@ describe("core-registry-probe fail-closed", () => {
     );
     const matching = assertCoreFloorPublishedForBlocknote([
       "0.1.0",
-      "0.1.1"
+      "0.2.0"
     ]);
-    assert.deepEqual(matching, ["0.1.1"]);
+    assert.deepEqual(matching, ["0.2.0"]);
   });
 });

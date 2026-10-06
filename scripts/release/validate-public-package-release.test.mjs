@@ -64,6 +64,23 @@ function registryExec(versionLists) {
 }
 
 describe("public package release guards", () => {
+  it("prepares core before dependent candidate versions exist on the registry", () => {
+    const input = fixture("core");
+    assert.equal(validatePublicPackageRelease({
+      ...input,
+      execFileSync: registryExec({ [packageConfig("core").name]: ["0.1.0", "0.1.1"] })
+    }).sourceCommit, sha);
+    assert.throws(() => validateRegistryState(packageConfig("core"), {
+      exec: registryExec({})
+    }), /requires published anchor/);
+    assert.throws(() => validateRegistryState(packageConfig("core"), {
+      exec: registryExec({ [packageConfig("core").name]: ["0.0.9"] })
+    }), /requires published anchor/);
+    assert.throws(() => validatePublicPackageRelease({
+      ...input,
+      execFileSync: registryExec({ [packageConfig("core").name]: ["0.1.0", "0.1.1", "0.2.0"] })
+    }), /immutable version/);
+  });
   for (const key of ["ai", "canvas", "publish"]) {
     it(`locks ${key} package metadata`, () => {
       const input = fixture(key);
@@ -72,8 +89,8 @@ describe("public package release guards", () => {
         ...input,
         execFileSync: registryExec({
           [packageConfig(key).name]: ["0.0.1"],
-          "@hello-ai-company/editor-core": ["0.1.1"],
-          "@hello-ai-company/editor-canvas": [key === "canvas" ? "0.0.1" : "0.1.0"],
+          "@hello-ai-company/editor-core": ["0.2.0"],
+          "@hello-ai-company/editor-canvas": [key === "canvas" ? "0.0.1" : "0.2.0"],
           react: ["19.0.0"],
           docx: ["9.7.2"]
         })
@@ -149,9 +166,9 @@ describe("public package release guards", () => {
     let captured;
     const result = fetchRegistryVersions("@hello-ai-company/editor-core", (_command, args) => {
       captured = args;
-      return '["0.1.1"]';
+      return '["0.2.0"]';
     });
-    assert.deepEqual(result, ["0.1.1"]);
+    assert.deepEqual(result, ["0.2.0"]);
     assert.ok(captured.includes("--prefer-online"));
     assert.ok(captured.includes("--registry=https://registry.npmjs.org"));
   });
@@ -161,16 +178,16 @@ describe("public package release guards", () => {
     const calls = [];
     const exec = (_command, args) => {
       calls.push(args[1]);
-      return JSON.stringify(args[1] === config.name ? ["0.0.1"] : args[1] === "@hello-ai-company/editor-canvas" ? ["0.1.1"] : args[1] === "docx" ? ["9.7.2"] : ["0.1.1"]);
+      return JSON.stringify(args[1] === config.name ? ["0.0.1"] : args[1] === "@hello-ai-company/editor-canvas" ? ["0.1.0"] : args[1] === "docx" ? ["9.7.2"] : ["0.2.0"]);
     };
-    assert.throws(() => validateRegistryState(config, { exec }), /required @hello-ai-company\/editor-canvas@0\.1\.0 is not published/);
+    assert.throws(() => validateRegistryState(config, { exec }), /required @hello-ai-company\/editor-canvas@0\.2\.0 is not published/);
     assert.deepEqual(calls, [config.name, "@hello-ai-company/editor-canvas"]);
 
     const exact = validateRegistryState(config, {
       exec: registryExec({
         [config.name]: ["0.0.1"],
-        "@hello-ai-company/editor-canvas": ["0.1.0", "0.1.1"],
-        "@hello-ai-company/editor-core": ["0.1.1"],
+        "@hello-ai-company/editor-canvas": ["0.2.0", "0.2.0"],
+        "@hello-ai-company/editor-core": ["0.2.0"],
         docx: ["9.7.2"]
       })
     });
@@ -182,7 +199,7 @@ describe("public package release guards", () => {
     const dir = mkdtempSync(join(tmpdir(), "public-package-artifact-"));
     const symlinkTarget = join(tmpdir(), `public-package-artifact-target-${process.pid}.txt`);
     try {
-      const filename = "hello-ai-company-editor-ai-0.1.0.tgz";
+      const filename = "hello-ai-company-editor-ai-0.2.0.tgz";
       const body = "candidate tarball";
       writeFileSync(join(dir, filename), body);
       writeFileSync(join(dir, "digest.json"), JSON.stringify({

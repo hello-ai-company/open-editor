@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { basename, dirname } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { findLeakageHits, hasPrivateAbsolutePath } from "./lib/leakage-patterns.mjs";
 import {
@@ -15,7 +15,7 @@ import {
 } from "./lib/tarball.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const tarball = findTarball(root);
+const tarball = process.argv[2] ? resolve(process.argv[2]) : findTarball(root);
 
 if (!tarball) {
   console.error("No @hello-ai-company/editor-core tarball found. Run npm pack -w @hello-ai-company/editor-core first.");

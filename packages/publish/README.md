@@ -1,5 +1,15 @@
 # `@hello-ai-company/editor-publish`
 
+## 0.2.0 candidate
+
+Prepared locally; not published. Requires `editor-core ^0.2.0` and
+`editor-canvas ^0.2.0`. Hidden Canvas content is excluded from derived Site/Present
+titles and descriptions; a hidden parent remains hidden when children become
+slide roots. Existing rendering APIs remain. These corrected projections can
+change previous exports, so review and regenerate output; no hosting or public
+publication occurs automatically.
+See the [migration guide](https://github.com/hello-ai-company/open-editor/blob/main/docs/migration-0.2.md).
+
 Safe HTML, Markdown, presentation, and DOCX output plus public knowledge projections for OpenEditor documents.
 
 ```ts

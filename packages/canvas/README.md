@@ -1,5 +1,14 @@
 # @hello-ai-company/editor-canvas
 
+## 0.2.0 candidate
+
+Prepared locally; not published. Requires `editor-core ^0.2.0`. Adds a dedicated
+inspector within `CanvasEditor` and richer static previews for lists, tables, callouts and
+references, and corrects presentation heading grouping. Existing root and React
+subpaths remain; React peers are unchanged. Layout references do not copy document
+content, and the host owns layout persistence. Review the core validation limits
+before upgrading. See the [migration guide](https://github.com/hello-ai-company/open-editor/blob/main/docs/migration-0.2.md).
+
 Responsive Canvas layout specs and a React editor for OpenEditor documents.
 Layout elements point to semantic block IDs, so Canvas rearranges presentation
 without copying or changing document content.

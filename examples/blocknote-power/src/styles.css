@@ -217,6 +217,12 @@ iframe:focus-visible {
 
 .demo-workspace--outline { grid-template-columns: minmax(13rem, 15rem) minmax(0, 1fr); }
 .demo-workspace--context { grid-template-columns: minmax(0, 1fr) minmax(15rem, 19rem); }
+.demo-ahead-shell[hidden] { display: none; }
+.demo-ahead-shell { padding: 0.75rem; }
+.demo-ahead-shell .ahead-panel { border: 0; padding: 0; }
+@media (max-width: 760px) {
+  .demo-context.demo-ahead-shell { position: static; inset: auto; grid-column: 1 / -1; max-height: none; border-radius: 0.75rem; margin: 0.5rem; }
+}
 .demo-workspace--outline.demo-workspace--context {
   grid-template-columns: minmax(13rem, 15rem) minmax(0, 1fr) minmax(15rem, 19rem);
 }

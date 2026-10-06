@@ -6,8 +6,8 @@ import { sampleDocument } from "./sampleDocument";
 import { LocalPersonalAiReview } from "./LocalPersonalAiReview";
 import { type LocalPersonalAiHost, type HostProposal } from "./localPersonalAi";
 
-export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedStore, host }: {
-  onOpenPersonalContext: () => void; store?: DocumentStore; host?: LocalPersonalAiHost;
+export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedStore, host, active = true }: {
+  onOpenPersonalContext: () => void; store?: DocumentStore; host?: LocalPersonalAiHost; active?: boolean;
 }) {
   const [store] = useState(() => suppliedStore ?? createBrowserDocumentStore());
   const [record, setRecord] = useState<StoredDocument>();
@@ -177,7 +177,7 @@ export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedS
     </section>
     {host && hostRevision ? <LocalPersonalAiReview host={host} document={hostRevision} dirty={dirty} busy={saving || hostBusy} onAccept={hostCommit} onUndo={() => hostCommit()} /> : null}
     <SaveShortcut onSave={save} />
-    <DocumentMountBoundary key={record.id + ":" + record.revision} onExport={exportCopy}><div inert={hostBusy || navigating}><PowerDemoEditor initialDocument={record.document} documentTitle={record.title} onDocumentChange={changed} saveStatus={status} readOnly={hostBusy || navigating} onOpenPersonalContext={onOpenPersonalContext} /></div></DocumentMountBoundary>
+    <DocumentMountBoundary key={record.id + ":" + record.revision} onExport={exportCopy}><div inert={hostBusy || navigating}><PowerDemoEditor initialDocument={record.document} documentTitle={record.title} onDocumentChange={changed} saveStatus={status} readOnly={hostBusy || navigating} allowLocalAhead={!host} workspaceActive={active} onOpenPersonalContext={onOpenPersonalContext} /></div></DocumentMountBoundary>
   </div>;
 }
 
