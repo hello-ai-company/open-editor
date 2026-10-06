@@ -1,8 +1,8 @@
 # @hello-ai-company/editor-canvas
 
-## 0.2.0 candidate
+## 0.2.0
 
-Prepared locally; not published. Requires `editor-core ^0.2.0`. Adds a dedicated
+Requires `editor-core ^0.2.0`. Adds a dedicated
 inspector within `CanvasEditor` and richer static previews for lists, tables, callouts and
 references, and corrects presentation heading grouping. Existing root and React
 subpaths remain; React peers are unchanged. Layout references do not copy document

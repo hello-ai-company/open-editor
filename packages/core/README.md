@@ -1,8 +1,8 @@
 # @hello-ai-company/editor-core
 
-## 0.2.0 candidate: compatibility boundary
+## 0.2.0: compatibility boundary
 
-This version is prepared locally and is not published. The document schema stays
+The document schema stays
 at `1`, with the same exports and optional provider types. Document creation,
 cloning, validators and serialization share per-root-subtree bounds: 20,000 blocks
 including the root, block depth 128 (root 0), 50,000 props/content JSON nodes and
@@ -27,7 +27,7 @@ npm install @hello-ai-company/editor-core
 
 Requirements: Node.js `>=20`, ESM. No runtime dependencies. No CommonJS export.
 
-Published `@hello-ai-company/editor-core@0.1.0` and `0.1.1` on npmjs are **immutable**. Workspace candidate is `0.2.0`, prepared locally and unpublished. An actual release requires a separately reviewed **main** commit. Pack the candidate:
+Earlier npm versions `0.1.0` and `0.1.1` are **immutable**. Version `0.2.0` introduces the compatibility changes described above. To validate a local workspace build:
 
 ```bash
 npm pack -w @hello-ai-company/editor-core
