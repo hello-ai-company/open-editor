@@ -19,6 +19,7 @@ function mapBlock(
   block: EditorBlock,
   known: ReadonlySet<string>,
   options: {
+    knownStyleTypes?: ReadonlySet<string>;
     wrapUnknownAsEnvelope: boolean;
     unknownEnvelopeType: string;
     idPolicy: "preserve" | "regenerate-missing";
@@ -34,7 +35,14 @@ function mapBlock(
     }
   }
 
-  const isKnown = known.has(block.type);
+  const hasUnsupportedStyles = (value: unknown): boolean => {
+    if (!options.knownStyleTypes || !value || typeof value !== "object") return false;
+    if (Array.isArray(value)) return value.some(hasUnsupportedStyles);
+    const object = value as Record<string, unknown>;
+    if (object.styles && typeof object.styles === "object" && !Array.isArray(object.styles) && Object.keys(object.styles).some(key => !options.knownStyleTypes!.has(key))) return true;
+    return Object.values(object).some(hasUnsupportedStyles);
+  };
+  const isKnown = known.has(block.type) && !hasUnsupportedStyles(block.content);
   const scalarOk = propsAreAllScalar(block.props as Record<string, unknown> | undefined);
 
   if (!isKnown || !scalarOk) {
@@ -88,6 +96,7 @@ export function toBlockNote(
 
   const known = toKnownSet(options.knownBlockTypes);
   const opts = {
+    ...(options.knownStyleTypes ? { knownStyleTypes: options.knownStyleTypes instanceof Set ? options.knownStyleTypes : new Set(options.knownStyleTypes) } : {}),
     wrapUnknownAsEnvelope: options.wrapUnknownAsEnvelope ?? true,
     unknownEnvelopeType: options.unknownEnvelopeType ?? UNKNOWN_ENVELOPE_TYPE,
     idPolicy: options.idPolicy ?? "preserve"
@@ -106,10 +115,11 @@ export function knownBlockTypesFromSchema(schema: {
 
 export function toBlockNoteForSchema(
   document: EditorDocument,
-  schema: { blockSchema: Record<string, unknown> },
+  schema: { blockSchema: Record<string, unknown>; styleSchema?: Record<string, unknown> },
   options?: Omit<ToBlockNoteOptions, "knownBlockTypes">
 ): OpenEditorPartialBlock[] {
   return toBlockNote(document, {
+    ...(schema.styleSchema ? { knownStyleTypes: new Set(Object.keys(schema.styleSchema)) } : {}),
     ...options,
     knownBlockTypes: knownBlockTypesFromSchema(schema)
   });

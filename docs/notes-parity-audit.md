@@ -11,7 +11,7 @@ are preserved. This document is an implementation plan, not a completed parity c
 ## Full exposed-surface inventory
 
 Sources: Notes `apps/web/src/components/NoteRichEditor.tsx` (23 insertion kinds,
-21 style kinds, 23 database property types, 11 database views), `lib/domain.ts`
+21 style kinds, 22 database property types, 11 database views), `lib/domain.ts`
 (NoteBlock fields), `editorAdapters/noteBlockFieldOwnership.ts`, note pane,
 proposal/mode panels and their contracts. Requirements are observed rather than
 copied from the private implementation. Additional items found by independent
@@ -61,15 +61,24 @@ Style/action (21): heading, quote, bullet, numbered, checklist, callout, alignLe
 alignCenter, alignRight, indent, outdent, fontSans, fontSerif, fontMono, textSmall,
 textLarge, clearFormatting, moveUp, moveDown, moveTop, moveBottom.
 
-DB property (23): text, number, select, multi_select, status, date, user, files,
+DB property (22): text, number, select, multi_select, status, date, user, files,
 checkbox, url, email, phone, formula, relation, rollup, created_time, created_by,
 last_edited_time, last_edited_by, button, location, id.
 
-Independent read-only audit confirmed these counts and highlighted row-specific
+Root automated union extraction corrected the DB count to 22 (15 outside the existing seven kinds). Independent read-only audit reviewed the surfaces and highlighted row-specific
 history/comments, callout icon mismatch, old deep links and template reference-ID
 policies. Audit was static (not a second runtime test). Each item above remains
 open until it is either verified public functionality, a documented adapter-only
 requirement, or an explicitly unresolved candidate gap.
+
+Canonical (26): paragraph, heading, bullet_list, numbered_list, checklist, quote,
+callout, code, image, file, pdf, divider, toggle, table, database, embed, meeting,
+ai, drawing, canvas, child_page, web_link, asset, editor_tool, column_list, column.
+
+Live editor (19): paragraph, heading, bullet_list, numbered_list, checklist, quote,
+code, divider, pageBreak, database, table, callout, asset, child_page, webLink,
+image, editorTool, columnList, column. A canonical record without an existing
+editor is a preservation/import requirement, not proof that Notes already edits it.
 
 ## Preservation contract
 
@@ -118,11 +127,14 @@ contract requirement stops that portion rather than acquiring permissions.
 [MPL license](https://www.mozilla.org/en-US/MPL/2.0/),
 [MPL FAQ](https://www.mozilla.org/en-US/MPL/2.0/FAQ/).
 
-## Integration handoff (planned)
+## Integration handoff
 
 The candidate APIs must live under documented package exports, not deep imports.
 Document columns/widget block specs and host-neutral codec helpers belong to
 editor-blocknote; small generic portable types stay in Core; async reviewed-change
 coordination belongs to editor-ai; existing Canvas and Publish projections stay
 separate. A local candidate package inventory, exact versions/dependency floors,
-API examples, fixtures and review findings will be provided at completion.
+API examples, fixtures and review findings are in [candidate handoff](notes-candidate-handoff.md)
+and [verification record](notes-candidate-verification.md). This continuation supplies
+the bounded columns/widget/codec/cooperative-review phase and workspace visual
+polish; the full inventory above remains a roadmap, not a completion claim.
