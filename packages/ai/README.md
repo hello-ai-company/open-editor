@@ -1,12 +1,23 @@
 # `@hello-ai-company/editor-ai`
 
+## 0.2.0 candidate
+
+Prepared locally; not published. Requires `editor-core ^0.2.0`. Existing APIs remain
+available; bounded `createAheadSession` is opt-in. Its cancellation acknowledgement
+must mean execution stopped, and its synchronous writer must atomically compare
+and commit the reviewed document. A remote host needs an asynchronous approval,
+CAS and reconciliation coordinator; it cannot directly return a promise from
+that writer. Real-model execution is not included. Host projects require their
+own dependency upgrades and are not synchronized by installing this package.
+See the [migration guide](https://github.com/hello-ai-company/open-editor/blob/main/docs/migration-0.2.md).
+
 `createAheadSession` adds bounded, opt-in look-ahead over the existing
 `AgentAdapter`: outline → research → draft, a review queue, conversation
 refinement, pause/resume/cancel and explicit partial adoption/Undo. It does not
 execute models or write a document by itself. Hosts own authorization, billing,
 acknowledged cancellation and document CAS. The OpenEditor example uses an
 explicitly labeled local synthetic adapter; real-model integration remains
-pending. See [implementation and host gates](../../docs/proactive-ai-collaboration.md).
+pending. See [implementation and host gates](https://github.com/hello-ai-company/open-editor/blob/main/docs/proactive-ai-collaboration.md).
 
 Provider-neutral contracts and pure helpers for connecting an agent to an OpenEditor host. This package has no model or provider dependency and does not persist runs, suggestions, provenance, comments, or learning signals.
 
@@ -24,7 +35,7 @@ Agent output is untrusted input. Parse it with `parseSuggestionGroup` before dis
 
 The host must bind each event's `runId` to the active run and each accepted source agent ID to the registered adapter. Structural parsing does not establish identity, authorization, or trust in generated text. Treat generated strings and JSON props as untrusted data when rendering; apply host access controls and output sanitization for the chosen renderer.
 
-The package defines contracts only. It does not manage run state, transport, credentials, retries, UI, comments, backlinks, history, or storage.
+The adapter and suggestion helpers are contracts and pure transformations. The opt-in ahead controller manages bounded transient run state; it does not implement transport, credentials, UI, host history or durable storage.
 
 ## Learning signals and preferences
 

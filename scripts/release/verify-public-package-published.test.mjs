@@ -53,6 +53,18 @@ function publishedMetadata(test, overrides = {}) {
 }
 
 describe("post-publish registry proof", () => {
+  it("matches exact core registry metadata integrity with the reviewed tarball", async () => {
+    const test = fixture("core");
+    try {
+      const result = await verifyPublishedPackage({
+        key: "core", tarballPath: test.tarballPath,
+        fetchImpl: async () => ({ ok: true, status: 200, json: async () => publishedMetadata(test) })
+      });
+      assert.equal(result.name, "@hello-ai-company/editor-core");
+      assert.equal(result.version, "0.2.0");
+      assert.equal(result.attempts, 1);
+    } finally { rmSync(test.directory, { recursive: true, force: true }); }
+  });
   it("uses scoped registry identity and exact tarball URL", () => {
     assert.equal(
       registryVersionUrl("@hello-ai-company/editor-ai", "0.1.0"),

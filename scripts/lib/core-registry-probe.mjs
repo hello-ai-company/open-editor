@@ -9,7 +9,7 @@
  *
  * Fail closed on: command failure, empty stdout, invalid JSON, wrong shape,
  * missing published anchor 0.1.0. Only then inspect whether the candidate
- * (default 0.1.1) is present.
+ * (default 0.2.0) is present.
  */
 
 import { execFileSync } from "node:child_process";
@@ -17,9 +17,9 @@ import { execFileSync } from "node:child_process";
 export const CORE_PKG = "@hello-ai-company/editor-core";
 export const CORE_REGISTRY = "https://registry.npmjs.org";
 export const CORE_ANCHOR_VERSION = "0.1.0";
-export const CORE_CANDIDATE_VERSION = "0.1.1";
-/** Dependency floor encoded by blocknote: ^0.1.1 */
-export const CORE_DEP_RANGE = "^0.1.1";
+export const CORE_CANDIDATE_VERSION = "0.2.0";
+/** Dependency floor encoded by blocknote: ^0.2.0 */
+export const CORE_DEP_RANGE = "^0.2.0";
 
 export class CoreRegistryProbeError extends Error {
   constructor(message) {
@@ -121,18 +121,18 @@ export function fetchCorePublishedVersions(deps = {}) {
 }
 
 /**
- * Whether a semver string satisfies caret range ^0.1.1
- * (major===0 && minor===1 && patch>=1). Rejects 0.2.0 and 1.0.0.
+ * Whether a semver string satisfies caret range ^0.2.0
+ * (major===0 && minor===2). Rejects 0.1.x and 1.0.0.
  * @param {string} version
  * @returns {boolean}
  */
-export function satisfiesCaretZeroOneOne(version) {
-  const m = /^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(String(version ?? ""));
+export function satisfiesCoreDependencyRange(version) {
+  const m = /^(\d+)\.(\d+)\.(\d+)(?:\+[0-9A-Za-z.-]+)?$/.exec(String(version ?? ""));
   if (!m) return false;
   const major = Number(m[1]);
   const minor = Number(m[2]);
   const patch = Number(m[3]);
-  return major === 0 && minor === 1 && patch >= 1;
+  return major === 0 && minor === 2 && patch >= 0;
 }
 
 /**
@@ -180,7 +180,7 @@ export function probeCoreCandidatePublication(options = {}) {
 }
 
 /**
- * Fail-closed: at least one published core version must satisfy ^0.1.1
+ * Fail-closed: at least one published core version must satisfy ^0.2.0
  * before blocknote may be published.
  * @param {string[]} versions — shape-checked list
  * @param {string} [floorRange]
@@ -193,7 +193,7 @@ export function assertCoreFloorPublishedForBlocknote(
   if (floorRange !== CORE_DEP_RANGE) {
     stop(`STOP — unsupported core floor range: ${floorRange}`);
   }
-  const matching = list.filter((v) => satisfiesCaretZeroOneOne(v));
+  const matching = list.filter((v) => satisfiesCoreDependencyRange(v));
   if (matching.length === 0) {
     stop(
       `STOP — ${CORE_PKG} meeting ${floorRange} is not published on npmjs ` +

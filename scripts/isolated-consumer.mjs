@@ -16,11 +16,11 @@ function fail(message) {
 
 try {
   cpSync(join(root, "tests/isolated-consumer"), workdir, { recursive: true });
-  execFileSync("npm", ["install", "--omit=dev", tarball], {
+  execFileSync("npm", ["install", "--omit=dev", "--ignore-scripts", tarball], {
     cwd: workdir,
     stdio: "inherit"
   });
-  execFileSync("npm", ["install", "--no-save", "typescript@5.9.2"], {
+  execFileSync("npm", ["install", "--no-save", "--ignore-scripts", "typescript@5.9.2"], {
     cwd: workdir,
     stdio: "inherit"
   });

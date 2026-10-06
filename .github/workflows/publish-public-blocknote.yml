@@ -1,4 +1,4 @@
-# Production-safe manual OIDC publish path for @hello-ai-company/editor-blocknote@0.1.1
+# Production-safe manual OIDC publish path for @hello-ai-company/editor-blocknote@0.2.0
 # (R3.1 hardening of the reviewed BlockNote candidate release).
 #
 # HARD RULES:
@@ -6,7 +6,7 @@
 # - Never use NPM_TOKEN / NODE_AUTH_TOKEN / long-lived npm credentials
 # - Do not rename this workflow file (Trusted Publisher binds to filename)
 # - Do not auto-cancel an in-progress release
-# - Publish only after exact editor-core@0.1.1 is already on npmjs
+# - Publish only after exact editor-core@0.2.0 is already on npmjs
 # - Do not claim npm Trusted Publisher is configured from this file alone
 #
 # Architecture:
@@ -41,7 +41,7 @@ on:
         required: true
         type: string
       confirmation:
-        description: 'Type exactly: PUBLISH @hello-ai-company/editor-blocknote@0.1.1'
+        description: 'Type exactly: PUBLISH @hello-ai-company/editor-blocknote@0.2.0'
         required: true
         type: string
 

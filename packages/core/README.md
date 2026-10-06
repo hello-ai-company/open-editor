@@ -1,5 +1,16 @@
 # @hello-ai-company/editor-core
 
+## 0.2.0 candidate: compatibility boundary
+
+This version is prepared locally and is not published. The document schema stays
+at `1`, with the same exports and optional provider types. Document creation,
+cloning and validators now bound blocks, depth and JSON nodes, reject cycles and
+unsupported primitives and may reject previously accepted large documents. Supply
+JSON-shaped objects; prototype validation is not enforced. These are a
+pre-1.0 compatibility change, not a universal drop-in patch. Preserve originals
+and validate before upgrading; serialization has separate per-root-block limits.
+See the [migration guide](https://github.com/hello-ai-company/open-editor/blob/main/docs/migration-0.2.md).
+
 Portable TypeScript document model, JSON serialization, and optional provider types.
 
 This is a **small host-neutral document layer** — not a rich-text editor, not a React component, and not a BlockNote/UI package.
@@ -12,11 +23,11 @@ npm install @hello-ai-company/editor-core
 
 Requirements: Node.js `>=20`, ESM. No runtime dependencies. No CommonJS export.
 
-Published `@hello-ai-company/editor-core@0.1.0` on npmjs is **immutable**. Workspace candidate is `0.1.1` (published from **main** after merge — not from this draft PR). Pack the candidate:
+Published `@hello-ai-company/editor-core@0.1.0` and `0.1.1` on npmjs are **immutable**. Workspace candidate is `0.2.0`, prepared locally and unpublished. An actual release requires a separately reviewed **main** commit. Pack the candidate:
 
 ```bash
 npm pack -w @hello-ai-company/editor-core
-npm install ./hello-ai-company-editor-core-0.1.1.tgz
+npm install ./hello-ai-company-editor-core-0.2.0.tgz
 ```
 
 ## Quickstart

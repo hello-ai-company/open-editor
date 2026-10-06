@@ -24,26 +24,21 @@ function findBlocknoteLeakageHits(text) {
 }
 
 const AUTHORIZED_NAME = "@hello-ai-company/editor-blocknote";
-const AUTHORIZED_VERSION = "0.1.1";
+const AUTHORIZED_VERSION = "0.2.0";
 const AUTHORIZED_REGISTRY = "https://registry.npmjs.org";
 const AUTHORIZED_LICENSE = "MIT";
 const AUTHORIZED_ACCESS = "public";
 const AUTHORIZED_COPYRIGHT = "Copyright (c) 2026 Yuki Shibata";
 const AUTHORIZED_PEER = "^0.54.2";
-const AUTHORIZED_CORE_DEP = "^0.1.1";
+const AUTHORIZED_CORE_DEP = "^0.2.0";
 const TARBALL_PREFIX = "hello-ai-company-editor-blocknote-";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
 function findBlocknoteTarball() {
   for (const directory of [root, join(root, "packages/blocknote")]) {
-    const match = readdirSync(directory).find(
-      (name) =>
-        name.startsWith(TARBALL_PREFIX) &&
-        name.endsWith(".tgz") &&
-        !name.includes("matrix-widened")
-    );
-    if (match) return join(directory, match);
+    const expected = `${TARBALL_PREFIX}${AUTHORIZED_VERSION}.tgz`;
+    if (readdirSync(directory).includes(expected)) return join(directory, expected);
   }
   return undefined;
 }

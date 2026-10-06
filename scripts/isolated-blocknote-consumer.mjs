@@ -1,9 +1,10 @@
 /**
- * Registry-realistic editor-blocknote consumer gate for candidate 0.1.1.
+ * editor-blocknote consumer gate for candidate 0.2.0.
  *
- * STATIC: editor-blocknote package.json depends on editor-core === ^0.1.1 floor.
- * Candidate BlockNote tarball consumers install the exact live core@0.1.1
- * from npmjs. Registry failures and version ambiguity fail closed.
+ * STATIC: editor-blocknote package.json depends on editor-core === ^0.2.0 floor.
+ * The default mode installs exact live core@0.2.0 from npmjs and fails closed
+ * on registry errors. --candidate-core installs local tarballs for pre-publication
+ * verification and does not assert registry availability.
  */
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -20,10 +21,14 @@ import {
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const CORE_VERSION = CORE_CANDIDATE_VERSION;
-const BN_VERSION = "0.1.1";
+const BN_VERSION = "0.2.0";
 const CORE_FLOOR = CORE_DEP_RANGE;
 const BN_TGZ_NAME = `hello-ai-company-editor-blocknote-${BN_VERSION}.tgz`;
 const BN_PKG = "@hello-ai-company/editor-blocknote";
+const candidateCore = process.argv.includes("--candidate-core");
+if (process.argv.slice(2).some(arg => arg !== "--candidate-core")) throw new Error("Unknown consumer option");
+const coreTarball = join(root, `hello-ai-company-editor-core-${CORE_VERSION}.tgz`);
+const coreDependency = candidateCore ? `file:${coreTarball}` : CORE_VERSION;
 
 function run(command, args, cwd, { allowFail = false } = {}) {
   const result = spawnSync(command, args, {
@@ -52,6 +57,7 @@ run(
 );
 
 const bnTgz = join(root, BN_TGZ_NAME);
+if (candidateCore) run("npm", ["pack", "-w", CORE_PKG, "--pack-destination", root, "--ignore-scripts"], root);
 
 function writeSmokeFiles(dir) {
   writeFileSync(
@@ -179,7 +185,7 @@ function smokeBasePositive(dir) {
         private: true,
         type: "module",
         dependencies: {
-          "@hello-ai-company/editor-core": CORE_VERSION,
+          "@hello-ai-company/editor-core": coreDependency,
           "@hello-ai-company/editor-blocknote": `file:${bnTgz}`,
           "@blocknote/core": "0.54.2",
           "@blocknote/react": "0.54.2",
@@ -355,7 +361,7 @@ void hydrationState;
     process.exit(tscInstall.status ?? 1);
   }
   run("npx", ["tsc", "-p", "tsconfig.json"], dir);
-  console.log("CASE positive (registry core 0.1.1 + blocknote candidate tarball): PASS");
+  console.log(`CASE positive (${candidateCore ? "local candidate core" : "exact registry core"} + blocknote candidate tarball): PASS`);
   console.log("isolated-blocknote-consumer media-api-compat (tsc --strict): ok");
 }
 
@@ -368,7 +374,7 @@ function smokeOptional(dir, feature, peerPkg) {
         private: true,
         type: "module",
         dependencies: {
-          "@hello-ai-company/editor-core": CORE_VERSION,
+          "@hello-ai-company/editor-core": coreDependency,
           "@hello-ai-company/editor-blocknote": `file:${bnTgz}`,
           "@blocknote/core": "0.54.2",
           "@blocknote/react": "0.54.2",
@@ -437,7 +443,7 @@ console.log("isolated-blocknote-consumer ${feature}: ok");
   );
 }
 
-/** STATIC GATE: package.json dependency floor must stay ^0.1.1 (or documented floor). */
+/** STATIC GATE: package.json dependency floor must stay ^0.2.0 (or documented floor). */
 function assertStaticCoreFloor() {
   const pkgPath = join(root, "packages/blocknote/package.json");
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
@@ -493,7 +499,7 @@ function assertAdaptiveRegistryGate() {
           private: true,
           type: "module",
           dependencies: {
-            // Let npm resolve core from the public registry via blocknote's ^0.1.1.
+            // Let npm resolve core from the public registry via blocknote's ^0.2.0.
             [BN_PKG]: `file:${bnTgz}`,
             "@blocknote/core": "0.54.2",
             "@blocknote/react": "0.54.2",
@@ -556,9 +562,18 @@ try {
       rmSync(featureDir, { recursive: true, force: true });
     }
   }
-  assertAdaptiveRegistryGate();
+  if (candidateCore) {
+    for (const name of [CORE_PKG, BN_PKG]) {
+      const installedPath = join(dir, "node_modules", name);
+      const pkg = JSON.parse(readFileSync(join(installedPath, "package.json"), "utf8"));
+      if (pkg.version !== "0.2.0") throw new Error("Candidate version mismatch");
+      const lock = JSON.parse(readFileSync(join(dir, "package-lock.json"), "utf8"));
+      if (!lock.packages?.[`node_modules/${name}`]?.resolved?.endsWith(".tgz")) throw new Error("Candidate was not installed from a tarball");
+    }
+    console.log("Pre-publication candidate-core consumer passed; registry availability was not asserted.");
+  } else assertAdaptiveRegistryGate();
   console.log(
-    "verify:isolated-blocknote PASS (static floor + candidate tarballs against exact registry core 0.1.1)"
+    `verify:isolated-blocknote PASS (${candidateCore ? "local candidate tarballs" : "exact registry core"})`
   );
 } finally {
   rmSync(dir, { recursive: true, force: true });

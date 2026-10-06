@@ -12,22 +12,44 @@ const indexExports = Object.freeze({
 });
 
 export const PUBLIC_PACKAGES = Object.freeze({
+  core: Object.freeze({
+    directory: "packages/core",
+    name: "@hello-ai-company/editor-core",
+    version: "0.2.0",
+    publishedAnchor: "0.1.0",
+    copyright: "Copyright (c) 2026 Yuki Shibata",
+    repository: repository("packages/core"),
+    exports: indexExports,
+    files,
+    engines,
+    exactRegistryDependencies: Object.freeze({}),
+    type: "module",
+    main: "./dist/index.js",
+    types: "./dist/index.d.ts",
+    dependencies: Object.freeze({}),
+    peerDependencies: Object.freeze({}),
+    scripts: Object.freeze({
+      build: "tsc -p tsconfig.build.json",
+      typecheck: "tsc -p tsconfig.json --noEmit",
+      test: "vitest run"
+    })
+  }),
   ai: Object.freeze({
     directory: "packages/ai",
     name: "@hello-ai-company/editor-ai",
-    version: "0.1.0",
+    version: "0.2.0",
     copyright: "Copyright (c) 2026 Hello AI Company",
     repository: repository("packages/ai"),
     exports: indexExports,
     files,
     engines,
-    exactRegistryDependencies: Object.freeze({ "@hello-ai-company/editor-core": "0.1.1" }),
+    exactRegistryDependencies: Object.freeze({ "@hello-ai-company/editor-core": "0.2.0" }),
     type: "module",
     main: "./dist/index.js",
     types: "./dist/index.d.ts",
     dependencies: Object.freeze({}),
     peerDependencies: Object.freeze({
-      "@hello-ai-company/editor-core": "^0.1.1"
+      "@hello-ai-company/editor-core": "^0.2.0"
     }),
     scripts: Object.freeze({
       build: "npm run build -w @hello-ai-company/editor-core && tsc -p tsconfig.build.json",
@@ -39,7 +61,7 @@ export const PUBLIC_PACKAGES = Object.freeze({
   canvas: Object.freeze({
     directory: "packages/canvas",
     name: "@hello-ai-company/editor-canvas",
-    version: "0.1.0",
+    version: "0.2.0",
     copyright: "Copyright (c) 2026 Yuki Shibata",
     repository: repository("packages/canvas"),
     exports: Object.freeze({
@@ -48,13 +70,13 @@ export const PUBLIC_PACKAGES = Object.freeze({
     }),
     files,
     engines,
-    exactRegistryDependencies: Object.freeze({ "@hello-ai-company/editor-core": "0.1.1" }),
+    exactRegistryDependencies: Object.freeze({ "@hello-ai-company/editor-core": "0.2.0" }),
     type: "module",
     main: "./dist/index.js",
     types: "./dist/index.d.ts",
     sideEffects: false,
     dependencies: Object.freeze({
-      "@hello-ai-company/editor-core": "^0.1.1"
+      "@hello-ai-company/editor-core": "^0.2.0"
     }),
     peerDependencies: Object.freeze({
       react: "^18.0.0 || ^19.0.0"
@@ -69,7 +91,7 @@ export const PUBLIC_PACKAGES = Object.freeze({
   publish: Object.freeze({
     directory: "packages/publish",
     name: "@hello-ai-company/editor-publish",
-    version: "0.1.0",
+    version: "0.2.0",
     copyright: "Copyright (c) 2026 Yuki Shibata",
     repository: repository("packages/publish"),
     exports: indexExports,
@@ -79,13 +101,13 @@ export const PUBLIC_PACKAGES = Object.freeze({
     main: "./dist/index.js",
     types: "./dist/index.d.ts",
     dependencies: Object.freeze({
-      "@hello-ai-company/editor-canvas": "^0.1.0",
-      "@hello-ai-company/editor-core": "^0.1.1",
+      "@hello-ai-company/editor-canvas": "^0.2.0",
+      "@hello-ai-company/editor-core": "^0.2.0",
       docx: "^9.7.2"
     }),
     exactRegistryDependencies: Object.freeze({
-      "@hello-ai-company/editor-canvas": "0.1.0",
-      "@hello-ai-company/editor-core": "0.1.1"
+      "@hello-ai-company/editor-canvas": "0.2.0",
+      "@hello-ai-company/editor-core": "0.2.0"
     }),
     peerDependencies: Object.freeze({}),
     scripts: Object.freeze({

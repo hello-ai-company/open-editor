@@ -10,12 +10,15 @@ The public package is [`@hello-ai-company/editor-core`](./packages/core). It is 
 | --- | --- |
 | Repository | **PUBLIC** — https://github.com/hello-ai-company/open-editor |
 | Package (published) | `@hello-ai-company/editor-core@0.1.0` + `@0.1.1` on npmjs (**immutable**) |
-| Package (workspace) | `@hello-ai-company/editor-core@0.1.1` (matches published line) |
-| Adapter | `@hello-ai-company/editor-blocknote@0.1.0` — published on npm (depends on core `^0.1.1`) |
+| Package (workspace) | Five `@hello-ai-company/editor-*` packages at `0.2.0` — local release candidates, not published |
+| Published packages | core/blocknote `0.1.1`; ai/canvas/publish `0.1.0` (registry checked 2026-10-06) |
 | License | MIT — Copyright (c) 2026 Yuki Shibata |
 | Registry | https://registry.npmjs.org (`publishConfig.access`: public) |
-| Release candidates | `editor-blocknote@0.1.1`, `editor-ai@0.1.0`, `editor-canvas@0.1.0`, and `editor-publish@0.1.0` are not published |
+| Release candidates | core/blocknote/ai/canvas/publish `0.2.0`; see [changes](./CHANGELOG.md) and [migration](./docs/migration-0.2.md) |
 | Runtime dependencies (core) | none |
+
+See the [0.2.0 preparation record](./docs/release-preparation-0.2.md) for checked
+candidate artifacts, verification results and remaining owner release steps.
 
 ## Install
 
@@ -56,11 +59,11 @@ Public shape: **Small Core + Adapters + Docs + Examples**.
 
 | Layer | What it is | line |
 | --- | --- | --- |
-| **Small Core** | `@hello-ai-company/editor-core` — document model, JSON, optional provider types | `0.1.1` published (`0.1.0` immutable) |
-| **Editing adapter** | `@hello-ai-company/editor-blocknote` — BlockNote power layer, commands, and incremental bridge | `0.1.0` published; `0.1.1` candidate; BlockNote peers `^0.54.2` |
-| **AI contracts** | `@hello-ai-company/editor-ai` — agent events, validated suggestions, provenance results, and explicit learning decisions | `0.1.0` candidate; unpublished |
-| **Canvas** | `@hello-ai-company/editor-canvas` — responsive layout specs, React inspector, Magic Layout grouping, and slide references | `0.1.0` candidate; unpublished |
-| **Publishing** | `@hello-ai-company/editor-publish` — safe static HTML, Markdown, DOCX, print HTML, and public knowledge projection | `0.1.0` candidate; unpublished |
+| **Small Core** | `@hello-ai-company/editor-core` — document model, JSON, optional provider types | `0.1.1` published; `0.2.0` candidate |
+| **Editing adapter** | `@hello-ai-company/editor-blocknote` — BlockNote power layer, commands, and incremental bridge | `0.1.1` published; `0.2.0` candidate; BlockNote peers `^0.54.2` |
+| **AI contracts** | `@hello-ai-company/editor-ai` — agent events, validated suggestions, provenance results, and explicit learning decisions | `0.1.0` published; `0.2.0` candidate |
+| **Canvas** | `@hello-ai-company/editor-canvas` — responsive layout specs, React inspector, Magic Layout grouping, and slide references | `0.1.0` published; `0.2.0` candidate |
+| **Publishing** | `@hello-ai-company/editor-publish` — safe static HTML, Markdown, DOCX, print HTML, and public knowledge projection | `0.1.0` published; `0.2.0` candidate |
 | **Docs** | Architecture, public API, contributing, security | this repository |
 | **Examples** | `examples/blocknote-power` | demo / Quick Start |
 

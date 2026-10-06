@@ -58,8 +58,8 @@ jobs:
               console.error("STOP — package name must be @hello-ai-company/editor-core");
               process.exit(1);
             }
-            if (pkg.version !== "0.1.1") {
-              console.error("STOP — core version is not 0.1.1 candidate");
+            if (pkg.version !== "0.2.0") {
+              console.error("STOP — core version is not 0.2.0 candidate");
               process.exit(1);
             }
             if (pkg.license !== "MIT") {
@@ -82,12 +82,12 @@ jobs:
               console.error("STOP — blocknote package name mismatch");
               process.exit(1);
             }
-            if (bn.version !== "0.1.1") {
-              console.error("STOP — blocknote version is not 0.1.1");
+            if (bn.version !== "0.2.0") {
+              console.error("STOP — blocknote version is not 0.2.0");
               process.exit(1);
             }
-            if (bn.dependencies?.["@hello-ai-company/editor-core"] !== "^0.1.1") {
-              console.error("STOP — blocknote must depend on editor-core ^0.1.1");
+            if (bn.dependencies?.["@hello-ai-company/editor-core"] !== "^0.2.0") {
+              console.error("STOP — blocknote must depend on editor-core ^0.2.0");
               process.exit(1);
             }
             if (bn.license !== "MIT") {

@@ -1,5 +1,15 @@
 # @hello-ai-company/editor-blocknote
 
+## 0.2.0 candidate
+
+Prepared locally; not published. Requires `editor-core ^0.2.0`; BlockNote peers
+remain `^0.54.2`, with math/diagram/code optional. Adds optional persistent database
+view configuration contracts and an accessible `BlockEditDialog`, improves
+outline/navigation and editing controls, and retains legacy database filter
+availability without requiring structured-filter support. Hosts still own data,
+permissions and persistence. Upgrade core and review its validation limits first.
+See the [migration guide](https://github.com/hello-ai-company/open-editor/blob/main/docs/migration-0.2.md).
+
 OpenEditor BlockNote power layer on **BlockNote `^0.54.2`** (MPL-2.0).
 
 ## Install
@@ -103,4 +113,4 @@ Use `createBlockChangeBridge` / `useOpenEditorBlockChanges` and `createDocumentI
 
 ## Publication
 
-Metadata targets public npmjs (`publishConfig.access: public`). First publish of `0.1.0` requires owner authorization and Trusted Publishing — this repository does **not** auto-publish on merge.
+Metadata targets public npmjs (`publishConfig.access: public`). Versions `0.1.0` and `0.1.1` are already published and immutable. Candidate `0.2.0` requires a separately reviewed main commit and an owner-triggered release; this repository does **not** auto-publish on merge.

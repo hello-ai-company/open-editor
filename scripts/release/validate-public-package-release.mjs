@@ -96,6 +96,9 @@ function satisfiesCaret(version, range) {
 
 export function validateRegistryState(config, { exec = execFileSync, requirePackageAbsent = false } = {}) {
   const candidateVersions = fetchRegistryVersions(config.name, exec);
+  if (config.publishedAnchor && !candidateVersions?.includes(config.publishedAnchor)) {
+    stop(`STOP — existing package ${config.name} requires published anchor ${config.publishedAnchor}`);
+  }
   if (requirePackageAbsent && candidateVersions !== null) {
     stop(`STOP — first publication requires a new npm package, but ${config.name} already exists`);
   }

@@ -22,15 +22,15 @@ const reviewedCommit = "a".repeat(40);
 
 const baseEnv = {
   pkg: basePkg,
-  inputVersion: "0.1.1",
-  confirmation: expectedConfirmation("0.1.1"),
+  inputVersion: "0.2.0",
+  confirmation: expectedConfirmation("0.2.0"),
   githubRef: "refs/heads/main",
   githubRepository: "hello-ai-company/open-editor",
   reviewedCommit,
   githubSha: reviewedCommit,
   checkoutSha: reviewedCommit,
-  // Default: core@0.1.1 already published (required publish order).
-  coreVersionsList: ["0.1.0", "0.1.1"]
+  // Default: core@0.2.0 already published (required publish order).
+  coreVersionsList: ["0.1.0", "0.2.0"]
 };
 
 function assertFails(fn, snippet) {
@@ -54,7 +54,7 @@ describe("validate-public-blocknote-release", () => {
   it("accepts identity for the R2 update candidate", () => {
     const id = validateIdentityAndInputs(baseEnv);
     assert.equal(id.name, basePkg.name);
-    assert.equal(id.version, "0.1.1");
+    assert.equal(id.version, "0.2.0");
   });
 
   it("rejects private:true", () => {
@@ -174,7 +174,7 @@ describe("validate-public-blocknote-release", () => {
     );
   });
 
-  it("rejects editor-core dependency below ^0.1.1 floor", () => {
+  it("rejects editor-core dependency below ^0.2.0 floor", () => {
     assert.throws(
       () =>
         validateIdentityAndInputs({
@@ -186,7 +186,7 @@ describe("validate-public-blocknote-release", () => {
             }
           }
         }),
-      /\^0\.1\.1/
+      /\^0\.2\.0/
     );
   });
 
@@ -196,10 +196,10 @@ describe("validate-public-blocknote-release", () => {
       registryState: { status: "not_published" }
     });
     assert.equal(result.registryStatus, "not_published");
-    assert.deepEqual(result.coreFloorVersions, ["0.1.1"]);
+    assert.deepEqual(result.coreFloorVersions, ["0.2.0"]);
   });
 
-  it("stops when core@0.1.1 is not on npmjs (publish order)", () => {
+  it("stops when core@0.2.0 is not on npmjs (publish order)", () => {
     assert.throws(
       () =>
         validatePublicBlocknoteRelease({
@@ -216,9 +216,9 @@ describe("validate-public-blocknote-release", () => {
     );
   });
 
-  it("requires the exact core 0.1.1 release dependency", () => {
-    assert.deepEqual(assertCoreDependencyPublished({ coreVersionsList: ["0.1.1"] }), ["0.1.1"]);
-    assert.throws(() => assertCoreDependencyPublished({ coreVersionsList: ["0.1.2"] }), /@hello-ai-company\/editor-core@0\.1\.1/);
+  it("requires the exact core 0.2.0 release dependency", () => {
+    assert.deepEqual(assertCoreDependencyPublished({ coreVersionsList: ["0.2.0"] }), ["0.2.0"]);
+    assert.throws(() => assertCoreDependencyPublished({ coreVersionsList: ["0.1.2"] }), /@hello-ai-company\/editor-core@0\.2\.0/);
   });
 
   it("stops when candidate version already exists", () => {
@@ -386,7 +386,7 @@ describe("validate-public-blocknote-release", () => {
   it("verifyReleaseArtifact accepts matching digest + tarball", () => {
     const dir = mkdtempSync(join(tmpdir(), "bn-artifact-"));
     try {
-      const filename = tarballFilenameFor("0.1.1");
+      const filename = tarballFilenameFor("0.2.0");
       const payload = Buffer.from("fake-blocknote-tarball");
       const tarballPath = join(dir, filename);
       writeFileSync(tarballPath, payload);
@@ -395,7 +395,7 @@ describe("validate-public-blocknote-release", () => {
         join(dir, "digest.json"),
         JSON.stringify({
           name: "@hello-ai-company/editor-blocknote",
-          version: "0.1.1",
+          version: "0.2.0",
           sourceCommit: reviewedCommit,
           filename,
           sha256,
@@ -405,7 +405,7 @@ describe("validate-public-blocknote-release", () => {
       const inspectorCalls = [];
       const { digest, tarballPath: verified } = verifyReleaseArtifact({
         artifactDir: dir,
-        expectedVersion: "0.1.1",
+        expectedVersion: "0.2.0",
         sourceCommit: reviewedCommit,
         execFileSync: (command, args, options) => inspectorCalls.push({ command, args, options })
       });
@@ -424,11 +424,11 @@ describe("validate-public-blocknote-release", () => {
     const root = mkdtempSync(join(tmpdir(), "bn-pack-artifact-"));
     try {
       const calls = [];
-      const filename = tarballFilenameFor("0.1.1");
+      const filename = tarballFilenameFor("0.2.0");
       const tarballPath = join(root, "release-artifact-blocknote", filename);
       const digest = packReleaseArtifact({
         root,
-        version: "0.1.1",
+        version: "0.2.0",
         sourceCommit: reviewedCommit,
         execFileSync: (command, args, options) => {
           calls.push({ command, args, options });
@@ -450,13 +450,13 @@ describe("validate-public-blocknote-release", () => {
   it("verifyReleaseArtifact rejects SHA-256 mismatch", () => {
     const dir = mkdtempSync(join(tmpdir(), "bn-artifact-bad-"));
     try {
-      const filename = tarballFilenameFor("0.1.1");
+      const filename = tarballFilenameFor("0.2.0");
       writeFileSync(join(dir, filename), "payload-a");
       writeFileSync(
         join(dir, "digest.json"),
         JSON.stringify({
           name: "@hello-ai-company/editor-blocknote",
-          version: "0.1.1",
+          version: "0.2.0",
           sourceCommit: reviewedCommit,
           filename,
           sha256: "0".repeat(64),
@@ -467,7 +467,7 @@ describe("validate-public-blocknote-release", () => {
         () =>
           verifyReleaseArtifact({
             artifactDir: dir,
-            expectedVersion: "0.1.1",
+            expectedVersion: "0.2.0",
             sourceCommit: reviewedCommit
           }),
         /SHA-256 mismatch/

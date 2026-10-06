@@ -1,12 +1,12 @@
 /**
- * Release guards for @hello-ai-company/editor-blocknote 0.1.1 candidate.
+ * Release guards for @hello-ai-company/editor-blocknote 0.2.0 candidate.
  *
  * The 0.1.0 release is already on npmjs. Candidate registry eligibility:
  * - Successful `npm view` that returns explicit npm E404 → eligible for first publish
  * - Successful versions array that already contains the candidate → STOP
  * - Any other npm view failure (including lone "404 Not Found") → STOP (fail-closed)
  *
- * Publish order (fail-closed): exact @hello-ai-company/editor-core@0.1.1
+ * Publish order (fail-closed): exact @hello-ai-company/editor-core@0.2.0
  * must already exist on npmjs before blocknote publish is allowed.
  *
  * Never infer eligibility from lone "404 Not Found" / "No match found" text.
@@ -23,15 +23,15 @@ import { fetchCorePublishedVersions } from "../lib/core-registry-probe.mjs";
 
 export const EXPECTED_REPO = "hello-ai-company/open-editor";
 export const EXPECTED_NAME = "@hello-ai-company/editor-blocknote";
-export const EXPECTED_VERSION = "0.1.1";
+export const EXPECTED_VERSION = "0.2.0";
 export const EXPECTED_LICENSE = "MIT";
 export const EXPECTED_REGISTRY = "https://registry.npmjs.org";
 export const EXPECTED_ACCESS = "public";
 export const EXPECTED_REF = "refs/heads/main";
 export const EXPECTED_CORE_DEP = "@hello-ai-company/editor-core";
 /** Floor for blocknote → core; published 0.1.0 lacks APIs required by this package. */
-export const EXPECTED_CORE_DEP_RANGE = "^0.1.1";
-export const EXPECTED_CORE_VERSION = "0.1.1";
+export const EXPECTED_CORE_DEP_RANGE = "^0.2.0";
+export const EXPECTED_CORE_VERSION = "0.2.0";
 export const EXPECTED_PEER_BLOCKNOTE = "^0.54.2";
 /** Required BlockNote peer packages locked to EXPECTED_PEER_BLOCKNOTE. */
 export const EXPECTED_PEER_BLOCKNOTE_PACKAGES = Object.freeze([
@@ -282,8 +282,8 @@ export function assertRegistryEligible(state, candidateVersion) {
 }
 
 /**
- * Fail-closed publish-order gate: core meeting ^0.1.1 must be on npmjs
- * before blocknote may publish (core@0.1.1 → then blocknote).
+ * Fail-closed publish-order gate: core meeting ^0.2.0 must be on npmjs
+ * before blocknote may publish (core@0.2.0 → then blocknote).
  * @param {{
  *   coreVersionsList?: string[],
  *   execFileSync?: typeof execFileSync
