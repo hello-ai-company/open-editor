@@ -3,6 +3,7 @@ import { acceptSuggestionGroup, createQuietCooperationSession, type QuietProposa
 import { QuietCooperationCard } from "@hello-ai-company/editor-blocknote/react";
 import type { EditorDocument } from "@hello-ai-company/editor-core";
 import type { AheadEditorPort } from "./AheadPanel";
+import { contextualQuietFixture } from "./contextualQuietFixture";
 
 export function QuietCooperationDemo({ port, active }: { port: AheadEditorPort; active: boolean }) {
   // A different document port owns a different session and Undo receipt.
@@ -15,10 +16,7 @@ function QuietCooperationDocument({ port, active }: { port: AheadEditorPort; act
   const latch = useRef(false), receipt = useRef<{ before: EditorDocument; after: EditorDocument } | undefined>(undefined);
   const session = useMemo(() => createQuietCooperationSession({ document: port.getDocument(), agentId: "synthetic-writing-agent", purpose: "次の段落を、確認できる案として用意する", idleMs: 1200,
     provider: {
-      prepare: async request => ({ hypothesis: "次に確かめる点を短く整理すると役立つかもしれません。合っていますか？", group: {
-        schemaVersion: 1, id: request.runId, title: "次の段落の案（合成例）", baseDocument: request.document,
-        changes: [{ op: "insert", block: { id: crypto.randomUUID(), type: "paragraph", props: { backgroundColor: "default", textColor: "default", textAlignment: "left" }, content: [{ type: "text", text: "次に確かめたいこと：読み手に伝えたい点を整理し、必要な根拠を確認する。", styles: {} }] } }]
-      } }), cancel: async () => {}
+      prepare: async request => contextualQuietFixture(request.document, request.runId), cancel: async () => {}
     }
   }), [port]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);

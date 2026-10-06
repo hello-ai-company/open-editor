@@ -11,7 +11,7 @@ export type LegacyNotesArchive = {
 export type LegacyNotesImport = { document: EditorDocument; archive: LegacyNotesArchive };
 
 /** Detached, bounded JSON without invoking accessors/toJSON. Archive is host-private. */
-function copyJson(value: unknown): JsonValue {
+export function copyLegacyNotesJson(value: unknown): JsonValue {
   let nodes = 0, text = 0;
   const ancestors = new Set<object>();
   const visit = (item: unknown, depth: number): JsonValue => {
@@ -45,6 +45,7 @@ function copyJson(value: unknown): JsonValue {
   };
   return visit(value, 0);
 }
+const copyJson = copyLegacyNotesJson;
 function record(value: JsonValue): RecordData {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Expected a legacy record");
   return value as RecordData;
@@ -156,6 +157,7 @@ export function exportLegacyNotesBlocks(document: EditorDocument, archive: Legac
   for (const [id, value] of Object.entries(archiveRecords)) {
     const archived = record(value), original = record(archived.original!), projected = record(archived.projected!), now = current.archive.records[id];
     if (!now || original.id !== id || projected.id !== id || original.type !== now.original.type || !same(original.sourceType, now.original.sourceType) || !same(original.sourceId, now.original.sourceId) || !same(now.projected, projected) || !same(project(original), projected)) throw new Error("Host editor fields or legacy identity changed; refresh before saving");
+    if (!retained.has(id) && !same(original, now.original)) throw new Error("Host metadata changed; refusing concurrent deletion");
     if (!retained.has(id) && String(projected.type).startsWith("notes:") && !options.allowUnknownDeletion) throw new Error("Unknown legacy deletion requires explicit host approval");
   }
   const visit = (block: EditorBlock): JsonValue => {
@@ -203,14 +205,22 @@ export function exportLegacyNotesBlocks(document: EditorDocument, archive: Legac
         }
       }
     } else {
-      const legacyType = reverseTypes[block.type];
+      const legacyType = block.type === HTML_WIDGET_TYPE ? "editorTool" : reverseTypes[block.type];
       if (!legacyType) throw new Error("New block type requires an explicit host creation codec");
       // Reuse the same checked write mapping, using a synthetic empty original, then recurse once.
-      const fresh: RecordData = { id: block.id, type: legacyType };
+      const fresh: RecordData = { id: block.id, type: legacyType, text: "" };
       if (block.content !== undefined) fresh[block.type === "table" ? "tableContent" : "inlineContent"] = block.content;
       const allowed = new Set(Object.values(fields[legacyType] ?? {}));
       if (block.type === DOCUMENT_COLUMNS_TYPE) allowed.add("gap");
-      if (Object.keys(block.props ?? {}).some(key => !allowed.has(key))) throw new Error("New block contains unmapped properties");
+      if (block.type === HTML_WIDGET_TYPE) for (const key of ["title", "html", "css", "javascript"]) allowed.add(key);
+      if (Object.keys(block.props ?? {}).some(key => !allowed.has(key) && !(Object.hasOwn(nativeDefaults, key) && same(block.props?.[key], nativeDefaults[key])))) throw new Error("New block contains unmapped properties");
+      if (block.type === DOCUMENT_COLUMNS_TYPE && block.props?.gap !== undefined && block.props.gap !== 16) throw new Error("Legacy format has no column gap field");
+      if (block.type === HTML_WIDGET_TYPE) {
+        if (block.content !== undefined) throw new Error("Widget content must use its source fields");
+        fresh.toolKind = "htmlEmbed";
+        fresh.toolTitle = block.props?.title ?? "HTML widget";
+        fresh.toolData = JSON.stringify(parseHtmlWidgetSource(block.props));
+      }
       for (const [field, prop] of Object.entries(fields[legacyType] ?? {})) if (block.props?.[prop] !== undefined) fresh[field] = block.props[prop]!;
       result = fresh;
     }

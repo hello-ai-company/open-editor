@@ -5,15 +5,18 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 
 // Local-only candidate artifacts. Does not alter release manifests, install or publish.
-const root=resolve(import.meta.dirname,'../..'), output=join(root,'output/candidate');
+const version=process.argv[2];
+if(!/^0\.3\.0-notes\.[1-9]\d*$/.test(version??'')) throw new Error('Pass a new explicit candidate version, e.g. 0.3.0-notes.1');
+const root=resolve(import.meta.dirname,'../..'), output=join(root,'output/candidate',version);
+if(existsSync(output)) throw new Error('Candidate directory already exists; never overwrite an acceptance artifact');
 mkdirSync(output,{recursive:true});
 const stage=mkdtempSync(join(tmpdir(),'oe-notes-candidate-')), inventory=[];
 for(const name of ['blocknote','ai']) {
   const src=join(root,'packages',name), directory=join(stage,name); mkdirSync(directory);
   for(const file of ['dist','LICENSE','README.md']) cpSync(join(src,file),join(directory,file),{recursive:true});
   const manifest=JSON.parse(readFileSync(join(src,'package.json'),'utf8'));
-  manifest.version='0.3.0-notes.0'; delete manifest.scripts; delete manifest.devDependencies; delete manifest.publishConfig;
-  cpSync(join(root,'docs/notes-candidate-handoff.md'),join(directory,'CANDIDATE.md'));
+  manifest.version=version; delete manifest.scripts; delete manifest.devDependencies; delete manifest.publishConfig;
+  cpSync(join(root,'docs/notes-candidate-'+version+'.md'),join(directory,'CANDIDATE.md'));
   manifest.files.push('CANDIDATE.md');
   writeFileSync(join(directory,'package.json'),JSON.stringify(manifest,null,2)+'\n');
   const packed=JSON.parse(execFileSync('npm',['pack','--ignore-scripts','--json','--pack-destination',output,'--cache',join(stage,'cache')],{cwd:directory,encoding:'utf8'}))[0];
@@ -33,9 +36,9 @@ for(const entry of inventory) {
   if(!existsSync(join(destination,'dist/index.d.ts'))) throw new Error('Missing public declarations');
 }
 writeFileSync(join(consumer,'package.json'),' {"type":"module"}\n');
-const source=`import { createDocumentColumns, updateDocumentColumns, importLegacyNotesBlocks, exportLegacyNotesBlocks, createHtmlWidgetPreview, createDocumentWorkspaceFeature, createDocumentTypographyFeature } from '@hello-ai-company/editor-blocknote';
-import { createDurableReviewCoordinator, createQuietCooperationSession, type QuietCooperationSnapshot } from '@hello-ai-company/editor-ai';
-import { QuietCooperationCard } from '@hello-ai-company/editor-blocknote/react';
+const source=`import { createDocumentColumns, updateDocumentColumns, importLegacyNotesBlocks, exportLegacyNotesBlocks, createHtmlWidgetPreview, createDocumentWorkspaceFeature, createDocumentTypographyFeature, applyNotesMetadataEdits, createRevisionedNotesResourceEditor, validateNotesPropertyValue } from '@hello-ai-company/editor-blocknote';
+import { createDurableReviewCoordinator, createQuietCooperationSession, createSecretaryWorkflow, parseQuietPreparationContext, type QuietCooperationSnapshot } from '@hello-ai-company/editor-ai';
+import { QuietCooperationCard, NotesPropertyEditor } from '@hello-ai-company/editor-blocknote/react';
 import { createEditorDocument } from '@hello-ai-company/editor-core';
 const initial = [{ id:'human',type:'paragraph',text:'日本語',version:4,sourceId:'host-id',custom:{keep:true} }];
 const imported=importLegacyNotesBlocks(initial);
@@ -45,7 +48,11 @@ updateDocumentColumns(createEditorDocument([columns]),{type:'width',columnId:col
 if(!createHtmlWidgetPreview({html:'<p>safe</p>',css:'',javascript:'alert(1)'}).includes("script-src 'none'")) throw new Error('Widget policy');
 const session=createQuietCooperationSession({document:imported.document,agentId:'local',purpose:'Check export',provider:{prepare:async()=>{throw new Error('No model calls');},cancel:async()=>{}}});
 const snapshot:QuietCooperationSnapshot=session.getSnapshot(); if(snapshot.enabled)throw new Error('Unexpected opt-in');session.dispose();
-if([createDurableReviewCoordinator,createDocumentWorkspaceFeature,createDocumentTypographyFeature,QuietCooperationCard].some(value=>typeof value!=='function'))throw new Error('Missing public export');
+if([createDurableReviewCoordinator,createDocumentWorkspaceFeature,createDocumentTypographyFeature,QuietCooperationCard,createSecretaryWorkflow,NotesPropertyEditor,createRevisionedNotesResourceEditor].some(value=>typeof value!=='function'))throw new Error('Missing public export');
+parseQuietPreparationContext({documentId:'note',revision:'r1',secretaryId:'secretary',instruction:'Review the selection',selectionBlockIds:['human']});
+validateNotesPropertyValue({type:'multi_select',optionIds:['a','b']},['b']);
+const edited=applyNotesMetadataEdits([{id:'table',type:'table',tableProps:{width:100,future:true}}],[{blockId:'table',field:'tableProps',key:'width',expected:{present:true,value:100},value:120}]);
+if(JSON.stringify(edited)!==JSON.stringify([{id:'table',type:'table',tableProps:{width:120,future:true}}]))throw new Error('Metadata loss');
 console.log('Candidate public runtime and declarations PASS');
 `;
 writeFileSync(join(consumer,'index.ts'),source);

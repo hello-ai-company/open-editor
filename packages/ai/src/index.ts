@@ -41,4 +41,5 @@ export { AIContractValidationError } from "./validation.js";
 export { createAheadSession, type AheadSession, type AheadSnapshot, type AheadStatus,
   type AheadPhase, type AheadProposal, type AheadDocumentWriter } from "./ahead.js";
 export { createDurableReviewCoordinator, type DurableReviewProvider, type DurableReviewCoordinator, type DurableReviewState, type DurableReviewOutcome, type ReviewedDocumentSnapshot, type ReviewedCommitRequest, type ReviewedCommitReceipt, type ReviewedCommitResult } from "./durableReview.js";
-export { createQuietCooperationSession, type QuietCooperationSession, type QuietCooperationProvider, type QuietCooperationSnapshot, type QuietCooperationStatus, type QuietProposal } from "./quietCooperation.js";
+export { createQuietCooperationSession, parseQuietPreparationContext, type QuietPreparationContext, type QuietCooperationSession, type QuietCooperationProvider, type QuietCooperationSnapshot, type QuietCooperationStatus, type QuietProposal } from "./quietCooperation.js";
+export { createSecretaryWorkflow, type SecretaryWriteVerification } from "./secretaryWorkflow.js";

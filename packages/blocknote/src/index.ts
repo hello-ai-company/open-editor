@@ -305,3 +305,5 @@ export {
 } from "./types.js";
 export { importLegacyNotesBlocks, exportLegacyNotesBlocks, type LegacyNotesArchive, type LegacyNotesImport } from "./document/legacyNotes.js";
 export { createDocumentTypographyFeature, createDocumentPageBreakBlockSpec } from "./document/typography.js";
+export { applyNotesMetadataEdits, type NotesMetadataEdit } from "./document/notesMetadata.js";
+export { createRevisionedNotesResourceEditor, validateNotesPropertyValue, type RevisionedNotesResourceEditor, type RevisionedNotesResourceProvider, type NotesResourceSnapshot, type NotesResourceChange, type NotesResourceRequest, type NotesResourceResult, type NotesResourceOutcome, type NotesResourceRecovery, type NotesWritableProperty } from "./workspace/revisionedNotesResource.js";

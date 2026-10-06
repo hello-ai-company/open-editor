@@ -35,3 +35,8 @@
 .oe-quiet-cooperation button:disabled { opacity:.5; }
 .oe-quiet-cooperation :focus-visible { outline:3px solid #3f7650; outline-offset:2px; }
 @media print { .oe-quiet-cooperation { display:none; } }
+/* Provider-owned structured row editing: bounded width and explicit controls. */
+.oe-notes-property-editor { display: flex; flex-wrap: wrap; gap: 8px; max-width: 100%; }
+.oe-notes-property-editor label, .oe-notes-property-editor p { flex-basis: 100%; min-width: 0; }
+.oe-notes-property-editor textarea { display: block; box-sizing: border-box; width: 100%; min-height: 88px; font: inherit; }
+.oe-notes-property-editor button { min-height: 44px; padding: 8px 12px; font: inherit; }

@@ -125,3 +125,7 @@
 @media (prefers-reduced-motion: reduce) {
   .demo-shell *, .demo-shell *::before, .demo-shell *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+.notes-contract-demo { padding: 12px; font-size: 13px; border-top: 1px solid var(--oe-border, #ddd); }
+.notes-contract-demo summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+.notes-contract-demo button { min-height: 44px; max-width: 100%; font: inherit; }
+.notes-contract-demo output { display: block; overflow-wrap: anywhere; }

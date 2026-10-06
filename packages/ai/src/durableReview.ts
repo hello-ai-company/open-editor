@@ -26,7 +26,7 @@ export type DurableReviewOutcome = ReviewedCommitResult | { status: "stale" | "c
 export type DurableReviewState = { status: "idle" | "pending" | "unknown"; operationId?: string };
 export type DurableReviewCoordinator = {
   getState(): DurableReviewState;
-  accept(group: unknown, decision: AcceptSuggestionDecision, options?: { changeIndexes?: readonly number[] }): Promise<DurableReviewOutcome>;
+  accept(group: unknown, decision: AcceptSuggestionDecision, options?: { changeIndexes?: readonly number[]; expectedRevision?: string }): Promise<DurableReviewOutcome>;
   undo(): Promise<DurableReviewOutcome>;
   cancel(): void;
   reconcile(): Promise<DurableReviewOutcome>;
@@ -41,7 +41,14 @@ function snapshot(value: ReviewedDocumentSnapshot): ReviewedDocumentSnapshot {
 }
 
 /** One in-flight review. Unknown acknowledgements are reconciled, never blindly retried. */
-export function createDurableReviewCoordinator(provider: DurableReviewProvider, options: { operationId?: () => string } = {}): DurableReviewCoordinator {
+export function createDurableReviewCoordinator(provider: DurableReviewProvider, options: { operationId?: () => string; timeoutMs?: number } = {}): DurableReviewCoordinator {
+  const timeoutMs = options.timeoutMs ?? 10000;
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 120000) throw new Error("Invalid review timeout");
+  const bounded = async <T>(work: () => Promise<T>, abort?: AbortController): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try { return await Promise.race([Promise.resolve().then(work), new Promise<never>((_, reject) => { timer = setTimeout(() => { abort?.abort(); reject(new Error("Review acknowledgement timed out")); }, timeoutMs); })]); }
+    finally { clearTimeout(timer); }
+  };
   let state: DurableReviewState = { status: "idle" }, controller: AbortController | undefined;
   let unresolved: ReviewedCommitRequest | undefined, lastAccepted: { request: ReviewedCommitRequest; receipt: ReviewedCommitReceipt } | undefined;
   const idFactory = options.operationId ?? (() => crypto.randomUUID());
@@ -65,15 +72,15 @@ export function createDurableReviewCoordinator(provider: DurableReviewProvider, 
     const localController = new AbortController(); controller = localController; state = { status: "pending", operationId };
     let submitted = false, request: ReviewedCommitRequest | undefined;
     try {
-      const current = snapshot(await provider.read(localController.signal));
+      const current = snapshot(await bounded(() => provider.read(localController.signal), localController));
       if (localController.signal.aborted) { state = { status: "idle" }; return { status: "cancelled", operationId }; }
       request = prepare(current, operationId);
       if (!request) { state = { status: "idle" }; return { status: "stale", operationId }; }
       // A provider receives a detached request so it cannot modify the coordinator's approved data.
-      if (provider.authorize && !await provider.authorize(structuredClone(request), localController.signal)) { state = { status: "idle" }; return { status: "denied", operationId }; }
+      if (provider.authorize && !await bounded(() => provider.authorize!(structuredClone(request!), localController.signal), localController)) { state = { status: "idle" }; return { status: "denied", operationId }; }
       if (localController.signal.aborted) { state = { status: "idle" }; return { status: "cancelled", operationId }; }
       unresolved = request; submitted = true;
-      return settle(request, await provider.commit(structuredClone(request), localController.signal));
+      return settle(request, await bounded(() => provider.commit(structuredClone(request!), localController.signal), localController));
     } catch (error) {
       if (submitted) { state = { status: "unknown", operationId }; return { status: "unknown", operationId }; }
       state = { status: "idle" }; controller = undefined;
@@ -87,6 +94,8 @@ export function createDurableReviewCoordinator(provider: DurableReviewProvider, 
       // Parse/copy before asynchronous work: callers cannot mutate an approval while waiting.
       let group = parseSuggestionGroup(payload);
       const acceptedDecision = structuredClone(decision);
+      const expectedRevision = acceptance?.expectedRevision;
+      if (expectedRevision !== undefined && (typeof expectedRevision !== "string" || !expectedRevision || expectedRevision.length > 512)) throw new Error("Invalid proposal revision");
       if (acceptance?.changeIndexes) {
         const indexes = [...acceptance.changeIndexes];
         if (!indexes.length || new Set(indexes).size !== indexes.length || indexes.some(index => !Number.isInteger(index) || index < 0 || index >= group.changes.length)) throw new Error("Invalid partial acceptance indexes");
@@ -95,6 +104,7 @@ export function createDurableReviewCoordinator(provider: DurableReviewProvider, 
         group = parseSuggestionGroup({ ...group, changes: group.changes.filter((_, index) => selected.has(index)) });
       }
       return execute((current, operationId) => {
+        if (expectedRevision !== undefined && current.revision !== expectedRevision) return undefined;
         const result = acceptSuggestionGroup(group, current.document, acceptedDecision);
         if (result.status === "stale") return undefined;
         return { operationId, expectedRevision: current.revision, beforeDocument: current.document, document: result.document, kind: "accept", acceptedChange: result.acceptedChange };
@@ -114,7 +124,7 @@ export function createDurableReviewCoordinator(provider: DurableReviewProvider, 
       // Prevent two concurrent lookups from clearing or settling a different operation.
       state = { status: "pending", operationId: request.operationId };
       try {
-        const result = await provider.lookupOperation(request.operationId);
+        const result = await bounded(() => provider.lookupOperation(request.operationId));
         if (result.status === "unknown") return { status: "unknown", operationId: request.operationId };
         return settle(request, result);
       } catch { return { status: "unknown", operationId: request.operationId }; }

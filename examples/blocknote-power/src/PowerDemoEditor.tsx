@@ -71,6 +71,11 @@ import type { AheadEditorPort } from "./AheadPanel";
 
 const AheadPanel = lazy(() => import("./AheadPanel").then(module => ({ default: module.AheadPanel })));
 const QuietCooperationDemo = lazy(() => import("./QuietCooperationDemo").then(module => ({ default: module.QuietCooperationDemo })));
+const NotesContractDemo = lazy(() => import("./NotesContractDemo"));
+function NotesContractDemoTrigger() {
+  const [visited, setVisited] = useState(false);
+  return <details className="notes-contract-demo" onToggle={event => { if (event.currentTarget.open) setVisited(true); }}><summary>Notes保存契約の合成デモ</summary>{visited ? <Suspense fallback={<p>検証画面を読み込み中…</p>}><NotesContractDemo /></Suspense> : null}</details>;
+}
 
 const CanvasEditor = lazy(() =>
   import("@hello-ai-company/editor-canvas/react").then(({ CanvasEditor }) => ({
@@ -1073,6 +1078,7 @@ export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampl
             </p>
           ) : null}
           {allowLocalAhead ? <Suspense fallback={null}><QuietCooperationDemo port={aheadPort} active={mode === "document" && !focusMode && !readOnly && workspaceActive && !aheadOpen && !reviewSuggestion} /></Suspense> : null}
+          {allowLocalAhead && mode === "document" && !focusMode ? <NotesContractDemoTrigger /> : null}
         </main>
 
         {aheadVisited ? <aside className="demo-context demo-ahead-shell" hidden={!aheadOpen || mode !== "document"} aria-hidden={focusMode} inert={focusMode} data-focus-hidden={focusMode ? "true" : "false"}>
