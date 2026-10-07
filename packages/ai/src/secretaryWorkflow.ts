@@ -8,7 +8,7 @@ function same(a: unknown, b: unknown): boolean {
   const sort = (v: unknown): unknown => Array.isArray(v) ? v.map(sort) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([k, x]) => [k, sort(x)])) : v;
   return JSON.stringify(sort(a)) === JSON.stringify(sort(b));
 }
-/** Secretary instruction → assigned agent preparation → explicit approval → CAS → read verification.
+/** Host instruction → assigned agent preparation → explicit approval → CAS → read verification.
  * Provider-neutral; host owns authorization, real model quality, UI and canonical refresh.
  * After any write the preparation barrier stays closed until host refresh() confirms ready data.
  */
@@ -19,7 +19,7 @@ export function createSecretaryWorkflow(options: {
 }) {
   let context = parseQuietPreparationContext(options.context);
   let disposed = false, generation = 0;
-  const assertOpen = (): void => { if (disposed) throw new Error("Secretary workflow is disposed"); };
+  const assertOpen = (): void => { if (disposed) throw new Error("Review workflow is disposed"); };
   const timeoutMs = options.verificationTimeoutMs ?? 5000;
   if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 30000) throw new Error("Invalid verification timeout");
   const quiet = createQuietCooperationSession({ ...options, purpose: context.instruction, ready: false });
