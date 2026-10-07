@@ -951,9 +951,10 @@ describe("4F-3A R3 — write mutating + first-page/loadMore races", () => {
   it("query change during create keeps write mutating busy (P1-1)", async () => {
     let resolveCreate!: (value: JsonValue) => void;
     let resolveQuery!: (page: DatabaseRowsPage) => void;
+    let created = false;
     const provider: DatabaseProvider = {
       listRows: async (_db, opts) => {
-        if (opts?.query === "roadmap") {
+        if (opts?.query === "roadmap" && !created) {
           return new Promise((resolve) => {
             resolveQuery = resolve;
           });
@@ -970,9 +971,9 @@ describe("4F-3A R3 — write mutating + first-page/loadMore races", () => {
         };
       },
       createRow: () =>
-        new Promise((resolve) => {
+        new Promise<JsonValue>((resolve) => {
           resolveCreate = resolve;
-        }),
+        }).then(result => { created = true; return result; }),
       deleteRow: async () => null
     };
     const store = createDatabaseRuntimeStore({ provider, defaultPageSize: 10 });

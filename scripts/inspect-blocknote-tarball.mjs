@@ -141,6 +141,7 @@ const expectedExports = {
   "./power.css": "./dist/power.css"
 };
 const expectedPeers = {
+  "@tiptap/pm": "^3.31.3",
   "@blocknote/core": "^0.54.2",
   "@blocknote/react": "^0.54.2",
   "@blocknote/math-block": "^0.54.2",

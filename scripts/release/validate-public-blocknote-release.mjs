@@ -162,7 +162,8 @@ export function validateIdentityAndInputs({
       );
     }
   }
-  const expectedPeers = [...EXPECTED_PEER_BLOCKNOTE_PACKAGES, "react", "react-dom"].sort();
+  if (pkg.peerDependencies?.["@tiptap/pm"] !== "^3.31.3") stop("STOP — peer @tiptap/pm must be ^3.31.3");
+  const expectedPeers = [...EXPECTED_PEER_BLOCKNOTE_PACKAGES, "@tiptap/pm", "react", "react-dom"].sort();
   if (!isDeepStrictEqual(Object.keys(pkg.peerDependencies ?? {}).sort(), expectedPeers)) {
     stop("STOP — peerDependencies contains missing or unexpected peers");
   }

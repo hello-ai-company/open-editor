@@ -1,0 +1,26 @@
+export default async page => {
+  const errors = [], requests = []; page.on('pageerror', e => errors.push(e.message)); page.on('request', r => { if (!r.url().startsWith('http://127.0.0.1:5199/') && !r.url().startsWith('data:')) requests.push(r.url()); });
+  const read = () => page.evaluate(() => new Promise(resolve => { const r = indexedDB.open('open-editor.synthetic-organization.v2'); r.onsuccess = () => { const d = r.result, t = d.transaction('workspace'), q = t.objectStore('workspace').get('tree'); q.onsuccess = () => resolve(q.result); t.oncomplete = () => d.close(); }; }));
+  await page.setViewportSize({ width: 1440, height: 900 }); await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.locator('.bn-inline-content').first().waitFor(); const original = await read();
+  await page.getByRole('checkbox', { name: 'このノートで控えめな提案を受け取る', exact: true }).check();
+  await page.locator('.bn-inline-content').first().click(); await page.keyboard.press('Meta+ArrowRight');
+  const caret = () => page.evaluate(() => ({ text: getSelection()?.focusNode?.textContent, offset: getSelection()?.focusOffset, focus: !!document.activeElement?.closest('.bn-editor'), scroll: scrollY, top: (() => { const s=getSelection(); if(!s?.focusNode)return null; const r=document.createRange();r.setStart(s.focusNode,s.focusOffset);r.collapse(true);return r.getBoundingClientRect().top; })() }));
+  const beforeCaret = await caret(); await page.getByRole('group', { name: '整理案の確認', exact: true }).waitFor({ timeout: 17000 });
+  const prepared = await read(); if (Object.keys(prepared.receipts).length || JSON.stringify(prepared.notes.note.document) !== JSON.stringify(original.notes.note.document)) throw new Error('Proposal wrote before approval');
+  await page.screenshot({ path: 'OUTPUT/quiet-proposal-desktop.png', fullPage: true });
+  const preparedCaret = await caret(); if (JSON.stringify(preparedCaret) !== JSON.stringify(beforeCaret)) throw new Error('Quiet proposal moved caret or scrolled');
+  await page.getByRole('button', { name: 'この案を承認', exact: true }).scrollIntoViewIfNeeded(); const approvalCaret = await caret();
+  await page.getByRole('button', { name: 'この案を承認', exact: true }).click();
+  await page.waitForFunction(() => !!document.querySelector('.bn-block-content[data-content-type="heading"]'), null, { timeout: 10000 });
+  await page.waitForTimeout(350); const saved = await read(), afterCaret = await caret();
+  if (Object.keys(saved.receipts).length !== 1 || saved.notes.note.title !== '旅の準備' || saved.notes.note.parentId !== 'travel') throw new Error('Atomic approved structure/title/parent failed');
+  if (saved.notes.note.document.blocks[1].type !== 'paragraph' || saved.notes.note.document.blocks[2].type !== 'paragraph') throw new Error('Ordinary prose was forced into lists');
+  if (!beforeCaret.focus || !afterCaret.focus || beforeCaret.text !== afterCaret.text || beforeCaret.offset !== afterCaret.offset || Math.abs(approvalCaret.top - afterCaret.top) > 1) throw new Error('Caret/focus/origin changed: ' + JSON.stringify({ beforeCaret, approvalCaret, afterCaret }));
+  const url = page.locator('.organization-body a[href="https://example.com/guide"]'); if (await url.count() !== 1) throw new Error('Original URL was not linked');
+  await page.screenshot({ path: 'OUTPUT/approved-links-desktop.png', fullPage: true });
+  await page.keyboard.press('Meta+z'); await page.waitForTimeout(700); const undone = await read();
+  if (JSON.stringify(undone.notes.note.document) !== JSON.stringify(original.notes.note.document) || undone.notes.note.title !== original.notes.note.title || undone.notes.note.parentId !== null || Object.keys(undone.receipts).length !== 2) throw new Error('Atomic host Undo failed');
+  if (errors.length || requests.length) throw new Error(JSON.stringify({ errors, requests }));
+  return { approvalBeforeWrite: true, restrainedProse: true, exactOriginalURL: true, atomicHistory: true, keyboardUndo: true, caret: { before: beforeCaret, after: afterCaret }, externalRequests: requests.length, errors };
+};

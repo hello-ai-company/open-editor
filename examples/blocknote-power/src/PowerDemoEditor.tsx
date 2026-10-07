@@ -12,6 +12,8 @@ import {
   createDatabaseRuntimeStore,
   createDocumentIndex,
   createOpenEditorPowerPreset,
+  createDocumentWorkspaceFeature,
+  createDocumentTypographyFeature,
   createPageRuntimeStore,
   createPageRuntimesFromStore,
   createRelationIndex,
@@ -68,6 +70,12 @@ import { createCanvasPublicationOptions } from "./canvasPublication";
 import type { AheadEditorPort } from "./AheadPanel";
 
 const AheadPanel = lazy(() => import("./AheadPanel").then(module => ({ default: module.AheadPanel })));
+const QuietCooperationDemo = lazy(() => import("./QuietCooperationDemo").then(module => ({ default: module.QuietCooperationDemo })));
+const NotesContractDemo = lazy(() => import("./NotesContractDemo"));
+function NotesContractDemoTrigger() {
+  const [visited, setVisited] = useState(false);
+  return <details className="notes-contract-demo" onToggle={event => { if (event.currentTarget.open) setVisited(true); }}><summary>Notes保存契約の合成デモ</summary>{visited ? <Suspense fallback={<p>検証画面を読み込み中…</p>}><NotesContractDemo /></Suspense> : null}</details>;
+}
 
 const CanvasEditor = lazy(() =>
   import("@hello-ai-company/editor-canvas/react").then(({ CanvasEditor }) => ({
@@ -114,9 +122,10 @@ function selectedPlainParagraph(editor: {
   return selectedText === text.text ? { blockId: block.id, text: text.text } : null;
 }
 
-export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampleDocument, documentTitle = "Workspace primitives", onDocumentChange, saveStatus = "Session only · not saved", readOnly = false, allowLocalAhead = true, workspaceActive = true }: {
+export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampleDocument, documentTitle = "Workspace primitives", onDocumentChange, saveStatus = "Session only · not saved", readOnly = false, allowLocalAhead = true, workspaceActive = true, workspaceTheme, onThemeChange }: {
   onOpenPersonalContext?: () => void; initialDocument?: EditorDocument; documentTitle?: string;
   onDocumentChange?: (document: EditorDocument) => void; saveStatus?: string; readOnly?: boolean; allowLocalAhead?: boolean; workspaceActive?: boolean;
+  workspaceTheme?: "light" | "dark" | "system"; onThemeChange?: (theme: "light" | "dark" | "system") => void;
 } = {}) {
   const index = useMemo(() => createDocumentIndex(), []);
   const relationIndex = useMemo(() => createRelationIndex(), []);
@@ -234,6 +243,7 @@ export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampl
       onOpen: (pageId) => pageStore.provider.openPage?.(pageId)
     });
     const next = createOpenEditorPowerPreset({
+      features: [createDocumentWorkspaceFeature(), createDocumentTypographyFeature()],
       blockReferenceRuntime: {
         onNavigate: () => undefined
       },
@@ -355,7 +365,9 @@ export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampl
   );
   const [relationsOpen, setRelationsOpen] = useState(false);
   const [devtoolsOpen, setDevtoolsOpen] = useState(false);
-  const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
+  const [localTheme, setLocalTheme] = useState<"light" | "dark" | "system">("system");
+  const theme = workspaceTheme ?? localTheme;
+  const setTheme = (value: "light" | "dark" | "system") => { setLocalTheme(value); onThemeChange?.(value); };
   const [batchCount, setBatchCount] = useState(0);
   const [json, setJson] = useState(() => serializeEditorDocument(sampleDocument));
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -379,6 +391,7 @@ export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampl
   const aheadEditable = useRef(false);
   aheadEditable.current = mode === "document" && !readOnly && workspaceActive;
   const aheadPort = useMemo<AheadEditorPort>(() => ({
+    getElement: () => editor.domElement ?? undefined,
     getDocument: () => fromBlockNote(editor.document as never),
     subscribe: listener => editor.onChange((_editor, context) => { if (context.getChanges().length) listener(); }),
     commit: (expected, next) => {
@@ -923,6 +936,7 @@ export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampl
             className={mode === view ? "demo-view demo-view--active" : "demo-view"}
             onClick={() => openMode(view)}
           >
+            <ModeIcon mode={view} />
             {view === "document" ? "Document" : view === "canvas" ? "Canvas" : view === "present" ? "Present" : "Site"}
           </button>
         ))}
@@ -1063,6 +1077,8 @@ export function PowerDemoEditor({ onOpenPersonalContext, initialDocument = sampl
               {acceptedSuggestion && !reviewSuggestion ? <button type="button" className="chip" disabled={aiBusy || mode !== "document"} onClick={undoSuggestion}>Undo AI change</button> : null}
             </p>
           ) : null}
+          {allowLocalAhead ? <Suspense fallback={null}><QuietCooperationDemo port={aheadPort} active={mode === "document" && !focusMode && !readOnly && workspaceActive && !aheadOpen && !reviewSuggestion} /></Suspense> : null}
+          {allowLocalAhead && mode === "document" && !focusMode ? <NotesContractDemoTrigger /> : null}
         </main>
 
         {aheadVisited ? <aside className="demo-context demo-ahead-shell" hidden={!aheadOpen || mode !== "document"} aria-hidden={focusMode} inert={focusMode} data-focus-hidden={focusMode ? "true" : "false"}>
@@ -1543,6 +1559,11 @@ class AheadBoundary extends Component<{ children: ReactNode; onClose: () => void
 
 // Both operands are host-owned or validated editor JSON. Preserve array order,
 // while allowing the editor to reorder object keys during normalization.
+function ModeIcon({ mode }: { mode: "document" | "canvas" | "present" | "site" }) {
+  const path = mode === "document" ? "M5 2h6l3 3v13H5z M11 2v4h3 M8 10h3 M8 13h3" : mode === "canvas" ? "M2 3h7v6H2z M12 3h6v10h-6z M2 12h7v6H2z M12 16h6" : mode === "present" ? "M2 3h16v11H2z M10 14v4 M6 18h8 M8 6l5 3-5 3z" : "M2 3h16v15H2z M2 7h16 M5 5h.1 M8 5h.1 M5 10h10 M5 13h6";
+  return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path} /></svg>;
+}
+
 function sameEditorJson(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (!a || !b || typeof a !== "object" || typeof b !== "object") return false;

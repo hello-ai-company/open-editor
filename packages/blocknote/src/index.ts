@@ -275,6 +275,10 @@ export {
 
 export { toPartialBlockCopy } from "./commands/blockCopy.js";
 
+export { createDocumentColumns, updateDocumentColumns, validateDocumentColumns, DOCUMENT_COLUMNS_TYPE, DOCUMENT_COLUMN_TYPE, MAX_DOCUMENT_COLUMNS, type DocumentColumnsAction } from "./document/columns.js";
+export { createHtmlWidgetPreview, parseHtmlWidgetSource, sanitizeWidgetMarkup, HTML_WIDGET_TYPE, HTML_WIDGET_PRESETS, MAX_WIDGET_SOURCE_CHARACTERS, type HtmlWidgetSource } from "./document/htmlWidget.js";
+export { createDocumentWorkspaceFeature, createDocumentColumnsBlockSpec, createDocumentColumnBlockSpec, createHtmlWidgetBlockSpec, applyDocumentColumnsAction, DocumentColumnsGuard } from "./document/workspaceFeature.js";
+
 export {
   createOpenEditorDictionary,
   defaultOpenEditorDictionary,
@@ -299,3 +303,8 @@ export {
   type OpenEditorPartialBlock,
   type ToBlockNoteOptions
 } from "./types.js";
+export { importLegacyNotesBlocks, exportLegacyNotesBlocks, type LegacyNotesArchive, type LegacyNotesImport } from "./document/legacyNotes.js";
+export { createDocumentTypographyFeature, createDocumentPageBreakBlockSpec } from "./document/typography.js";
+export { applyNotesMetadataEdits, type NotesMetadataEdit } from "./document/notesMetadata.js";
+export { createRevisionedNotesResourceEditor, validateNotesPropertyValue, type RevisionedNotesResourceEditor, type RevisionedNotesResourceProvider, type NotesResourceSnapshot, type NotesResourceChange, type NotesResourceRequest, type NotesResourceResult, type NotesResourceOutcome, type NotesResourceRecovery, type NotesWritableProperty } from "./workspace/revisionedNotesResource.js";
+export { describeOpenEditorAgentSchema } from "./features/agentSchema.js";

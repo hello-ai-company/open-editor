@@ -1,0 +1,20 @@
+export default async page => {
+  const errors = []; page.on('pageerror', e => errors.push(e.message)); await page.locator('.bn-inline-content').first().waitFor();
+  const read = () => page.evaluate(() => new Promise(resolve => { const r = indexedDB.open('open-editor.synthetic-organization.v2'); r.onsuccess = () => { const d = r.result, t = d.transaction('workspace'), q = t.objectStore('workspace').get('tree'); q.onsuccess = () => resolve(q.result); t.oncomplete = () => d.close(); }; }));
+  await page.getByRole('checkbox', { name: 'このノートで控えめな提案を受け取る', exact: true }).check();
+  const proposal = page.getByRole('group', { name: '整理案の確認', exact: true }); await proposal.waitFor({ timeout: 17000 });
+  await page.locator('.bn-inline-content').first().click(); await page.keyboard.press('Meta+ArrowRight'); await page.keyboard.type('。続きは未確認。');
+  await page.waitForTimeout(500); if (await proposal.count()) throw new Error('Resumed input did not withdraw proposal');
+  const retained = await read(); if (!retained.notes.note.document.blocks[0].content.some(c => c.text?.includes('続きは未確認'))) throw new Error('Human input not saved');
+  await page.evaluate(() => document.querySelector('.bn-editor').dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, data: '変換' })));
+  await page.waitForTimeout(11000); if (await proposal.count()) throw new Error('IME prep not paused');
+  await page.evaluate(() => document.querySelector('.bn-editor').dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '変換' })));
+  await proposal.waitFor({ timeout: 17000 });
+  await page.evaluate(() => new Promise(resolve => { const r = indexedDB.open('open-editor.synthetic-organization.v2'); r.onsuccess = () => { const d = r.result, t = d.transaction('workspace', 'readwrite'), s = t.objectStore('workspace'), q = s.get('tree'); q.onsuccess = () => { const w = q.result; w.notes.note.assistance.capabilities.revision = 'remote-host-switch'; w.notes.note.assistance.capabilities.operations = []; s.put(w, 'tree'); }; t.oncomplete = () => { d.close(); resolve(true); }; }; }));
+  await page.getByRole('button', { name: 'この案を承認', exact: true }).click(); await page.waitForTimeout(600);
+  const rejected = await read(); if (Object.keys(rejected.receipts).length || Object.keys(rejected.approvals ?? {}).length) throw new Error('Stale host scope committed');
+  if (!(await page.getByText('承認を確認できません。原文を保持しています', { exact: true }).count())) throw new Error('Missing stale approval notice');
+  if (!rejected.notes.note.document.blocks[0].content.some(c => c.text?.includes('続きは未確認'))) throw new Error('Human content lost on denied approval');
+  if (errors.length) throw new Error(JSON.stringify(errors));
+  return { resumedInputWithdrawal: true, humanInputSaved: true, syntheticIMEPause: true, hostSwitchAtApproval: true, deniedWriteNoReceipt: true, originalRetained: true, errors };
+};

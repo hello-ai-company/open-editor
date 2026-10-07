@@ -40,3 +40,10 @@ export { AIContractValidationError } from "./validation.js";
 
 export { createAheadSession, type AheadSession, type AheadSnapshot, type AheadStatus,
   type AheadPhase, type AheadProposal, type AheadDocumentWriter } from "./ahead.js";
+export { createDurableReviewCoordinator, type DurableReviewProvider, type DurableReviewCoordinator, type DurableReviewState, type DurableReviewOutcome, type ReviewedDocumentSnapshot, type ReviewedCommitRequest, type ReviewedCommitReceipt, type ReviewedCommitResult } from "./durableReview.js";
+export { createQuietCooperationSession, parseQuietPreparationContext, type QuietPreparationContext, type QuietCooperationSession, type QuietCooperationProvider, type QuietCooperationSnapshot, type QuietCooperationStatus, type QuietProposal } from "./quietCooperation.js";
+export { createSecretaryWorkflow, type SecretaryWriteVerification } from "./secretaryWorkflow.js";
+export { NOTE_ORGANIZATION_INSTRUCTION, createNoteOrganizationSession, createOrganizationRequest, validateOrganizationRequest, parseOrganizationSnapshot, parseOrganizationPlan, parseOrganizationRecovery, organizationEqual, organizationUndoMatches,
+  type NoteOrganizationSession, type NoteOrganizationHost, type NoteOrganizationAgent, type OrganizationSnapshot, type OrganizationPage, type OrganizationPlan, type OrganizationRequest, type OrganizationReceipt, type OrganizationCommitResult, type OrganizationRecovery, type OrganizationState, type OrganizationStatus } from "./noteOrganization.js";
+export { AGENT_EDITOR_OPERATIONS, parseAgentEditorCapabilities, parseAgentNoteAssistance, parseAgentLinkEdits, safeAgentLink, applyAgentLinkEdits,
+  type AgentEditorCapabilities, type AgentEditorOperation, type AgentNoteAssistance, type AgentLinkEdit } from "./editorCapabilities.js";

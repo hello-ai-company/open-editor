@@ -58,3 +58,7 @@ if (result.status === "accepted") {
   // Host persists result.document and result.acceptedChange.provenance in its own transaction.
 }
 ```
+
+### Free-writing note organization (candidate .3)
+
+`createNoteOrganizationSession` coordinates per-note opt-in, idle/IME-safe exact-character structural organization, verbatim titles, permitted existing-parent/root placement, ambiguous-placement confirmation and atomic host Undo. `NoteOrganizationHost` must implement a single body/title/move/history transaction with document/hierarchy/pin CAS, pre-submit recovery, bound idempotent receipts and terminal operation fencing. `NoteOrganizationAgent` receives untrusted context and a fixed instruction; no model provider is bundled. See [the host contract](../../docs/note-organization-host-contract.md). This API never authorizes arbitrary paraphrasing or partial independent title/move saves.

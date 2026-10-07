@@ -1,0 +1,130 @@
+{
+  "auditDate": "2026-10-06",
+  "baseline": "6ac78a392f4de63c9c5667650f849112060e6ce1",
+  "dependencies": [
+    {
+      "name": "@blocknote/core",
+      "installedVersion": "0.54.2",
+      "license": "MPL-2.0",
+      "licenseFiles": [
+        {
+          "path": "node_modules/@blocknote/core/LICENSE",
+          "sha256": "4b89d4518bd135ab4ee154a7bce722246b57a98c3d7efc1a09409898160c2bd1"
+        }
+      ],
+      "use": "Existing public dependency/API only; no implementation copied or modified"
+    },
+    {
+      "name": "@blocknote/react",
+      "installedVersion": "0.54.2",
+      "license": "MPL-2.0",
+      "licenseFiles": [
+        {
+          "path": "node_modules/@blocknote/react/LICENSE",
+          "sha256": "4b89d4518bd135ab4ee154a7bce722246b57a98c3d7efc1a09409898160c2bd1"
+        }
+      ],
+      "use": "Existing public dependency/API only; no implementation copied or modified"
+    },
+    {
+      "name": "react",
+      "installedVersion": "19.3.0",
+      "license": "MIT",
+      "licenseFiles": [
+        {
+          "path": "node_modules/react/LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+        }
+      ],
+      "use": "Existing public dependency/API only; no implementation copied or modified"
+    },
+    {
+      "name": "react-dom",
+      "installedVersion": "19.3.0",
+      "license": "MIT",
+      "licenseFiles": [
+        {
+          "path": "node_modules/react-dom/LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+        }
+      ],
+      "use": "Existing public dependency/API only; no implementation copied or modified"
+    },
+    {
+      "name": "@tiptap/core",
+      "installedVersion": "3.31.3",
+      "license": "MIT",
+      "licenseFiles": [
+        {
+          "path": "node_modules/@tiptap/core/LICENSE.md",
+          "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+        }
+      ],
+      "use": "Existing public dependency/API only; no implementation copied or modified"
+    },
+    {
+      "name": "@tiptap/pm",
+      "installedVersion": "3.31.3",
+      "license": "MIT",
+      "licenseFiles": [
+        {
+          "path": "node_modules/@tiptap/pm/LICENSE",
+          "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+        },
+        {
+          "path": "node_modules/@tiptap/pm/THIRD_PARTY_LICENSES.md",
+          "sha256": "eabc218716e37c2439772ed9133ac7ac1e593b6a5c60370dc1295282c93c9b09"
+        }
+      ],
+      "use": "Existing public dependency/API only; no implementation copied or modified"
+    },
+    {
+      "name": "@blocknote/math-block",
+      "installedVersion": "0.54.2",
+      "license": "MPL-2.0",
+      "licenseFiles": [
+        {
+          "path": "node_modules/@blocknote/math-block/LICENSE",
+          "sha256": "4b89d4518bd135ab4ee154a7bce722246b57a98c3d7efc1a09409898160c2bd1"
+        }
+      ],
+      "use": "Existing public dependency/API only; no implementation copied or modified"
+    },
+    {
+      "name": "@blocknote/diagram-block",
+      "installedVersion": "0.54.2",
+      "license": "MPL-2.0",
+      "licenseFiles": [
+        {
+          "path": "node_modules/@blocknote/diagram-block/LICENSE",
+          "sha256": "4b89d4518bd135ab4ee154a7bce722246b57a98c3d7efc1a09409898160c2bd1"
+        }
+      ],
+      "use": "Existing public dependency/API only; no implementation copied or modified"
+    },
+    {
+      "name": "@blocknote/code-block",
+      "installedVersion": "0.54.2",
+      "license": "MPL-2.0",
+      "licenseFiles": [
+        {
+          "path": "node_modules/@blocknote/code-block/LICENSE",
+          "sha256": "4b89d4518bd135ab4ee154a7bce722246b57a98c3d7efc1a09409898160c2bd1"
+        }
+      ],
+      "use": "Existing public dependency/API only; no implementation copied or modified"
+    }
+  ],
+  "excludedDependency": {
+    "name": "@blocknote/xl-multi-column",
+    "observedVersion": "0.54.2",
+    "observedLicense": "GPL-3.0 OR PROPRIETARY",
+    "use": "Package/license metadata only; implementation not inspected, imported, copied or installed in OpenEditor"
+  },
+  "notesSource": "Requirements/schema observations only. Private Notes has no repository license located; implementation transfer is excluded.",
+  "legalConclusion": "No blanket legal-clearance conclusion. Unknown-license code/assets or new proprietary dependencies must stop separately.",
+  "sources": [
+    "https://www.mozilla.org/en-US/MPL/2.0/FAQ/",
+    "https://www.mozilla.org/en-US/MPL/2.0/"
+  ]
+}

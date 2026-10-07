@@ -152,6 +152,8 @@ export type DatabaseRuntimeStore = {
   ) => void;
   load: (viewKey: string) => Promise<void>;
   refresh: (viewKey: string) => Promise<void>;
+  /** On reconnect: supersede old responses, then reload canonical data for all mounted views. */
+  invalidateReads: () => void;
   loadMore: (viewKey: string) => Promise<void>;
   setQuery: (viewKey: string, query: string) => void;
   setSort: (
@@ -210,6 +212,7 @@ export type DatabaseRuntimeStore = {
 };
 
 type ViewInternal = {
+  lastFirstPageKey?: string;
   viewKey: string;
   databaseId: string;
   queryState: DatabaseViewQueryState;
@@ -440,6 +443,7 @@ export function createDatabaseRuntimeStore(
   const listeners = new Set<() => void>();
   /** In-flight listRows by full query key (includes cursor). */
   const inflight = new Map<string, Promise<DatabaseRowsPage>>();
+  let connectionEpoch = 0;
   const fetchCountByKey = new Map<string, number>();
   /** Idle snapshots are store-instance scoped — never module-global (4F-3A R2). */
   const idleSnapshots = new Map<string, DatabaseViewSnapshot>();
@@ -560,7 +564,13 @@ export function createDatabaseRuntimeStore(
     }
     const { databaseId } = view;
     const key = buildDatabaseQueryKey(databaseId, state, cursor);
-    const pending = inflight.get(key);
+    // Concurrent identical reads can share a cohort; A→B→A cannot reuse its old A.
+    if (!cursor && view.lastFirstPageKey !== key) {
+      if (view.lastFirstPageKey) inflight.delete(JSON.stringify([connectionEpoch, view.lastFirstPageKey]));
+      view.lastFirstPageKey = key;
+    }
+    const inflightKey = JSON.stringify([connectionEpoch, key]);
+    const pending = inflight.get(inflightKey);
     if (pending) return pending;
 
     const work = (async () => {
@@ -569,11 +579,11 @@ export function createDatabaseRuntimeStore(
       return listRows(databaseId, listOptionsFromState(state, cursor));
     })();
 
-    inflight.set(key, work);
+    inflight.set(inflightKey, work);
     try {
       return await work;
     } finally {
-      if (inflight.get(key) === work) inflight.delete(key);
+      if (inflight.get(inflightKey) === work) inflight.delete(inflightKey);
     }
   }
 
@@ -653,6 +663,12 @@ export function createDatabaseRuntimeStore(
   }
 
   async function loadFirstPage(view: ViewInternal): Promise<void> {
+    // Invalidate before metadata awaits, including rapid filtered A→B→A transitions.
+    const queryKey = buildDatabaseQueryKey(view.databaseId, view.queryState, null);
+    if (view.lastFirstPageKey !== queryKey) {
+      if (view.lastFirstPageKey) inflight.delete(JSON.stringify([connectionEpoch, view.lastFirstPageKey]));
+      view.lastFirstPageKey = queryKey;
+    }
     const gen = ++view.generation;
     view.status = "loading";
     view.errorMessage = undefined;
@@ -711,6 +727,16 @@ export function createDatabaseRuntimeStore(
   }
 
   async function refreshAfterMutation(view: ViewInternal): Promise<void> {
+    // A read started before a confirmed write cannot verify that write.
+    inflight.delete(JSON.stringify([connectionEpoch, buildDatabaseQueryKey(view.databaseId, view.queryState, null)]));
+    const related = [...views.values()].filter(other => other !== view && other.databaseId === view.databaseId);
+    for (const other of related) {
+      if (other.lastFirstPageKey) inflight.delete(JSON.stringify([connectionEpoch, other.lastFirstPageKey]));
+    }
+    for (const other of related) {
+      other.items = [];
+      void loadFirstPage(other);
+    }
     const gen = ++view.generation;
     view.mutating = { kind: "refreshing" };
     view.seenCursors.clear();
@@ -808,7 +834,16 @@ export function createDatabaseRuntimeStore(
 
     async refresh(viewKey) {
       const view = requireView(viewKey);
+      if (view.status !== "loading") inflight.delete(JSON.stringify([connectionEpoch, buildDatabaseQueryKey(view.databaseId, view.queryState, null)]));
       await loadFirstPage(view);
+    },
+    invalidateReads() {
+      connectionEpoch++; inflight.clear();
+      for (const view of views.values()) {
+        view.lastFirstPageKey = undefined;
+        view.items = []; view.schema = {}; view.meta = null; view.metaStatus = "idle";
+        void loadFirstPage(view);
+      }
     },
 
     async loadMore(viewKey) {

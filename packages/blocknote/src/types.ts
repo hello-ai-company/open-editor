@@ -24,6 +24,8 @@ export type FromBlockNoteOptions = {
 };
 
 export type ToBlockNoteOptions = {
+  /** Unsupported styles become an inert unknown envelope instead of throwing or dropping marks. */
+  knownStyleTypes?: ReadonlySet<string> | readonly string[];
   /** Set of BN schema block type names that are editable natively */
   knownBlockTypes: ReadonlySet<string> | readonly string[];
   /** default true — wrap non-known OE types into envelope */

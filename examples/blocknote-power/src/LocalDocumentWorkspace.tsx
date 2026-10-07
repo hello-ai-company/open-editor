@@ -18,6 +18,7 @@ export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedS
   failureRef.current = failure;
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
   const current = useRef<StoredDocument | undefined>(undefined);
   const content = useRef<EditorDocument | undefined>(undefined);
   const edited = useRef(0);
@@ -164,7 +165,7 @@ export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedS
     } finally { hostLatch.current = false; setHostBusy(false); }
   };
   if (!record) return <main className="demo-feedback" role={failure ? "alert" : "status"}><p>{status}</p>{failure ? <button className="chip" onClick={() => location.reload()}>Retry opening</button> : null}</main>;
-  return <div className="demo-shell local-document-workspace">
+  return <div className="demo-shell local-document-workspace" data-oe-theme={theme === "system" ? undefined : theme}>
     <section className="local-document-controls" aria-label="Local documents" inert={hostBusy || navigating}>
       <label>Document <select aria-label="Saved document" value={record.id} disabled={dirty || saving} onChange={event => { void switchDocument(event.target.value); }}>{documents.map(row => <option key={row.id} value={row.id}>{row.title}</option>)}</select></label>
       <button className="chip" onClick={() => { void create(); }} disabled={saving || Boolean(failure)}>New document</button>
@@ -172,12 +173,12 @@ export function LocalDocumentWorkspace({ onOpenPersonalContext, store: suppliedS
       <button className="chip" onClick={exportCopy}>Export backup</button>
       {location.hostname === "127.0.0.1" ? <button className="chip" disabled={dirty || saving || Boolean(failure)} onClick={switchHost}>{host ? "Return to browser documents" : "Personal-AI local test"}</button> : null}
       <p role="status" data-testid="document-save-status">{status}</p>
-      <small>{host ? "Synthetic documents are saved in the local SQLite host. This is a separate test account." : "This browser only. Clear site data removes local documents."} External pages and database rows remain host-owned.</small>
+      <details className="local-storage-note"><summary>Storage</summary><small>{host ? "Synthetic documents are saved in the local SQLite host. This is a separate test account." : "This browser only. Clear site data removes local documents."} External pages and database rows remain host-owned.</small></details>
       {failure ? <div role="alert"><button className="chip" onClick={() => { void create(true); }} disabled={saving}>Save edits as a new copy</button>{failure === "save_outcome_unknown" ? <button className="chip" onClick={() => { void reconcileSave(); }}>Check saved version</button> : failure === "document_conflict" ? <button className="chip" onClick={() => { void replaceWithSaved(); }}>Replace these edits with saved version</button> : <button className="chip" onClick={() => { void save(); }} disabled={saving}>Retry save</button>}</div> : null}
     </section>
     {host && hostRevision ? <LocalPersonalAiReview host={host} document={hostRevision} dirty={dirty} busy={saving || hostBusy} onAccept={hostCommit} onUndo={() => hostCommit()} /> : null}
     <SaveShortcut onSave={save} />
-    <DocumentMountBoundary key={record.id + ":" + record.revision} onExport={exportCopy}><div inert={hostBusy || navigating}><PowerDemoEditor initialDocument={record.document} documentTitle={record.title} onDocumentChange={changed} saveStatus={status} readOnly={hostBusy || navigating} allowLocalAhead={!host} workspaceActive={active} onOpenPersonalContext={onOpenPersonalContext} /></div></DocumentMountBoundary>
+    <DocumentMountBoundary key={record.id + ":" + record.revision} onExport={exportCopy}><div inert={hostBusy || navigating}><PowerDemoEditor initialDocument={record.document} documentTitle={record.title} onDocumentChange={changed} saveStatus={status} readOnly={hostBusy || navigating} allowLocalAhead={!host} workspaceActive={active} onOpenPersonalContext={onOpenPersonalContext} workspaceTheme={theme} onThemeChange={setTheme} /></div></DocumentMountBoundary>
   </div>;
 }
 
