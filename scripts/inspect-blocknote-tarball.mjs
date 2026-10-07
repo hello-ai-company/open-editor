@@ -135,6 +135,7 @@ const expectedRepository = {
 const expectedExports = {
   ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
   "./react": { types: "./dist/react/index.d.ts", import: "./dist/react/index.js" },
+  "./notes": { types: "./dist/notes/index.d.ts", import: "./dist/notes/index.js" },
   "./math": { types: "./dist/math/index.d.ts", import: "./dist/math/index.js" },
   "./diagram": { types: "./dist/diagram/index.d.ts", import: "./dist/diagram/index.js" },
   "./code": { types: "./dist/code/index.d.ts", import: "./dist/code/index.js" },
