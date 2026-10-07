@@ -3,6 +3,7 @@ export type NoteOrganizationCardProps = {
   pending: boolean; ambiguousParent?: string; onAuthorize(value: boolean): void;
   onStop(): void; onUndo(): void; onReconnect(): void; onReconcile(): void;
   onChooseParent(useProposed: boolean): void;
+  undoLabel?: string;
 };
 /** Opt-in auto organization is separate from ordinary proposal approval. Never takes editor focus. */
 export function NoteOrganizationCard(p: NoteOrganizationCardProps) {
@@ -12,7 +13,7 @@ export function NoteOrganizationCard(p: NoteOrganizationCardProps) {
     {p.ambiguousParent ? <div role="group" aria-label="親ページの確認"><p>「{p.ambiguousParent}」の子ページにしますか？</p><button type="button" disabled={p.pending || p.composing} onClick={() => p.onChooseParent(true)}>この親に配置</button><button type="button" disabled={p.pending || p.composing} onClick={() => p.onChooseParent(false)}>現在の配置を保持</button></div> : null}
     <div className="oe-note-organization-actions">
       <button type="button" onMouseDown={e => e.preventDefault()} disabled={!p.authorized} onClick={p.onStop}>整理を停止</button>
-      <button type="button" onMouseDown={e => e.preventDefault()} disabled={!p.canUndo || p.pending || p.status === "unknown" || p.composing} onClick={p.onUndo}>本文・タイトル・配置をUndo</button>
+      <button type="button" onMouseDown={e => e.preventDefault()} disabled={!p.canUndo || p.pending || p.status === "unknown" || p.composing} onClick={p.onUndo}>{p.undoLabel ?? "本文・タイトル・配置をUndo"}</button>
       {p.status === "unknown" ? <button type="button" disabled={p.pending} onClick={p.onReconcile}>保存結果を照会</button> : null}
       {p.status === "blocked" || p.status === "off" ? <button type="button" disabled={p.pending || !p.authorized} onClick={p.onReconnect}>現在のノートで再接続</button> : null}
     </div>

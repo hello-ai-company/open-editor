@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createOrganizationRequest, organizationEqual, type OrganizationRequest } from "@hello-ai-company/editor-ai";
-import { applySyntheticOrganization, createSyntheticOrganizationSeed, syntheticNoteOrganizationAgent } from "../src/syntheticNoteOrganization";
+import { applySyntheticOrganization, createSyntheticOrganizationSeed, syntheticNoteOrganizationAgent, prepareCapabilityAwarePlan } from "../src/syntheticNoteOrganization";
 function base() {
   const state = createSyntheticOrganizationSeed(), note = state.notes.note!;
   note.autoOrganize = true;
@@ -39,4 +39,34 @@ describe("synthetic standalone organization host", () => {
     expect(applySyntheticOrganization(state, createOrganizationRequest(snapshot, p, "delayed")).status).toBe("rejected"); expect(state).toEqual(old);
   });
 
+});
+describe("capability-aware synthetic host", () => {
+  const assistance = { capabilities: { revision: "c1", featureIds: [], blockTypes: ["paragraph", "heading", "bulletListItem"], inlineTypes: ["text", "link"], styleTypes: [], commandIds: [], operations: ["heading", "bulletListItem", "title", "placement", "link.add", "link.edit", "link.remove"] as const }, selection: { revision: "s1", blockIds: [] }, proposalsAllowed: true, autoLinks: false };
+  function available() {
+    const state = createSyntheticOrganizationSeed({ ...assistance, capabilities: { ...assistance.capabilities, operations: [...assistance.capabilities.operations] } });
+    const s = { ...state.notes.note!, hierarchyRevision: "h1", root: { scope: "synthetic", sharing: "private", editable: true }, pages: Object.values(state.notes).map(n => ({ id: n.documentId, parentId: n.parentId, title: n.title, scope: "synthetic", sharing: "private", editable: true })) };
+    return { state, snapshot: s };
+  }
+  it("does not listify ordinary prose, bounds plans and explains grounded links", () => {
+    const { snapshot } = available(), p = prepareCapabilityAwarePlan(snapshot);
+    expect(p.formats).toEqual([{ blockId: "note-0", type: "heading", level: 2 }]); expect(p.assistance.links).toHaveLength(1); expect(p.assistance.reason).toContain("未確認");
+  });
+  it("rejects a forged client approval flag and binds trusted approval to the exact atomic payload", () => {
+    const { state, snapshot } = available(), p = prepareCapabilityAwarePlan(snapshot), r = createOrganizationRequest(snapshot, p, "reviewed", "approved");
+    const forged = structuredClone(state); expect(applySyntheticOrganization(forged, r).status).toBe("rejected"); expect(forged.notes.note!.document).toEqual(snapshot.document);
+    state.approvals = { reviewed: structuredClone(r) }; const result = applySyntheticOrganization(state, r); expect(result.status).toBe("committed");
+    expect(state.receipts.reviewed!.request.before.document).toEqual(snapshot.document); expect(applySyntheticOrganization(state, r).status).toBe("committed"); expect(Object.keys(state.receipts)).toHaveLength(1);
+    const committed = structuredClone(state);
+    expect(() => applySyntheticOrganization(state, { ...r, after: { ...r.after, title: "forged" } })).toThrow(); expect(state).toEqual(committed);
+  });
+  it("automatically links exact original URLs without requesting structural authority", () => {
+    const { state, snapshot } = available(); snapshot.assistance!.proposalsAllowed = false; snapshot.assistance!.autoLinks = true; state.notes.note!.assistance = snapshot.assistance;
+    const p = prepareCapabilityAwarePlan(snapshot); expect(p.formats).toEqual([]); expect(p.title).toBe(snapshot.title); expect(p.parentId).toBe(snapshot.parentId);
+    const r = createOrganizationRequest(snapshot, p, "url-only"); expect(applySyntheticOrganization(state, r).status).toBe("committed"); expect(state.notes.note!.title).toBe(snapshot.title);
+  });
+  it("withdraws unavailable links and all operations under denied host permission", () => {
+    const { snapshot } = available(); snapshot.assistance!.capabilities.operations = ["heading"];
+    expect(prepareCapabilityAwarePlan(snapshot).assistance.links).toEqual([]);
+    snapshot.assistance!.capabilities.operations = []; const p = prepareCapabilityAwarePlan(snapshot); expect(p.formats).toEqual([]); expect(p.assistance.links).toEqual([]); expect(p.title).toBe(snapshot.title); expect(p.parentId).toBe(snapshot.parentId);
+  });
 });

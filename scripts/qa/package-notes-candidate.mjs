@@ -37,8 +37,8 @@ for(const entry of inventory) {
   if(!existsSync(join(destination,'dist/index.d.ts'))) throw new Error('Missing public declarations');
 }
 writeFileSync(join(consumer,'package.json'),' {"type":"module"}\n');
-const source=`import { createDocumentColumns, updateDocumentColumns, importLegacyNotesBlocks, exportLegacyNotesBlocks, createHtmlWidgetPreview, createDocumentWorkspaceFeature, createDocumentTypographyFeature, applyNotesMetadataEdits, createRevisionedNotesResourceEditor, validateNotesPropertyValue } from '@hello-ai-company/editor-blocknote';
-import { createNoteOrganizationSession, createOrganizationRequest, parseOrganizationSnapshot, NOTE_ORGANIZATION_INSTRUCTION, createDurableReviewCoordinator, createQuietCooperationSession, createSecretaryWorkflow, parseQuietPreparationContext, type QuietCooperationSnapshot } from '@hello-ai-company/editor-ai';
+const source=`import { createOpenEditorBlockNoteSchema, describeOpenEditorAgentSchema, createDocumentColumns, updateDocumentColumns, importLegacyNotesBlocks, exportLegacyNotesBlocks, createHtmlWidgetPreview, createDocumentWorkspaceFeature, createDocumentTypographyFeature, applyNotesMetadataEdits, createRevisionedNotesResourceEditor, validateNotesPropertyValue } from '@hello-ai-company/editor-blocknote';
+import { parseAgentEditorCapabilities, safeAgentLink, createNoteOrganizationSession, createOrganizationRequest, parseOrganizationSnapshot, NOTE_ORGANIZATION_INSTRUCTION, createDurableReviewCoordinator, createQuietCooperationSession, createSecretaryWorkflow, parseQuietPreparationContext, type QuietCooperationSnapshot } from '@hello-ai-company/editor-ai';
 import { QuietCooperationCard, NotesPropertyEditor, NoteOrganizationCard } from '@hello-ai-company/editor-blocknote/react';
 import { createEditorDocument } from '@hello-ai-company/editor-core';
 const initial = [{ id:'human',type:'paragraph',text:'日本語',version:4,sourceId:'host-id',custom:{keep:true} }];
@@ -65,6 +65,12 @@ if(created[0]!.toolBody!=='new'||JSON.parse(created[0]!.toolData as string).html
 const note=parseOrganizationSnapshot({documentId:'note',revision:'r1',hierarchyRevision:'h1',pinRevision:'p1',document:createEditorDocument([{id:'original',type:'paragraph',content:'旅の準備'}]),title:'Untitled',parentId:null,titleManual:false,parentPinned:false,autoOrganize:true,pages:[{id:'note',parentId:null,title:'Untitled',scope:'local',sharing:'private',editable:true}],root:{scope:'local',sharing:'private',editable:true}});
 const organization=createOrganizationRequest(note,{documentId:'note',revision:'r1',hierarchyRevision:'h1',pinRevision:'p1',formats:[{blockId:'original',type:'heading',level:2}],title:'旅の準備',parentId:null,placement:'certain'},'consumer-op');
 if(organization.after.document.blocks[0]!.content!=='旅の準備'||[createNoteOrganizationSession,NoteOrganizationCard].some(v=>typeof v!=='function')||!NOTE_ORGANIZATION_INSTRUCTION.includes('untrusted'))throw new Error('Organization public API regression');
+const inventory=describeOpenEditorAgentSchema(createOpenEditorBlockNoteSchema());
+const capabilities=parseAgentEditorCapabilities({...inventory,revision:'cap1',operations:['heading','link.add','title']});
+if(!capabilities.inlineTypes.includes('link')||safeAgentLink('https://example.com',[])!=='https://example.com/')throw new Error('Capability/link public API regression');
+let dangerousRejected=false;try{safeAgentLink('javascript:alert(1)',[]);}catch{dangerousRejected=true;}if(!dangerousRejected)throw new Error('Dangerous link accepted');
+const capabilityNote=parseOrganizationSnapshot({...note,assistance:{capabilities,selection:{revision:'sel1',blockIds:[]},proposalsAllowed:true,autoLinks:false}});
+createOrganizationRequest(capabilityNote,{...organization.plan!,assistance:{capabilityRevision:'cap1',selectionRevision:'sel1',reason:'Only installed heading operation',links:[]}},'capability-op');
 console.log('Candidate public runtime and declarations PASS');
 `;
 writeFileSync(join(consumer,'index.ts'),source);
