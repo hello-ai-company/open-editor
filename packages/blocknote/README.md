@@ -114,3 +114,24 @@ Use `createBlockChangeBridge` / `useOpenEditorBlockChanges` and `createDocumentI
 ## Publication
 
 Metadata targets public npmjs (`publishConfig.access: public`). Versions `0.1.0` and `0.1.1` are already published and immutable. Publishing `0.2.0` requires a reviewed main commit and an owner-triggered release; this repository does **not** auto-publish on merge.
+
+## Notes workspace integration candidate
+
+The local Notes candidate adds `@hello-ai-company/editor-blocknote/notes` and
+`NotesTabbedWorkspace` from `/react`. This entry is not present in previously
+published packages. Install an explicitly accepted local candidate tarball before
+using these imports; no package is published by this work.
+
+Pass one stable, actor/workspace scoped `NotesWorkspaceHost`, a presentation-only
+`NotesWorkspaceConfig`, and optional bound providers. The workspace owns document
+editing, both sidebar families, guarded tabs, split panes and draft lifecycle.
+Use `renderDocument` to supply your BlockNote view and `renderModes` to compose
+independently imported Canvas/Present/Site renderers. Capabilities come from
+authorized canonical snapshots, never from presentation config.
+
+The host owns auth, real records, archive sidecars, CAS, history, transactional
+recovery and idempotent receipts. Unbound mutations must remain unavailable.
+`lookupOperation` may report terminal absence only when delayed writes are fenced.
+Local form drafts survive component unmount within their controller lifetime;
+restart durability requires explicit host storage. Read the candidate's host
+contract and feature acceptance matrix before replacing an application workspace.

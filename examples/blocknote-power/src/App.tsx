@@ -4,6 +4,7 @@ import { createLocalPersonalAiHost } from "./localPersonalAi";
 const PersonalContextWorkbench = lazy(() => import("./PersonalContextWorkbench").then(module => ({ default: module.PersonalContextWorkbench })));
 
 const NoteOrganizationWorkbench = lazy(() => import("./NoteOrganizationWorkbench").then(module => ({ default: module.NoteOrganizationWorkbench })));
+const NotesWorkspaceWorkbench = lazy(() => import("./NotesWorkspaceWorkbench").then(module => ({ default: module.NotesWorkspaceWorkbench })));
 
 class ContextBoundary extends Component<{ children: ReactNode; onBack: () => void }, { failed: boolean }> {
   state = { failed: false };
@@ -21,6 +22,7 @@ export function App() {
     setContextOpen(false);
     requestAnimationFrame(() => { window.scrollTo(0, editorScroll.current); document.getElementById("demo-main")?.focus({ preventScroll: true }); });
   };
+  if (new URL(location.href).searchParams.get("notes") === "synthetic") return <Suspense fallback={<p role="status">Loading synthetic Notes workspace…</p>}><NotesWorkspaceWorkbench /></Suspense>;
   if (new URL(location.href).searchParams.get("organize") === "synthetic") return <Suspense fallback={<p role="status">Loading synthetic note organization…</p>}><NoteOrganizationWorkbench /></Suspense>;
   return <>
     <div className="local-document-controls"><a href="?organize=synthetic" target="_blank" rel="noopener">自由メモ整理の合成デモを開く</a></div>

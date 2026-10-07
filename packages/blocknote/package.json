@@ -27,6 +27,10 @@
       "types": "./dist/react/index.d.ts",
       "import": "./dist/react/index.js"
     },
+    "./notes": {
+      "types": "./dist/notes/index.d.ts",
+      "import": "./dist/notes/index.js"
+    },
     "./math": {
       "types": "./dist/math/index.d.ts",
       "import": "./dist/math/index.js"

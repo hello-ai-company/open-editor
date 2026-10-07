@@ -55,6 +55,7 @@ const EXPECTED_REPOSITORY = Object.freeze({
 const EXPECTED_EXPORTS = Object.freeze({
   ".": Object.freeze({ types: "./dist/index.d.ts", import: "./dist/index.js" }),
   "./react": Object.freeze({ types: "./dist/react/index.d.ts", import: "./dist/react/index.js" }),
+  "./notes": Object.freeze({ types: "./dist/notes/index.d.ts", import: "./dist/notes/index.js" }),
   "./math": Object.freeze({ types: "./dist/math/index.d.ts", import: "./dist/math/index.js" }),
   "./diagram": Object.freeze({ types: "./dist/diagram/index.d.ts", import: "./dist/diagram/index.js" }),
   "./code": Object.freeze({ types: "./dist/code/index.d.ts", import: "./dist/code/index.js" }),

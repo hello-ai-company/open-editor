@@ -1,0 +1,24 @@
+export default async page => {
+  const setting = async action => { await page.getByRole('button',{name:'ノートと提案の設定',exact:true}).click(); await action(); await page.getByRole('button',{name:'設定を閉じる',exact:true}).click(); };
+  const advancedSetting = async action => setting(async () => { if (!await page.locator('.organization-diagnostics').evaluate(d => d.open)) await page.getByText('デモの検証と機能情報',{exact:true}).click(); await action(); });
+  const errors = []; page.on('pageerror', e => errors.push(e.message)); await page.locator('.bn-inline-content').first().waitFor();
+  await setting(async () => { await page.getByRole('checkbox', { name: 'このノートで控えめな提案を受け取る', exact: true }).check(); });
+  const proposal = page.getByRole('group', { name: '整理案の確認', exact: true }); await proposal.waitFor({ timeout: 17000 });
+  await page.getByRole('button', { name: '今回は見送る', exact: true }).click(); await page.locator('.bn-inline-content').nth(1).click(); await page.keyboard.press('Meta+ArrowRight');
+  await page.waitForTimeout(11000); if (await proposal.count()) throw new Error('Dismissed same proposal repeated after caret movement');
+  await page.getByRole('button',{name:'ノートと提案の設定',exact:true}).click(); if (!await page.locator('.organization-diagnostics').evaluate(d => d.open)) await page.getByText('デモの検証と機能情報',{exact:true}).click(); await page.getByText('このホストで使える機能', { exact: true }).click();
+  await page.getByRole('combobox', { name: '合成ホストの操作', exact: true }).selectOption('structure'); await page.getByRole('button',{name:'設定を閉じる',exact:true}).click();
+  await proposal.waitFor({ timeout: 17000 }); if (await proposal.locator('li').count()) throw new Error('Unavailable links proposed');
+  await advancedSetting(async () => { if (!await page.locator('.organization-capabilities').evaluate(d => d.open)) await page.getByText('このホストで使える機能',{exact:true}).click(); await page.getByRole('combobox', { name: '合成ホストの操作', exact: true }).selectOption('denied'); }); await page.waitForTimeout(11000);
+  if (await proposal.count()) throw new Error('Denied permission produced proposal');
+  await page.getByRole('combobox', { name: '合成ノート', exact: true }).selectOption('another'); await page.waitForTimeout(2000);
+  let checked; await setting(async () => { checked=await page.getByRole('checkbox', { name: 'このノートで控えめな提案を受け取る', exact: true }).isChecked(); }); if (checked || await proposal.count()) throw new Error('Authority crossed documents');
+  await setting(async () => { await page.getByRole('checkbox', { name: 'このノートで控えめな提案を受け取る', exact: true }).check(); }); await proposal.waitFor({ timeout: 17000 });
+  await page.getByRole('button', { name: '提案とリンク整理を停止', exact: true }).click(); await page.waitForTimeout(1800); if (await proposal.count()) throw new Error('Stop retained proposal');
+  await page.setViewportSize({ width: 320, height: 760 }); await page.emulateMedia({ reducedMotion: 'reduce' }); await page.waitForTimeout(300);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth); if (overflow) throw new Error('320px viewport overflow');
+  await page.screenshot({ path: 'OUTPUT/mobile-320.png', fullPage: true });
+  await page.getByRole('link', { name: '通常のDocumentに戻る', exact: true }).click(); await page.locator('.bn-inline-content').first().waitFor();
+  if (errors.length) throw new Error(JSON.stringify(errors));
+  return { sameProposalSuppression: true, hostFeatureSwitch: true, deniedPermission: true, perNoteScope: true, stop: true, mobile320: true, reducedMotion: true, returnToDocument: true, errors };
+};

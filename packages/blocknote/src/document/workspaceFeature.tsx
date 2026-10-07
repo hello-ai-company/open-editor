@@ -8,6 +8,7 @@ import { toBlockNoteForSchema } from "../adapter/toBlockNote.js";
 import type { BlockLike } from "../types.js";
 import { createDocumentColumns, DOCUMENT_COLUMN_TYPE, DOCUMENT_COLUMNS_TYPE, updateDocumentColumns, validateDocumentColumns, type DocumentColumnsAction } from "./columns.js";
 import { createHtmlWidgetPreview, HTML_WIDGET_PRESETS, HTML_WIDGET_TYPE, parseHtmlWidgetSource, type HtmlWidgetSource } from "./htmlWidget.js";
+import { useEditorLocalDraft, type EditorLocalDraftLifecycle } from "./draftLifecycle.js";
 
 type WorkspaceEditor = {
   document: BlockLike[];
@@ -102,49 +103,74 @@ function sourceFor(block: BlockLike): HtmlWidgetSource {
   return { html: String(block.props?.html ?? ""), css: String(block.props?.css ?? ""), javascript: String(block.props?.javascript ?? "") };
 }
 
-function HtmlWidget({ block, editor }: { block: BlockLike & { id: string }; editor: WorkspaceEditor }): ReactElement {
+export function HtmlWidget({ block, editor }: { block: BlockLike & { id: string }; editor: WorkspaceEditor }): ReactElement {
+  const lifecycle = useEditorLocalDraft(block.id, "html-widget-source");
+  return <HtmlWidgetDraft key={lifecycle.identity} block={block} editor={editor} lifecycle={lifecycle} />;
+}
+
+type HtmlWidgetDraftCache = { version: 1; base: string; draft: HtmlWidgetSource; part: keyof HtmlWidgetSource };
+function htmlDraftCache(value: unknown): HtmlWidgetDraftCache | undefined {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Cached HTML draft is unavailable; original cache is retained. Cancel explicitly to discard it.");
+  const cached = value as Record<string, unknown>;
+  if (Object.keys(cached).length !== 4 || Object.keys(cached).some(key => !["version", "base", "draft", "part"].includes(key)) || cached.version !== 1 || typeof cached.base !== "string" || cached.base.length > 1_000_000 || !["html", "css", "javascript"].includes(String(cached.part))) throw new Error("Unsupported HTML draft cache; original cache is retained. Cancel explicitly to discard it.");
+  return { version: 1, base: cached.base, draft: parseHtmlWidgetSource(cached.draft), part: cached.part as keyof HtmlWidgetSource };
+}
+
+function HtmlWidgetDraft({ block, editor, lifecycle }: { block: BlockLike & { id: string }; editor: WorkspaceEditor; lifecycle: EditorLocalDraftLifecycle }): ReactElement {
   const source = sourceFor(block), key = JSON.stringify(source);
-  const [draft, setDraft] = useState<HtmlWidgetSource | null>(null), [base, setBase] = useState(""), [part, setPart] = useState<keyof HtmlWidgetSource>("html"), [mobile, setMobile] = useState(false), [error, setError] = useState<string | null>(null);
-  const opener = useRef<HTMLButtonElement>(null), input = useRef<HTMLTextAreaElement>(null), file = useRef<HTMLInputElement>(null), importGeneration = useRef(0), restoreFocus = useRef(false);
+  let recovered: HtmlWidgetDraftCache | undefined, recoveryError: string | null = null;
+  try { recovered = htmlDraftCache(lifecycle.value); } catch (error) { recoveryError = error instanceof Error ? error.message : "Original cached draft retained"; }
+  const [draft, setDraft] = useState<HtmlWidgetSource | null>(() => recovered?.draft ?? (recoveryError ? source : null)), [base, setBase] = useState(() => recovered?.base ?? (recoveryError ? key : "")), [part, setPart] = useState<keyof HtmlWidgetSource>(() => recovered?.part ?? "html"), [mobile, setMobile] = useState(false), [error, setError] = useState<string | null>(() => recoveryError), [invalidCache, setInvalidCache] = useState(() => Boolean(recoveryError)), [composing, setComposing] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null), input = useRef<HTMLTextAreaElement>(null), file = useRef<HTMLInputElement>(null), importGeneration = useRef(0), restoreFocus = useRef(false), composingRef = useRef(false);
   useEffect(() => () => { importGeneration.current++; }, []);
   useEffect(() => { if (draft) input.current?.focus(); }, [Boolean(draft), part]);
   useEffect(() => { if (!draft && restoreFocus.current) { restoreFocus.current = false; opener.current?.focus(); } }, [Boolean(draft)]);
-  const close = (): void => { importGeneration.current++; restoreFocus.current = true; setDraft(null); setError(null); };
+  const cache = (next: HtmlWidgetSource, nextBase = base, nextPart = part): void => { lifecycle.set({ version: 1, base: nextBase, draft: { ...next }, part: nextPart }); };
+  const changeDraft = (next: HtmlWidgetSource): void => { if (invalidCache) return; try { cache(next); setDraft(next); setError(null); } catch (reason) { setError(reason instanceof Error ? reason.message : "Source draft could not be retained"); } };
+  const close = (): void => {
+    if (composingRef.current) return;
+    try { lifecycle.set(undefined); importGeneration.current++; restoreFocus.current = true; setDraft(null); setError(null); setInvalidCache(false); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Original cached draft retained"); }
+  };
   let preview = "";
   try { preview = createHtmlWidgetPreview(draft ?? source); } catch { /* Oversized/corrupt sources remain visible/editable, never silently truncated. */ }
   const download = (): void => {
     const url = URL.createObjectURL(new Blob([JSON.stringify({ schemaVersion: 1, ...source }, null, 2)], { type: "application/json" }));
     const link = document.createElement("a"); link.href = url; link.download = "openeditor-widget.json"; link.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
   };
-  return <section className="oe-html-widget" contentEditable={false} aria-label="HTML widget" onKeyDown={event => { event.stopPropagation(); if (event.key === "Escape" && draft) { event.preventDefault(); close(); } }}>
+  return <section className="oe-html-widget" contentEditable={false} aria-label="HTML widget" onKeyDown={event => { event.stopPropagation(); if (event.key === "Escape" && draft && !event.nativeEvent.isComposing && !composingRef.current) { event.preventDefault(); close(); } }}>
     <header><strong>{String(block.props?.title || "HTML widget")}</strong><span>Isolated preview · scripts and network disabled</span></header>
     <div className="oe-html-widget-controls">
-      <button ref={opener} type="button" disabled={!editor.isEditable || Boolean(draft)} onClick={() => { importGeneration.current++; setBase(key); setDraft(source); }}>Edit source</button>
+      <button ref={opener} type="button" disabled={!editor.isEditable || Boolean(draft) || !lifecycle.available} onClick={() => { try { cache(source, key, part); importGeneration.current++; setBase(key); setDraft(source); setError(null); } catch (reason) { setError(reason instanceof Error ? reason.message : "Source draft could not be retained"); } }}>Edit source</button>
       <button type="button" aria-pressed={mobile} onClick={() => setMobile(!mobile)}>{mobile ? "Wide preview" : "Mobile preview"}</button>
       <button type="button" onClick={download}>Export source</button>
     </div>
+    {lifecycle.unavailableReason ? <p role="status">{lifecycle.unavailableReason}</p> : null}
     {preview ? <iframe title="Isolated HTML widget preview" sandbox="" referrerPolicy="no-referrer" srcDoc={preview} style={{ width: mobile ? "min(100%,320px)" : "100%", height: 240 }} /> : <p role="status">Source exceeds the safe preview budget. Original source is retained.</p>}
     {draft ? <div className="oe-html-widget-editor" role="region" aria-label="Edit widget source">
       <p>HTML and CSS are previewed safely. JavaScript is retained as editable source and never runs here.</p>
-      <div className="oe-html-widget-controls">{HTML_WIDGET_PRESETS.map(preset => <button type="button" key={preset.id} onClick={() => setDraft({ ...preset.source })}>{preset.title}</button>)}
-        <button type="button" onClick={() => file.current?.click()}>Import source</button>
+      <div className="oe-html-widget-controls">{HTML_WIDGET_PRESETS.map(preset => <button type="button" key={preset.id} disabled={invalidCache || composing} onClick={() => changeDraft({ ...preset.source })}>{preset.title}</button>)}
+        <button type="button" disabled={invalidCache || composing} onClick={() => file.current?.click()}>Import source</button>
         <input ref={file} hidden type="file" accept=".json,.html,.htm,application/json,text/html" onChange={event => {
           const selected = event.target.files?.[0]; event.target.value = "";
           if (!selected) return;
           if (selected.size > 800_000) { setError("File exceeds the source budget"); return; }
           const generation = ++importGeneration.current;
-          void selected.text().then(text => { if (generation !== importGeneration.current) return; const imported = selected.name.toLowerCase().endsWith(".json") ? JSON.parse(text) as unknown : { html: text, css: "", javascript: "" }; setDraft(parseHtmlWidgetSource(imported)); setError(null); }).catch(reason => { if (generation === importGeneration.current) setError(reason instanceof Error ? reason.message : "Import failed"); });
+          void selected.text().then(text => { if (generation !== importGeneration.current || composingRef.current) return; const imported = selected.name.toLowerCase().endsWith(".json") ? JSON.parse(text) as unknown : { html: text, css: "", javascript: "" }; changeDraft(parseHtmlWidgetSource(imported)); }).catch(reason => { if (generation === importGeneration.current) setError(reason instanceof Error ? reason.message : "Import failed"); });
         }} />
       </div>
-      <div className="oe-html-widget-controls" role="group" aria-label="Source language">{(["html", "css", "javascript"] as const).map(language => <button type="button" aria-pressed={part === language} key={language} onClick={() => setPart(language)}>{language.toUpperCase()}</button>)}</div>
-      <textarea ref={input} aria-label={`${part.toUpperCase()} source`} spellCheck={false} value={draft[part]} onChange={event => setDraft({ ...draft, [part]: event.target.value })} />
-      <div className="oe-html-widget-controls"><button type="button" disabled={!editor.isEditable} onClick={() => {
+      <div className="oe-html-widget-controls" role="group" aria-label="Source language">{(["html", "css", "javascript"] as const).map(language => <button type="button" aria-pressed={part === language} disabled={invalidCache || composing} key={language} onClick={() => { try { cache(draft, base, language); setPart(language); } catch (reason) { setError(reason instanceof Error ? reason.message : "Source draft could not be retained"); } }}>{language.toUpperCase()}</button>)}</div>
+      <textarea ref={input} aria-label={`${part.toUpperCase()} source`} spellCheck={false} disabled={invalidCache} value={draft[part]} onCompositionStart={() => { composingRef.current = true; setComposing(true); lifecycle.setComposition(true); }} onCompositionEnd={() => { composingRef.current = false; setComposing(false); lifecycle.setComposition(false); }} onChange={event => changeDraft({ ...draft, [part]: event.target.value })} />
+      <div className="oe-html-widget-controls"><button type="button" disabled={!editor.isEditable || invalidCache || composing} onClick={() => {
+        if (composingRef.current) return;
         try {
+          lifecycle.assertCurrent();
           const current = findBlock(editor.document, block.id);
           if (!current || JSON.stringify(sourceFor(current)) !== base) throw new Error("The widget changed elsewhere. Cancel and reopen to keep both edits.");
           editor.updateBlock(block.id, { props: parseHtmlWidgetSource(draft) }); close();
         } catch (reason) { setError(reason instanceof Error ? reason.message : "Source could not be saved"); }
-      }}>Apply source</button><button type="button" onClick={close}>Cancel</button></div>
+      }}>Apply source</button><button type="button" disabled={composing} onClick={close}>Cancel</button></div>
     </div> : null}
     {error ? <p role="alert">{error}</p> : null}
   </section>;
