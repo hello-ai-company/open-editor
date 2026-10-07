@@ -1,9 +1,9 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import { createNoteOrganizationSession, organizationEqual, parseAgentEditorCapabilities, AGENT_EDITOR_OPERATIONS, type OrganizationSnapshot, type AgentNoteAssistance } from "@hello-ai-company/editor-ai";
 import { createOpenEditorBlockNoteSchema, describeOpenEditorAgentSchema, fromBlockNote, toBlockNoteForSchema } from "@hello-ai-company/editor-blocknote";
-import { NoteOrganizationCard } from "@hello-ai-company/editor-blocknote/react";
+import { OrganizationIcon, OrganizationReviewRail, useOrganizationViewport, organizationDialogKeys } from "./OrganizationReviewRail";
 import { createSyntheticOrganizationHost, syntheticNoteOrganizationAgent, type SyntheticFault } from "./syntheticNoteOrganization";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
@@ -12,6 +12,7 @@ import "./noteOrganization.css";
 
 const readSignal = () => new AbortController().signal;
 export function NoteOrganizationWorkbench() {
+  const viewport = useOrganizationViewport();
   const [adapter] = useState(() => createSyntheticOrganizationHost("open-editor.synthetic-organization.v2", {
     capabilities: parseAgentEditorCapabilities({ ...describeOpenEditorAgentSchema(createOpenEditorBlockNoteSchema()), revision: "capabilities-1", operations: [...AGENT_EDITOR_OPERATIONS] }),
     selection: { revision: "selection-0", blockIds: [] }, proposalsAllowed: false, autoLinks: false
@@ -22,7 +23,7 @@ export function NoteOrganizationWorkbench() {
   useEffect(() => { let active = true; void adapter.initialize().then(() => adapter.host.read("note", readSignal())).then(s => { if (active) setSaved(s); }).catch(() => { if (active) setError("合成データを開けません。既存文書は保持されています。"); }); return () => { active = false; }; }, [adapter]);
   const changeNote = async (id: string, canLeave: () => boolean) => { if (navigationLatch.current) return; navigationLatch.current = true; setBusy(true); try { const next = await adapter.host.read(id, readSignal()); if (!canLeave()) { setError("続きの入力を保持しました。保存後にもう一度移動してください。"); return; } setSaved(next); setError(""); } catch { setError("ノートを開けません"); } finally { navigationLatch.current = false; setBusy(false); } };
   return <main className="organization-workbench">
-    <header><a href="?">通常のDocumentに戻る</a><h1>自由に書いて、あとで整える</h1><p>OpenEditorの合成デモ · 実AI・外部送信なし。保存先はこのブラウザの専用IndexedDBです。</p></header>
+    <header className="organization-top" data-compact={viewport.width <= 1100 || viewport.height <= 560} style={{ top: viewport.top }}><a href="?" aria-label="通常のDocumentに戻る"><OrganizationIcon name="arrow" /><span>OpenEditor</span><span className="organization-mode">Document</span></a><span className="organization-synthetic-badge">合成デモ · 外部送信なし</span></header>
     {error ? <p role="alert">{error}</p> : null}
     {saved ? <OrganizationNote key={saved.documentId} initial={saved} adapter={adapter} onNavigate={changeNote} navigationBusy={busy} /> : <p role="status">合成ノートを開いています…</p>}
   </main>;
@@ -31,14 +32,17 @@ function OrganizationNote({ initial, adapter, onNavigate, navigationBusy }: { in
   const [saved, setSaved] = useState(initial), [notice, setNotice] = useState("保存済み"), [dirty, setDirty] = useState(false), [history, setHistory] = useState(0), [fault, setFault] = useState<SyntheticFault>("none"), [titleDraft, setTitleDraft] = useState(initial.title), [controlBusy, setControlBusy] = useState(false), [authorizationDraft, setAuthorizationDraft] = useState<boolean>();
   const controlLatch = useRef(false), titleDirty = useRef(false), viewportEpoch = useRef(0);
   const [assistanceDraft, setAssistanceDraft] = useState<AgentNoteAssistance>();
-  const [hasTitleDraft, setHasTitleDraft] = useState(false);
+  const [hasTitleDraft, setHasTitleDraft] = useState(false), [saveIssue, setSaveIssue] = useState("");
   const base = useRef(initial), dirtyRef = useRef(false), generation = useRef(0), applying = useRef(false), composing = useRef(false), timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined), pending = useRef<Promise<boolean> | undefined>(undefined), wrapper = useRef<HTMLDivElement>(null);
   const schema = useMemo(() => createOpenEditorBlockNoteSchema(), []);
   const editor = useCreateBlockNote({ schema, initialContent: toBlockNoteForSchema(initial.document, schema) as never });
   const session = useMemo(() => createNoteOrganizationSession({ host: adapter.host, agent: syntheticNoteOrganizationAgent, idleMs: 1400 }), [adapter]);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
-  const reviewSlot = useRef<HTMLDivElement>(null), [reviewHeight, setReviewHeight] = useState(0);
-  useLayoutEffect(() => { if (state.plan && reviewSlot.current) setReviewHeight(height => Math.max(height, reviewSlot.current!.getBoundingClientRect().height)); }, [state.plan]);
+  const settings = useRef<HTMLDialogElement>(null), settingsTrigger = useRef<HTMLButtonElement>(null), settingsReturnFocus = useRef<HTMLElement | null>(null);
+  const viewport = useOrganizationViewport();
+  const compactChrome = viewport.width <= 1100 || viewport.height <= 560;
+  useEffect(() => { if (!compactChrome) return; const pm = editor.prosemirrorView, margin = pm.props.scrollMargin, threshold = pm.props.scrollThreshold; pm.setProps({ scrollMargin: { top: 84, bottom: 24, left: 12, right: 12 }, scrollThreshold: { top: 80, bottom: 20, left: 0, right: 0 } }); return () => { if (!pm.isDestroyed) pm.setProps({ scrollMargin: margin, scrollThreshold: threshold }); }; }, [editor, compactChrome]);
+  const openSettings = (editTitle = false) => { settingsReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : settingsTrigger.current; settings.current?.showModal(); if (editTitle) settings.current?.querySelector<HTMLInputElement>('input[aria-label="ノートタイトル"]')?.focus({ preventScroll: true }); };
   const life = useMemo(() => ({ generation: 0 }), [session]);
   const acceptSaved = (next: OrganizationSnapshot) => { base.current = next; setSaved(next); if (!titleDirty.current) setTitleDraft(next.title); session.update(next, !dirtyRef.current && !titleDirty.current && !composing.current); };
   const captureScope = (canonical = base.current.document) => {
@@ -61,13 +65,13 @@ function OrganizationNote({ initial, adapter, onNavigate, navigationBusy }: { in
     const captured = generation.current, document = fromBlockNote(editor.document as never);
     const work = (async () => {
       try {
-        let next = await adapter.edit(base.current, { document });
+        let next = await adapter.edit(base.current, { document }); setSaveIssue("");
         if (next.assistance) next = { ...next, assistance: { ...next.assistance, selection: captureScope(next.document) } };
         base.current = next; setSaved(next);
         if (captured === generation.current) { dirtyRef.current = false; setDirty(false); setNotice("保存済み"); session.update(next, !titleDirty.current && !composing.current); }
         else { setNotice("続きの入力を保存中"); session.update({ ...next, document: fromBlockNote(editor.document as never), revision: `draft-${generation.current}` }, false); }
         return true;
-      } catch { setNotice("保存競合・切断です。入力は画面に保持しています。JSONで原文を退避できます。"); return false; }
+      } catch { setSaveIssue("保存を確認できません。現在の入力を保持しています。設定から原文を退避できます。"); setNotice("保存競合・切断です。入力は画面に保持しています。JSONで原文を退避できます。"); return false; }
       finally { pending.current = undefined; if (dirtyRef.current && captured !== generation.current) { if (timer.current) clearTimeout(timer.current); timer.current = setTimeout(() => { void saveRef.current(); }, 250); } }
     })(); pending.current = work;
     return work;
@@ -214,35 +218,33 @@ function OrganizationNote({ initial, adapter, onNavigate, navigationBusy }: { in
   const navigateRef = useRef(navigate); navigateRef.current = navigate;
   const pendingUI = state.status === "applying" || state.status === "unknown" || dirty || navigationBusy || controlBusy;
   return <>
-    <nav aria-label="合成ページツリー"><label>ノート<select aria-label="合成ノート" value={saved.documentId} disabled={pendingUI || hasTitleDraft} onChange={e => { void navigate(e.target.value); }}>{saved.pages.map(p => <option key={p.id} value={p.id}>{p.parentId ? "↳ " : ""}{p.title}</option>)}</select></label><span data-testid="organization-parent">親：{saved.pages.find(p => p.id === saved.parentId)?.title ?? "トップレベル"}</span></nav>
+    <div className="organization-toolbar">
+      <nav aria-label="合成ページツリー"><select aria-label="合成ノート" value={saved.documentId} disabled={pendingUI || hasTitleDraft} onChange={e => { void navigate(e.target.value); }}>{saved.pages.map(p => <option key={p.id} value={p.id}>{p.parentId ? "↳ " : ""}{p.title === "Untitled" ? "無題のノート" : p.title}</option>)}</select><span data-testid="organization-parent">{saved.pages.find(p => p.id === saved.parentId)?.title ?? "マイノート"}</span></nav>
+      <div className="organization-toolbar-actions"><span className="organization-save-state" data-save-state={saveIssue || state.status === "unknown" ? "uncertain" : dirty || hasTitleDraft || state.status === "applying" ? "pending" : "saved"} role="status" data-testid="organization-save">{notice}</span><button type="button" className="organization-icon-button" aria-label="本文・リンク・タイトル・配置をUndo" title="元に戻す" disabled={!state.canUndo || pendingUI || state.composing} onMouseDown={e => e.preventDefault()} onClick={() => { void session.undo(); }}><OrganizationIcon name="undo" /></button><button type="button" ref={settingsTrigger} className="organization-icon-button" aria-label="ノートと提案の設定" title="ノートと提案の設定" disabled={state.composing} onClick={() => openSettings()}><OrganizationIcon name="settings" /></button></div>
+    </div>
+    <div className="organization-layout"><section className="organization-writing" aria-label="文書編集"><div className="organization-page-heading"><div><span className="organization-eyebrow">MY NOTE</span><h1>{saved.title === "Untitled" ? "無題のノート" : saved.title}</h1></div><button type="button" className="organization-icon-button" aria-label="タイトルを編集" disabled={state.composing} onClick={() => openSettings(true)}><OrganizationIcon name="edit" /></button></div><div ref={wrapper} className="organization-body"><BlockNoteView editor={editor} theme="light" /></div></section></div>
+    <OrganizationReviewRail state={state} saved={saved} saveIssue={saveIssue} busy={pendingUI || hasTitleDraft} writing={dirty || hasTitleDraft} onApprove={parent => { const focusedRail = !!document.activeElement?.closest(".organization-rail"), inputEpoch = generation.current, focusEpoch = viewportEpoch.current; const submit = state.plan?.assistance ? session.approveProposal(parent) : state.plan ? session.confirmPlacement(parent === undefined ? state.plan.parentId : parent) : Promise.resolve(); void submit.then(() => { if (focusedRail && wrapper.current?.isConnected && generation.current === inputEpoch && viewportEpoch.current === focusEpoch && !composing.current && document.activeElement === document.body) editor.prosemirrorView.focus(); }); }} onDismiss={() => { const focusedRail = !!document.activeElement?.closest(".organization-rail"); session.dismiss(); if (focusedRail) editor.prosemirrorView.focus(); }} onUndo={() => { void session.undo(); }} onEnable={() => { if (saved.assistance) void control({ assistance: { ...saved.assistance, proposalsAllowed: true } }); }} onSettings={() => openSettings()} onStop={() => { void session.stop(); }} onReconnect={() => { void sync(false).then(() => session.reconnect()).catch(() => setNotice("再開前の保存確認が必要です")); }} onReconcile={() => { void session.reconcile().then(() => { if (!session.getRecovery()) void sync().then(() => adapter.clearRecovery(saved.documentId)); }); }} />
+    {saveIssue ? <span className="organization-sr-only" role="alert">{saveIssue}</span> : null}
+    <dialog ref={settings} className="organization-settings" aria-label="ノートと提案の設定" style={{ margin: 0, left: viewport.left + Math.max(12, (viewport.width - 560) / 2), top: viewport.top + 16, width: Math.min(560, viewport.width - 24), maxHeight: viewport.height - 32 }} onKeyDown={organizationDialogKeys} onCancel={e => { if (composing.current) e.preventDefault(); }} onClose={() => { (settingsReturnFocus.current?.isConnected ? settingsReturnFocus.current : settingsTrigger.current)?.focus({ preventScroll: true }); }}>
+      <div className="organization-settings-heading"><div><span className="organization-eyebrow">PREFERENCES</span><h2>ノートと提案</h2></div><button type="button" className="organization-icon-button" aria-label="設定を閉じる" disabled={state.composing} onClick={() => settings.current?.close()}><OrganizationIcon name="close" /></button></div>
+      <div className="organization-settings-content"><h3>ノートの情報</h3>
     <div className="organization-note-controls"><label>タイトル<input aria-label="ノートタイトル" maxLength={120} value={titleDraft} disabled={pendingUI} onCompositionStart={() => { composing.current = true; session.compositionStart(); }} onCompositionEnd={() => { composing.current = false; session.compositionEnd(); }} onChange={e => { setTitleDraft(e.target.value); titleDirty.current = true; setHasTitleDraft(true); generation.current++; session.update({ ...base.current, revision: `title-draft-${generation.current}` }, false); }} /></label><button type="button" disabled={pendingUI || !hasTitleDraft} onClick={() => { void control({ title: titleDraft }); }}>手動タイトルを保存</button>{hasTitleDraft ? <button type="button" disabled={pendingUI} onClick={() => { generation.current++; titleDirty.current = false; setHasTitleDraft(false); setTitleDraft(base.current.title); session.update(base.current, !dirtyRef.current && !composing.current); }}>タイトル編集をキャンセル</button> : null}<label><input type="checkbox" aria-label="親ページを固定" checked={saved.parentPinned} disabled={pendingUI} onChange={e => { void control({ parentPinned: e.target.checked }); }} />親ページを固定</label><span>{saved.titleManual ? "手動タイトルを保持" : "原文からタイトルを抽出"}</span></div>
     <section className="organization-assistance" aria-label="控えめな提案とリンク整理">
       <label><input type="checkbox" checked={(assistanceDraft ?? saved.assistance)?.proposalsAllowed ?? false} disabled={pendingUI || state.status === "unknown"} onChange={e => { if (saved.assistance) void control({ assistance: { ...saved.assistance, proposalsAllowed: e.target.checked } }); }} />このノートで控えめな提案を受け取る</label>
       <label><input type="checkbox" checked={(assistanceDraft ?? saved.assistance)?.autoLinks ?? false} disabled={pendingUI || state.status === "unknown"} onChange={e => { if (saved.assistance) void control({ assistance: { ...saved.assistance, autoLinks: e.target.checked } }); }} />原文のURLをリンクにする自動適用を許可</label>
       <p>URLの追加・修正・削除は原文と権限を確認します。参照先を自動で開くことはありません。内部参照・削除・意味が変わる修正は確認が必要です。</p>
-      <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => { void session.stop(); }}>提案とリンク整理を停止</button>
-      {(state.status === "off" || state.status === "blocked") && (saved.assistance?.proposalsAllowed || saved.assistance?.autoLinks) ? <button type="button" disabled={pendingUI} onMouseDown={e => e.preventDefault()} onClick={() => { void sync(false).then(() => session.reconnect()).catch(() => setNotice("再開前の保存確認が必要です")); }}>提案とリンク整理を再開</button> : null}
+
+
 
     </section>
-    <NoteOrganizationCard undoLabel="本文・リンク・タイトル・配置をUndo" authorized={authorizationDraft ?? saved.autoOrganize} status={state.status} notice={state.notice} composing={state.composing} canUndo={state.canUndo && !dirty} pending={state.status === "applying" || dirty || navigationBusy || controlBusy} ambiguousParent={state.plan && !state.plan.assistance ? saved.pages.find(p => p.id === state.plan!.parentId)?.title ?? "トップレベル" : undefined}
-      onAuthorize={value => { void control({ autoOrganize: value }); }} onStop={() => { void session.stop(); }}
-      onUndo={() => { void session.undo(); }} onReconnect={() => { void sync(false).then(() => session.reconnect()).catch(() => setNotice("再接続できません")); }}
-      onReconcile={() => { void session.reconcile().then(() => { if (!session.getRecovery()) { void sync().then(() => adapter.clearRecovery(saved.documentId)); } }); }}
-      onChooseParent={use => { void session.confirmPlacement(use ? state.plan!.parentId : saved.parentId); }} />
-    <div className="organization-save"><p role="status" data-testid="organization-save">{notice} · 原文付き保存履歴 {history} 件</p><button type="button" disabled={!dirty} onClick={() => { void save(); }}>原文を保存 ⌘S</button><button type="button" onClick={exportOriginal}>原文をJSON退避</button></div>
-    <div ref={wrapper} className="organization-body"><BlockNoteView editor={editor} theme="light" /></div>
-    <div className="organization-review-slot" ref={reviewSlot} style={{ minHeight: reviewHeight }}>
-      {state.status === "confirming" && state.plan?.assistance ? <div role="group" aria-label="整理案の確認" className="organization-proposal">
-        <p>提案の理由（未検証の推論）：{state.plan.assistance.reason}</p><p>参照先は未確認です。</p>
-        <p>見出し・箇条書き {state.plan.formats.length} 件 · タイトル：{state.plan.title} · 配置：{saved.pages.find(p => p.id === state.plan!.parentId)?.title ?? "トップレベル"}</p>
-        <ul>{state.plan.assistance.links.map(l => <li key={`${l.blockId}:${l.index}`}>{l.action === "add" ? "追加" : l.action === "edit" ? "修正" : "削除（表示文を保持）"}：{l.href ?? (saved.document.blocks.find(b => b.id === l.blockId)?.content as { href?: string }[] | undefined)?.[l.index]?.href} {l.label ? `表示名「${l.label}」` : ""}</li>)}</ul>
-        <button type="button" onMouseDown={e => e.preventDefault()} disabled={pendingUI || state.composing} onClick={() => { void session.approveProposal(); }}>この案を承認</button>
-        {state.plan.placement === "ambiguous" ? <button type="button" onMouseDown={e => e.preventDefault()} disabled={pendingUI || state.composing} onClick={() => { void session.approveProposal(saved.parentId); }}>現在の配置で承認</button> : null}
-        <button type="button" onMouseDown={e => e.preventDefault()} disabled={pendingUI} onClick={() => session.dismiss()}>今回は見送る</button>
-      </div> : null}
-      {!state.plan && reviewHeight > 0 ? <div><p>{state.notice}</p><button type="button" onMouseDown={e => e.preventDefault()} onClick={() => setReviewHeight(0)}>整理案の表示を閉じる</button></div> : null}
-    </div>
+
+      <section className="organization-assistance" aria-label="このノートの自動整理"><label><input type="checkbox" checked={authorizationDraft ?? saved.autoOrganize} disabled={pendingUI || state.status === "unknown"} onChange={e => { void control({ autoOrganize: e.target.checked }); }} />このノートの本文整理・タイトル・配置の自動適用を許可</label><p>自動適用は、提案を受け取る許可とは別です。タイトルや配置を手動で固定した内容は保持します。</p></section>
+      <div className="organization-save"><span>原文付き保存履歴 {history} 件</span><button type="button" disabled={!dirty} onClick={() => { void save(); }}>原文を保存 ⌘S</button><button type="button" onClick={exportOriginal}>原文をJSON退避</button></div>
+      <details className="organization-diagnostics"><summary>デモの検証と機能情報</summary>
     <details className="organization-faults"><summary>合成の保存失敗を試す</summary><label>保存障害<select aria-label="合成保存障害" value={fault} onChange={e => { const next = e.target.value as SyntheticFault; setFault(next); adapter.setFault(next); }}><option value="none">なし</option><option value="move-failure">移動処理の失敗（全体ロールバック）</option><option value="lost-ack">保存後の応答喪失</option><option value="offline">切断</option></select></label><p>実サービスには接続しません。ブラウザのサイトデータ削除でこの合成ノートも削除されます。</p></details>
     <details className="organization-capabilities"><summary>このホストで使える機能</summary><p>スキーマに存在するブロック：{saved.assistance?.capabilities.blockTypes.join("、")}</p><p>実行を許可した操作：{saved.assistance?.capabilities.operations.join("、") || "なし"}</p><p>DB・カラム・HTML・Canvasはこの合成ノートでは実行に接続していません。</p><label>合成ホストの操作<select aria-label="合成ホストの操作" disabled={pendingUI} value={saved.assistance?.capabilities.operations.length === 0 ? "denied" : saved.assistance?.capabilities.operations.includes("link.add") ? "all" : "structure"} onChange={e => { if (saved.assistance) void control({ assistance: { ...saved.assistance, capabilities: { ...saved.assistance.capabilities, revision: crypto.randomUUID(), operations: e.target.value === "denied" ? [] : AGENT_EDITOR_OPERATIONS.filter(op => e.target.value === "all" || !op.startsWith("link.")) } } }); }}><option value="all">本文整理とリンク</option><option value="structure">リンク操作を無効化</option><option value="denied">操作権限なし</option></select></label></details>
+
+      </details><p className="organization-local-note">合成ノートをこのブラウザに保存します。実AI・外部サービスには接続しません。</p></div>
+    </dialog>
   </>;
 }
