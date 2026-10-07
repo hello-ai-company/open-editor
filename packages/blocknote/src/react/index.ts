@@ -102,3 +102,20 @@ export {
 export { QuietCooperationCard, type QuietCooperationCardProps } from "./QuietCooperationCard.js";
 export { NotesPropertyEditor, type NotesPropertyEditorProps } from "./NotesPropertyEditor.js";
 export { NoteOrganizationCard, type NoteOrganizationCardProps } from "./NoteOrganizationCard.js";
+export { NotesWorkspace, type NotesWorkspaceProps, type NotesWorkspacePreset } from "./NotesWorkspace.js";
+export { NotesConflictReview } from "./NotesConflictReview.js";
+export { NotesTabbedWorkspace, createNotesTabbedWorkspaceSession, type NotesTabbedWorkspaceProps, type NotesTabbedWorkspaceOptions, type NotesTabbedWorkspaceSession, type NotesTabbedWorkspaceState, type NotesResourceLeaveContext } from "./NotesTabbedWorkspace.js";
+export { NotesContentTools, notesSafeAssetUrl, type NotesContentToolsProps, type NotesContentCodecs, type NotesContentFormat, type NotesMediaScope, type NotesScopedMediaHost } from "./NotesContentTools.js";
+export { NotesDatabaseProperties, type NotesDatabasePropertiesProps } from "./NotesDatabaseProperties.js";
+export { NotesDatabaseSchema, type NotesDatabaseSchemaProps } from "./NotesDatabaseSchema.js";
+export * from "./NotesWorkspaceModes.js";
+export { NotesWorkspaceTabs, type NotesWorkspaceTabsProps, type NotesNavigationIntent } from "./NotesWorkspaceTabs.js";
+export { NotesBlockNoteDocument, type NotesBlockNoteDocumentProps, type NotesDocumentRenderer } from "./NotesBlockNoteDocument.js";
+export { NotesNavigation, NotesLibrary, NotesPageHub, NotesPageActions, canMoveNotesPage, type NotesNavigationProps } from "./NotesNavigation.js";
+export { NotesDocumentSidebar, type NotesDocumentSidebarProps } from "./NotesDocumentSidebar.js";
+export { NotesInspector, type NotesInspectorProps } from "./NotesInspector.js";
+export { NotesRowDetail, type NotesRowDetailProps, type NotesRowProperty } from "./NotesRowDetail.js";
+export { NotesProposalRail, type NotesProposalRailProps } from "./NotesProposalRail.js";
+export { NOTES_INSERT_CATALOG, NOTES_STYLE_CATALOG, notesAvailableCatalog, type NotesEditorBridge, type NotesInsertKind, type NotesStyleKind } from "./notesWorkspacePanels.js";
+
+export { NotesInsertDialog, notesSupportedPickerInsertKinds, notesSafeInsertionLink, type NotesInsertDialogProps, type NotesInsertRequest, type NotesInsertEditor, type NotesInsertionHost, type NotesPickerInsertKind } from "./NotesInsertDialog.js";

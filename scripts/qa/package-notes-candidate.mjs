@@ -19,6 +19,11 @@ for(const name of ['blocknote','ai']) {
   cpSync(join(root,'docs/notes-candidate-'+version+'.md'),join(directory,'CANDIDATE.md'));
   cpSync(join(root,'docs/note-organization-host-contract.md'),join(directory,'HOST-CONTRACT.md'));
   manifest.files.push('CANDIDATE.md','HOST-CONTRACT.md');
+  if (existsSync(join(src,'dist/notes/index.js')) && existsSync(join(root,'docs/notes-workspace-acceptance-matrix.md'))) {
+    cpSync(join(root,'docs/notes-workspace-host-contract.md'),join(directory,'NOTES-WORKSPACE-HOST.md'));
+    cpSync(join(root,'docs/notes-workspace-acceptance-matrix.md'),join(directory,'NOTES-WORKSPACE-ACCEPTANCE.md'));
+    manifest.files.push('NOTES-WORKSPACE-HOST.md','NOTES-WORKSPACE-ACCEPTANCE.md');
+  }
   writeFileSync(join(directory,'package.json'),JSON.stringify(manifest,null,2)+'\n');
   const packed=JSON.parse(execFileSync('npm',['pack','--ignore-scripts','--json','--pack-destination',output,'--cache',join(stage,'cache')],{cwd:directory,encoding:'utf8'}))[0];
   const file=join(output,packed.filename), bytes=readFileSync(file);
@@ -73,7 +78,21 @@ const capabilityNote=parseOrganizationSnapshot({...note,assistance:{capabilities
 createOrganizationRequest(capabilityNote,{...organization.plan!,assistance:{capabilityRevision:'cap1',selectionRevision:'sel1',reason:'Only installed heading operation',links:[]}},'capability-op');
 console.log('Candidate public runtime and declarations PASS');
 `;
-writeFileSync(join(consumer,'index.ts'),source);
+const hasNotes = JSON.parse(readFileSync(join(root,'packages/blocknote/package.json'),'utf8')).exports['./notes'];
+const notesConsumer = hasNotes ? `
+import { createNotesWorkspaceController, createOpenEditorNotesPreset, parseNotesWorkspaceConfig, NOTES_DATABASE_PROPERTY_KINDS, type NotesWorkspaceHost, type NotesDocumentSnapshot } from '@hello-ai-company/editor-blocknote/notes';
+import { NotesWorkspace, NotesTabbedWorkspace, NotesInsertDialog, NotesDatabaseProperties, NotesDatabaseSchema, NotesWorkspaceModes, NotesProposalRail } from '@hello-ai-company/editor-blocknote/react';
+const notesScope={actorId:'consumer-fixture',workspaceId:'consumer-fixture'}, notesTarget={kind:'page',pageId:'fixture'} as const;
+const fixtureSnapshot:NotesDocumentSnapshot={scope:notesScope,target:notesTarget,revision:'r1',contentRevision:'c1',title:'Fixture',metadata:{future:{preserved:true}},document:createEditorDocument([{id:'fixture',type:'paragraph',content:'fixture'}]),capabilities:[],capabilitySemantics:{}};
+const fixtureHost:NotesWorkspaceHost={scope:notesScope,readDocument:async()=>fixtureSnapshot,beforeSubmit:async()=>{throw new Error('Read-only fixture');},commit:async()=>{throw new Error('Read-only fixture');},lookupOperation:async(target,operationId)=>({status:'unknown',target,operationId})};
+const fixtureController=createNotesWorkspaceController(fixtureHost);if(!await fixtureController.open(notesTarget))throw new Error('Notes open unavailable');
+fixtureController.setLocalDraft('consumer-field',{source:'preserved'});if(!fixtureController.getState().pendingEditors||await fixtureController.open({kind:'page',pageId:'other'}))throw new Error('Draft barrier unavailable');
+if(await fixtureController.persistLocalDrafts())throw new Error('Unbound persistence claimed');fixtureController.setLocalDraft('consumer-field',undefined);fixtureController.dispose();
+parseNotesWorkspaceConfig({version:1,locale:'ja',theme:'light'});
+if(NOTES_DATABASE_PROPERTY_KINDS.length!==22||[createOpenEditorNotesPreset,NotesWorkspace,NotesTabbedWorkspace,NotesInsertDialog,NotesDatabaseProperties,NotesDatabaseSchema,NotesWorkspaceModes,NotesProposalRail].some(value=>typeof value!=='function'))throw new Error('Missing Notes public export');
+console.log('Notes public entry, components, read-only host and local-draft barrier PASS');
+` : '';
+writeFileSync(join(consumer,'index.ts'),source+notesConsumer);
 execFileSync(process.execPath,[join(root,'node_modules/typescript/bin/tsc'),'index.ts','--module','NodeNext','--moduleResolution','NodeNext','--target','ES2022','--skipLibCheck','--strict','--outDir','compiled'],{cwd:consumer,stdio:'pipe'});
 const runtime=execFileSync(process.execPath,['compiled/index.js'],{cwd:consumer,encoding:'utf8'});
 writeFileSync(join(output,'manifest.json'),JSON.stringify({localOnly:true,published:false,sourceHead:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),workingTree:execFileSync('git',['status','--porcelain','--untracked-files=no'],{cwd:root,encoding:'utf8'}).trim().length>0,corePeer:'existing @hello-ai-company/editor-core ^0.2.0',consumerValidation:runtime.trim(),packages:inventory},null,2)+'\n');
