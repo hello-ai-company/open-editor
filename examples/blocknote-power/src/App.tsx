@@ -3,6 +3,8 @@ import { LocalDocumentWorkspace } from "./LocalDocumentWorkspace";
 import { createLocalPersonalAiHost } from "./localPersonalAi";
 const PersonalContextWorkbench = lazy(() => import("./PersonalContextWorkbench").then(module => ({ default: module.PersonalContextWorkbench })));
 
+const NoteOrganizationWorkbench = lazy(() => import("./NoteOrganizationWorkbench").then(module => ({ default: module.NoteOrganizationWorkbench })));
+
 class ContextBoundary extends Component<{ children: ReactNode; onBack: () => void }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
@@ -19,7 +21,9 @@ export function App() {
     setContextOpen(false);
     requestAnimationFrame(() => { window.scrollTo(0, editorScroll.current); document.getElementById("demo-main")?.focus({ preventScroll: true }); });
   };
+  if (new URL(location.href).searchParams.get("organize") === "synthetic") return <Suspense fallback={<p role="status">Loading synthetic note organization…</p>}><NoteOrganizationWorkbench /></Suspense>;
   return <>
+    <div className="local-document-controls"><a href="?organize=synthetic" target="_blank" rel="noopener">自由メモ整理の合成デモを開く</a></div>
     <div hidden={contextOpen}><LocalDocumentWorkspace host={host} store={host?.store} active={!contextOpen} onOpenPersonalContext={() => { editorScroll.current = window.scrollY; setContextVisited(true); setContextOpen(true); window.scrollTo(0, 0); }} /></div>
     {contextVisited ? <div hidden={!contextOpen}><ContextBoundary onBack={back}><Suspense fallback={<p role="status">Loading local context review…</p>}><PersonalContextWorkbench active={contextOpen} onBack={back} /></Suspense></ContextBoundary></div> : null}
   </>;

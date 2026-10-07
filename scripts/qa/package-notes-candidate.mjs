@@ -17,7 +17,8 @@ for(const name of ['blocknote','ai']) {
   const manifest=JSON.parse(readFileSync(join(src,'package.json'),'utf8'));
   manifest.version=version; delete manifest.scripts; delete manifest.devDependencies; delete manifest.publishConfig;
   cpSync(join(root,'docs/notes-candidate-'+version+'.md'),join(directory,'CANDIDATE.md'));
-  manifest.files.push('CANDIDATE.md');
+  cpSync(join(root,'docs/note-organization-host-contract.md'),join(directory,'HOST-CONTRACT.md'));
+  manifest.files.push('CANDIDATE.md','HOST-CONTRACT.md');
   writeFileSync(join(directory,'package.json'),JSON.stringify(manifest,null,2)+'\n');
   const packed=JSON.parse(execFileSync('npm',['pack','--ignore-scripts','--json','--pack-destination',output,'--cache',join(stage,'cache')],{cwd:directory,encoding:'utf8'}))[0];
   const file=join(output,packed.filename), bytes=readFileSync(file);
@@ -37,8 +38,8 @@ for(const entry of inventory) {
 }
 writeFileSync(join(consumer,'package.json'),' {"type":"module"}\n');
 const source=`import { createDocumentColumns, updateDocumentColumns, importLegacyNotesBlocks, exportLegacyNotesBlocks, createHtmlWidgetPreview, createDocumentWorkspaceFeature, createDocumentTypographyFeature, applyNotesMetadataEdits, createRevisionedNotesResourceEditor, validateNotesPropertyValue } from '@hello-ai-company/editor-blocknote';
-import { createDurableReviewCoordinator, createQuietCooperationSession, createSecretaryWorkflow, parseQuietPreparationContext, type QuietCooperationSnapshot } from '@hello-ai-company/editor-ai';
-import { QuietCooperationCard, NotesPropertyEditor } from '@hello-ai-company/editor-blocknote/react';
+import { createNoteOrganizationSession, createOrganizationRequest, parseOrganizationSnapshot, NOTE_ORGANIZATION_INSTRUCTION, createDurableReviewCoordinator, createQuietCooperationSession, createSecretaryWorkflow, parseQuietPreparationContext, type QuietCooperationSnapshot } from '@hello-ai-company/editor-ai';
+import { QuietCooperationCard, NotesPropertyEditor, NoteOrganizationCard } from '@hello-ai-company/editor-blocknote/react';
 import { createEditorDocument } from '@hello-ai-company/editor-core';
 const initial = [{ id:'human',type:'paragraph',text:'日本語',version:4,sourceId:'host-id',custom:{keep:true} }];
 const imported=importLegacyNotesBlocks(initial);
@@ -61,6 +62,9 @@ const bodyOnly=[{id:'body',type:'editorTool',toolKind:'htmlEmbed',toolBody:'<b>l
 if(importLegacyNotesBlocks(bodyOnly).document.blocks[0]!.props!.html!=='<b>legacy</b>')throw new Error('Body fallback regression');
 const blank=importLegacyNotesBlocks([]),created=exportLegacyNotesBlocks(createEditorDocument([{id:'new',type:'oeHtmlWidget',props:{html:'new',css:'',javascript:''}}]),blank.archive,[]) as Record<string,unknown>[];
 if(created[0]!.toolBody!=='new'||JSON.parse(created[0]!.toolData as string).html!=='new')throw new Error('New HTML synchronization regression');
+const note=parseOrganizationSnapshot({documentId:'note',revision:'r1',hierarchyRevision:'h1',pinRevision:'p1',document:createEditorDocument([{id:'original',type:'paragraph',content:'旅の準備'}]),title:'Untitled',parentId:null,titleManual:false,parentPinned:false,autoOrganize:true,pages:[{id:'note',parentId:null,title:'Untitled',scope:'local',sharing:'private',editable:true}],root:{scope:'local',sharing:'private',editable:true}});
+const organization=createOrganizationRequest(note,{documentId:'note',revision:'r1',hierarchyRevision:'h1',pinRevision:'p1',formats:[{blockId:'original',type:'heading',level:2}],title:'旅の準備',parentId:null,placement:'certain'},'consumer-op');
+if(organization.after.document.blocks[0]!.content!=='旅の準備'||[createNoteOrganizationSession,NoteOrganizationCard].some(v=>typeof v!=='function')||!NOTE_ORGANIZATION_INSTRUCTION.includes('untrusted'))throw new Error('Organization public API regression');
 console.log('Candidate public runtime and declarations PASS');
 `;
 writeFileSync(join(consumer,'index.ts'),source);

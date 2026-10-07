@@ -13,6 +13,7 @@ export default defineConfig({
   test: {
     include: [
       "examples/blocknote-power/test/contextual-quiet-fixture.test.ts",
+      "examples/blocknote-power/test/note-organization.test.ts",
       "examples/blocknote-power/test/canvas-publication.test.ts",
       "examples/blocknote-power/test/database-discovery.test.ts",
       "examples/blocknote-power/test/decorative-motion.test.ts",

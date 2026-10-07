@@ -877,3 +877,10 @@ dialog.oe-overlay::backdrop {
     border-radius: var(--oe-ui-radius-card) var(--oe-ui-radius-card) 0 0;
   }
 }
+
+.oe-note-organization { border: 1px solid var(--oe-ui-border, #ddd); border-radius: 12px; padding: 16px; background: var(--oe-ui-surface, #fff); }
+.oe-note-organization label { display: flex; gap: 8px; align-items: start; }
+.oe-note-organization input { min-width: 20px; min-height: 20px; }
+.oe-note-organization-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.oe-note-organization button { min-height: 44px; border: 1px solid #ccc; border-radius: 8px; padding: 8px 12px; background: transparent; color: inherit; cursor: pointer; }
+.oe-note-organization button:disabled { cursor: default; opacity: .5; }
