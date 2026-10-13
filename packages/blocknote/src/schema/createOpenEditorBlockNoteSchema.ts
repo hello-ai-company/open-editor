@@ -9,9 +9,14 @@ import {
 } from "@blocknote/core";
 import { BlockNoteAdapterError } from "../adapter/errors.js";
 import { UNKNOWN_ENVELOPE_TYPE } from "../types.js";
+import { createAlignedQuoteBlockSpec } from "./quote.js";
 import { createCalloutBlockSpec } from "./callout.js";
 import { createStatusBlockSpec } from "./status.js";
 import { createUnknownEnvelopeBlockSpec } from "./unknownBlock.js";
+
+function createOrdinarySchema() {
+  return BlockNoteSchema.create().extend({ blockSpecs: { quote: createAlignedQuoteBlockSpec() } });
+}
 
 const RESERVED_TYPES = new Set([UNKNOWN_ENVELOPE_TYPE, "callout", "status", "paragraph"]);
 
@@ -70,7 +75,7 @@ function assertNoReservedCollisions(extraKeys: readonly string[]): void {
 }
 
 function createDefaultPowerSchema() {
-  return BlockNoteSchema.create().extend({
+  return createOrdinarySchema().extend({
     blockSpecs: {
       oeUnknownBlock: createUnknownEnvelopeBlockSpec(),
       callout: createCalloutBlockSpec(),
@@ -93,7 +98,7 @@ export function createPowerSchemaWithExtras<
   const blockSpecs = (extras.blockSpecs ?? {}) as BSpecs;
   const inlineContentSpecs = (extras.inlineContentSpecs ?? {}) as ISpecs;
   const styleSpecs = (extras.styleSpecs ?? {}) as SSpecs;
-  return BlockNoteSchema.create()
+  return createOrdinarySchema()
     .extend({
       blockSpecs: {
         oeUnknownBlock: createUnknownEnvelopeBlockSpec(),
@@ -114,7 +119,7 @@ function createPowerSchemaWithoutUnknown<
   ISpecs extends AdditionalInlineContentSpecs,
   SSpecs extends StyleSpecs
 >(extras: HostSpecs<BSpecs, ISpecs, SSpecs>) {
-  return BlockNoteSchema.create()
+  return createOrdinarySchema()
     .extend({
       blockSpecs: {
         callout: createCalloutBlockSpec(),
@@ -134,7 +139,7 @@ function createUnknownEnvelopeSchemaWithExtras<
   ISpecs extends AdditionalInlineContentSpecs,
   SSpecs extends StyleSpecs
 >(extras: HostSpecs<BSpecs, ISpecs, SSpecs>) {
-  return BlockNoteSchema.create()
+  return createOrdinarySchema()
     .extend({
       blockSpecs: {
         oeUnknownBlock: createUnknownEnvelopeBlockSpec()
@@ -153,7 +158,7 @@ function createHostOnlySchemaWithExtras<
   ISpecs extends AdditionalInlineContentSpecs,
   SSpecs extends StyleSpecs
 >(extras: HostSpecs<BSpecs, ISpecs, SSpecs>) {
-  return BlockNoteSchema.create().extend({
+  return createOrdinarySchema().extend({
     blockSpecs: extras.blockSpecs,
     inlineContentSpecs: extras.inlineContentSpecs,
     styleSpecs: extras.styleSpecs
@@ -275,7 +280,7 @@ export function createOpenEditorBlockNoteSchema(
 
   // neither power nor unknown
   if (!hasHostExtras(extras)) {
-    return BlockNoteSchema.create();
+    return createOrdinarySchema();
   }
   return createHostOnlySchemaWithExtras(extras);
 }
@@ -339,6 +344,10 @@ export function createPowerSchema(
 
 export type PowerEditorOptions<Schema extends OpenEditorBlockNoteSchema = OpenEditorBlockNoteSchema> = {
   schema?: Schema;
+  /** Public BlockNote locale/custom dictionary; forwarded without mutation. */
+  dictionary?: import("@blocknote/core").Dictionary;
+  /** Preserve the host's official native link options without mutation. */
+  links?: import("@blocknote/core").BlockNoteEditorOptions<any, any, any>["links"];
   tables?: {
     splitCells?: boolean;
     cellBackgroundColor?: boolean;
@@ -367,6 +376,8 @@ export function createPowerEditorOptions<
   const schema = overrides?.schema ?? createPowerSchema();
   return {
     schema,
+    ...(overrides?.dictionary ? { dictionary: overrides.dictionary } : {}),
+    ...(overrides?.links ? { links: overrides.links } : {}),
     tables: {
       ...DEFAULT_POWER_TABLE_OPTIONS,
       ...overrides?.tables

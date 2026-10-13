@@ -127,6 +127,38 @@ describe("scoped revisioned Canvas host", () => {
 });
 
 describe("guarded tabs", () => {
+  it("keeps menu through a queued unchanged-anchor scroll but dismisses actual movement", async () => {
+    const container=document.createElement("div");document.body.append(container);const root=createRoot(container);const flag=globalThis as typeof globalThis & {IS_REACT_ACT_ENVIRONMENT:boolean};flag.IS_REACT_ACT_ENVIRONMENT=true;
+    const onChange=vi.fn(),onNavigate=vi.fn(async()=>true),beforeClose=vi.fn(async()=>true);
+    try {
+      await act(async()=>root.render(createElement(NotesWorkspaceTabs,{layout:layout(),onChange,onNavigate,beforeClose,renderPane:()=>"Body"})));
+      const opener=container.querySelector<HTMLButtonElement>('[aria-label="Options for a"]')!;let y=20;vi.spyOn(opener,"getBoundingClientRect").mockImplementation(()=>({left:20,right:80,top:y,bottom:y+30,width:60,height:30,x:20,y,toJSON:()=>({})}));
+      await act(async()=>opener.dispatchEvent(new KeyboardEvent("keydown",{key:"ArrowDown",bubbles:true,cancelable:true})));expect(document.querySelector('[role="menu"]')).not.toBeNull();
+      await act(async()=>window.dispatchEvent(new Event("scroll")));expect(document.querySelector('[role="menu"]')).not.toBeNull();expect(document.activeElement?.getAttribute("role")).toBe("menuitem");
+      y=40;await act(async()=>window.dispatchEvent(new Event("scroll")));expect(document.querySelector('[role="menu"]')).toBeNull();expect(onChange).not.toHaveBeenCalled();expect(onNavigate).not.toHaveBeenCalled();
+    }finally{await act(async()=>root.unmount());container.remove();flag.IS_REACT_ACT_ENVIRONMENT=false;}
+  });
+
+  it("opens one keyboard menu, returns Escape focus, and keeps denied split edits", async () => {
+    const container = document.createElement("div"); document.body.append(container); const root = createRoot(container);
+    const flag = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }; flag.IS_REACT_ACT_ENVIRONMENT = true;
+    const onChange = vi.fn(), onNavigate = vi.fn(async () => false), beforeClose = vi.fn(async () => true);
+    try {
+      await act(async () => root.render(createElement(NotesWorkspaceTabs, { layout: layout(), onChange, onNavigate, beforeClose, renderPane: () => "Preserved draft" })));
+      const opener = container.querySelector<HTMLButtonElement>('[aria-label="Options for a"]')!;
+      await act(async () => opener.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true })));
+      expect(document.querySelectorAll('[role="menu"]')).toHaveLength(1); expect(document.activeElement?.textContent).toBe("Split left");
+      await act(async () => document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true, cancelable: true })));
+      expect(document.activeElement?.textContent).toBe("Preview");
+      await act(async () => document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, isComposing: true })));
+      expect(document.querySelector('[role="menu"]')).not.toBeNull();
+      await act(async () => document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+      expect(document.querySelector('[role="menu"]')).toBeNull(); expect(document.activeElement).toBe(opener); expect(onNavigate).not.toHaveBeenCalled();
+      await act(async () => opener.click());
+      await act(async () => document.querySelector<HTMLButtonElement>('[role="menuitem"]')!.click());
+      expect(onNavigate).toHaveBeenCalledWith(tab("a").target, expect.objectContaining({ intent: "split" })); expect(onChange).not.toHaveBeenCalled(); expect(container.textContent).toContain("Preserved draft");
+    } finally { await act(async () => root.unmount()); container.remove(); flag.IS_REACT_ACT_ENVIRONMENT = false; }
+  });
   it("keeps dirty tab on denied close and cancels pending navigation", async () => {
     const container = document.createElement("div"); document.body.append(container); const root = createRoot(container);
     const onChange = vi.fn(), beforeClose = vi.fn(async () => false), gate = deferred<boolean>(), onNavigate = vi.fn(() => gate.promise);

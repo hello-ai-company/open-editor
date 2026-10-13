@@ -24,7 +24,7 @@ function findBlocknoteLeakageHits(text) {
 }
 
 const AUTHORIZED_NAME = "@hello-ai-company/editor-blocknote";
-const AUTHORIZED_VERSION = "0.2.0";
+const AUTHORIZED_VERSION = "0.3.0";
 const AUTHORIZED_REGISTRY = "https://registry.npmjs.org";
 const AUTHORIZED_LICENSE = "MIT";
 const AUTHORIZED_ACCESS = "public";
@@ -139,9 +139,11 @@ const expectedExports = {
   "./math": { types: "./dist/math/index.d.ts", import: "./dist/math/index.js" },
   "./diagram": { types: "./dist/diagram/index.d.ts", import: "./dist/diagram/index.js" },
   "./code": { types: "./dist/code/index.d.ts", import: "./dist/code/index.js" },
+  "./agent-chat": { types: "./dist/agentChat.d.ts", import: "./dist/agentChat.js" },
   "./power.css": "./dist/power.css"
 };
 const expectedPeers = {
+  "@hello-ai-company/editor-ai": "^0.3.0",
   "@tiptap/pm": "^3.31.3",
   "@blocknote/core": "^0.54.2",
   "@blocknote/react": "^0.54.2",
@@ -152,6 +154,7 @@ const expectedPeers = {
   "react-dom": "^18.0.0 || ^19.0.0"
 };
 const expectedPeerMeta = {
+  "@hello-ai-company/editor-ai": { optional: true },
   "@blocknote/math-block": { optional: true },
   "@blocknote/diagram-block": { optional: true },
   "@blocknote/code-block": { optional: true }

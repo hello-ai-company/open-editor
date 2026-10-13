@@ -16,6 +16,8 @@ import {
 
 export type OpenEditorSiteOptions = {
   title?: string;
+  /** Pause previews if any public block cannot be represented. Default retains legacy public-subset exports. */
+  requireCompleteDocument?: boolean;
   description?: string;
   canonicalUrl?: string;
   ogImageUrl?: string;
@@ -97,11 +99,61 @@ const STATUS_LABELS = {
   blocked: "Blocked"
 } as const;
 
+export type PublicationIssue = { blockId: string; blockType: string; reason: "unsupported-block" | "depth-limit" | "unsupported-inline" | "inline-depth-limit" };
+
+/** Diagnose public content omitted by the safe exporter, without reading private subtree content. */
+export function inspectOpenEditorPublication(document: EditorDocument): readonly PublicationIssue[] {
+  if (!isEditorDocument(document)) throw new TypeError("Expected a valid EditorDocument with schemaVersion 1.");
+  const issues: PublicationIssue[] = [];
+  const inlineIssue = (value: unknown, depth = 0): "unsupported-inline" | "inline-depth-limit" | undefined => {
+    if (depth > MAX_INLINE_DEPTH) return "inline-depth-limit";
+    if (value === undefined || typeof value === "string") return;
+    if (!Array.isArray(value)) return "unsupported-inline";
+    for (const item of value) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return "unsupported-inline";
+      const inline = item as Record<string, unknown>;
+      if (inline.type === "text" && typeof inline.text === "string") continue;
+      if (inline.type === "link") { const issue = inlineIssue(inline.content, depth + 1); if (issue) return issue; continue; }
+      return "unsupported-inline";
+    }
+    return undefined;
+  };
+  const visit = (blocks: readonly EditorBlock[], depth: number) => {
+    for (const block of blocks) {
+      if (isPrivateBlock(block)) continue;
+      if (depth > MAX_BLOCK_DEPTH) { issues.push({ blockId: block.id, blockType: block.type, reason: "depth-limit" }); continue; }
+      if (!ALLOWED_TYPES.has(block.type) && !["columnList", "column", "oeColumns", "oeColumn"].includes(block.type)) {
+        issues.push({ blockId: block.id, blockType: block.type, reason: "unsupported-block" });
+        continue;
+      }
+      const reason = inlineIssue(block.content);
+      if (reason) issues.push({ blockId: block.id, blockType: block.type, reason });
+      visit(block.children ?? [], depth + 1);
+    }
+  };
+  visit(document.blocks, 0);
+  return issues;
+}
+
+export class IncompletePublicationError extends Error {
+  constructor(public readonly issues: readonly PublicationIssue[]) {
+    super("Preview paused: some public blocks are unsupported. The source document is retained.");
+    this.name = "IncompletePublicationError";
+  }
+}
+
+function requireCompletePublication(document: EditorDocument, options: OpenEditorSiteOptions): void {
+  if (!options.requireCompleteDocument) return;
+  const issues = inspectOpenEditorPublication(document);
+  if (issues.length) throw new IncompletePublicationError(issues);
+}
+
 /** Render a deliberately small, dependency-free, static site from public document content. */
 export function renderOpenEditorSite(
   document: EditorDocument,
   options: OpenEditorSiteOptions = {}
 ): string {
+  requireCompletePublication(document, options);
   const nodes = projectExportIR(document);
   const canvas = options.canvasSpec
     ? renderCanvasLayout(options.canvasSpec, document, nodes, options.canvasRenderState)
@@ -150,6 +202,7 @@ export function renderOpenEditorPresentation(
   document: EditorDocument,
   options: OpenEditorSiteOptions = {}
 ): string {
+  requireCompletePublication(document, options);
   const nodes = projectExportIR(document);
   const context = canvasKnowledgeContext(document, nodes, options);
   const title = cleanText(options.title) || context.title;
@@ -346,12 +399,14 @@ function projectBlock(block: EditorBlock, depth: number): ExportNode | null {
     : inlineText(block.content);
   const content = inlineContent || stringProp(props.text);
 
-  if (block.type === "columnList" || block.type === "column") {
+  // Normalize current Document containers into the existing safe export representation.
+  const columnType = block.type === "oeColumns" ? "columnList" : block.type === "oeColumn" ? "column" : block.type;
+  if (columnType === "columnList" || columnType === "column") {
     return {
       id: block.id,
-      type: block.type,
+      type: columnType,
       text: "",
-      ...(block.type === "column" ? { columnWidth: safeColumnWidth(props.columnWidth ?? props.width) } : {}),
+      ...(columnType === "column" ? { columnWidth: safeColumnWidth(props.columnWidth ?? props.width) } : {}),
       children
     };
   }
@@ -405,6 +460,8 @@ function projectBlock(block: EditorBlock, depth: number): ExportNode | null {
 }
 
 function isPrivateBlock(block: EditorBlock): boolean {
+  // Agent chat is intrinsically private, even when an imported marker says public.
+  if (block.type === "oeAgentChat") return true;
   const props = block.props ?? {};
   const markers = block as EditorBlock & {
     hidden?: unknown;

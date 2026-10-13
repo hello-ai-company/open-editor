@@ -18,7 +18,15 @@ export type PageSnapshotStatus =
   | "loading"
   | "ready"
   | "missing"
+  | "unavailable"
+  | "forbidden"
   | "error";
+
+/** Presentation signal from an authorized host read. Never infers permission
+ * from error text, HTTP-like properties or an absent provider. */
+export class PageRuntimeAccessDeniedError extends Error {
+  constructor() { super("Page access restricted"); this.name = "PageRuntimeAccessDeniedError"; }
+}
 
 export type PageSnapshot = {
   pageId: PageId;
@@ -34,12 +42,15 @@ export type PageSnapshot = {
 
 export type PageRuntimeStoreOptions = {
   /**
-   * Host async page fetch. When absent, load() resolves to missing
+   * Host async page fetch. When absent, load() resolves to unavailable
    * (unless primed via prime/seed).
    */
   getPage?: (pageId: PageId) => Promise<EditorPageLink | null>;
   untitledLabel?: string;
   missingLabel?: string;
+  unavailableLabel?: string;
+  errorLabel?: string;
+  forbiddenLabel?: string;
 };
 
 export type PageRuntimeStore = {
@@ -144,7 +155,7 @@ export function createPageRuntimeStore(
     }
 
     const existing = cache.get(pageId);
-    if (existing?.status === "ready" || existing?.status === "missing") {
+    if (existing?.status === "ready" || existing?.status === "missing" || existing?.status === "unavailable" || existing?.status === "forbidden") {
       return existing;
     }
 
@@ -154,7 +165,7 @@ export function createPageRuntimeStore(
     const getPage = options.getPage;
     if (!getPage) {
       const gen = nextGeneration(pageId);
-      const snap = emptySnapshot(pageId, "missing", gen, labels);
+      const snap = emptySnapshot(pageId, "unavailable", gen, labels, { title: options.unavailableLabel ?? "Page information unavailable" });
       setCache(snap);
       return snap;
     }
@@ -183,8 +194,9 @@ export function createPageRuntimeStore(
           return get(pageId);
         }
         const gen = nextGeneration(pageId);
-        const snap = emptySnapshot(pageId, "error", gen, labels, {
-          title: missing,
+        const denied = err instanceof PageRuntimeAccessDeniedError;
+        const snap = emptySnapshot(pageId, denied ? "forbidden" : "error", gen, labels, {
+          title: denied ? options.forbiddenLabel ?? "Page access restricted" : options.errorLabel ?? "Unable to load page",
           errorMessage: err instanceof Error ? err.message : "Failed to load page"
         });
         setCache(snap);
@@ -262,6 +274,8 @@ export function snapshotToResolveResult(snapshot: PageSnapshot): {
   missing?: boolean;
   loading?: boolean;
   error?: boolean;
+  unavailable?: boolean;
+  forbidden?: boolean;
 } {
   if (snapshot.status === "loading" || snapshot.status === "idle") {
     return { title: snapshot.title, loading: true };
@@ -273,9 +287,11 @@ export function snapshotToResolveResult(snapshot: PageSnapshot): {
     return {
       title: snapshot.title,
       error: true,
-      missing: true
+      missing: false
     };
   }
+  if (snapshot.status === "unavailable") return { title: snapshot.title, unavailable: true };
+  if (snapshot.status === "forbidden") return { title: snapshot.title, forbidden: true };
   return {
     title: snapshot.title,
     preview: snapshot.preview,
@@ -298,7 +314,9 @@ export function createPageRuntimesFromStore(
 ) {
   const subscribe = (listener: () => void) => store.subscribe(listener);
   const resolve = (pageId: PageId) => {
-    void store.load(pageId);
+    // A display read must not retry a failed request on every render.
+    // Hosts explicitly load or invalidate when retrying.
+    if (store.get(pageId).status === "idle") void store.load(pageId);
     return snapshotToResolveResult(store.get(pageId));
   };
 

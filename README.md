@@ -10,15 +10,17 @@ The public package is [`@hello-ai-company/editor-core`](./packages/core). It is 
 | --- | --- |
 | Repository | **PUBLIC** — https://github.com/hello-ai-company/open-editor |
 | Package (published) | Five `@hello-ai-company/editor-*` packages at `0.2.0` on npmjs (**immutable**) |
-| Package (workspace) | Five packages at `0.2.0` |
+| Package (workspace) | Core `0.2.0`; BlockNote/AI/Canvas/Publish unpublished `0.3.0` candidates |
 | Published packages | core/blocknote/ai/canvas/publish `0.2.0` (registry verified 2026-10-06) |
 | License | MIT — Copyright (c) 2026 Yuki Shibata |
 | Registry | https://registry.npmjs.org (`publishConfig.access`: public) |
-| Current release | `0.2.0`; see [release verification](./docs/release-0.2.md), [changes](./CHANGELOG.md) and [migration](./docs/migration-0.2.md) |
+| Current published release | `0.2.0`; see [release verification](./docs/release-0.2.md), [changes](./CHANGELOG.md) and [migration](./docs/migration-0.2.md) |
 | Runtime dependencies (core) | none |
 
 See the [0.2.0 release record](./docs/release-0.2.md) for official artifacts,
 registry consumers, signature verification and the AI workflow recovery.
+
+Candidate source is prepared separately from immutable npm 0.2.0. See [0.3 migration and release boundary](./docs/migration-0.3.md). No 0.3 package has been published by this work.
 
 ## Install
 

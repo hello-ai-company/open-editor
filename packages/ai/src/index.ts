@@ -47,3 +47,9 @@ export { NOTE_ORGANIZATION_INSTRUCTION, createNoteOrganizationSession, createOrg
   type NoteOrganizationSession, type NoteOrganizationHost, type NoteOrganizationAgent, type OrganizationSnapshot, type OrganizationPage, type OrganizationPlan, type OrganizationRequest, type OrganizationReceipt, type OrganizationCommitResult, type OrganizationRecovery, type OrganizationState, type OrganizationStatus } from "./noteOrganization.js";
 export { AGENT_EDITOR_OPERATIONS, parseAgentEditorCapabilities, parseAgentNoteAssistance, parseAgentLinkEdits, safeAgentLink, applyAgentLinkEdits,
   type AgentEditorCapabilities, type AgentEditorOperation, type AgentNoteAssistance, type AgentLinkEdit } from "./editorCapabilities.js";
+
+export { KNOWN_AGENT_BLOCK_TYPES, evaluateBlockCandidates, blockCandidateSourceKey, blockCandidateSnapshotKey, type KnownAgentBlockType, type BlockCandidateOperation, type BlockCandidateDurability, type BlockCandidateBinding, type BlockCandidateAdapterKind, type BlockCandidateSource, type BlockCandidateEvidence, type BlockCandidateSnapshot, type BlockCandidateReason, type BlockCandidateSuggestion, type BlockCandidateDiagnostic, type BlockCandidateResult, type BlockCandidateOptions } from "./blockCandidates.js";
+
+export * from "./agentChat.js";
+
+export * from "./agentChatDocument.js";

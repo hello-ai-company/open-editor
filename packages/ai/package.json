@@ -1,6 +1,6 @@
 {
   "name": "@hello-ai-company/editor-ai",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Provider-neutral agent, suggestion, and explicit learning contracts for OpenEditor.",
   "license": "MIT",
   "repository": {
@@ -21,7 +21,11 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "LICENSE", "README.md"],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "npm run build -w @hello-ai-company/editor-core && tsc -p tsconfig.build.json",
     "typecheck": "npm run build -w @hello-ai-company/editor-core && tsc -p tsconfig.json --noEmit",

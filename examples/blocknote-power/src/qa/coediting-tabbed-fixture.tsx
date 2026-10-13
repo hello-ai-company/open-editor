@@ -1,0 +1,20 @@
+// Synthetic two-pane public wiring, no external API/provider or existing stores.
+import { createRoot } from "react-dom/client";
+import { BlockNoteView } from "@blocknote/mantine";
+import "@blocknote/mantine/style.css";
+import "@hello-ai-company/editor-blocknote/power.css";
+import { createEditorDocument } from "@hello-ai-company/editor-core";
+import type { DocumentCoeditingPort, DocumentCoeditingTicket } from "@hello-ai-company/editor-blocknote";
+import type { NotesWorkspaceHost, NotesDocumentSnapshot, NotesTarget, NotesLayoutState } from "@hello-ai-company/editor-blocknote/notes";
+import { NotesTabbedWorkspace, type NotesWorkspacePreset } from "@hello-ai-company/editor-blocknote/react";
+const scope = { actorId: "synthetic", workspaceId: "tabbed-coediting31-only" }, ports = new Map<string, DocumentCoeditingPort>(), presets = new Map<string, NotesWorkspacePreset>();
+const states = new Map<string, NotesDocumentSnapshot>(), requests: unknown[] = [];
+const key = (target: NotesTarget) => JSON.stringify(target);
+const initial = (target: NotesTarget): NotesDocumentSnapshot => ({ scope, target, revision: "r1", contentRevision: "c1", document: createEditorDocument([{ id: "first", type: "paragraph", content: "Alpha source tail" }, { id: "second", type: "paragraph", content: "Human writing" }]), title: target.kind === "page" ? target.pageId.toUpperCase() : "Synthetic", metadata: {}, capabilities: ["document.save"], capabilitySemantics: { "document.save": "test-only" } });
+const get = (target: NotesTarget) => { if (!states.has(key(target))) states.set(key(target), initial(target)); return structuredClone(states.get(key(target))!); };
+const host: NotesWorkspaceHost = { scope, readDocument: async target => get(target), beforeSubmit: async () => {}, commit: async request => { requests.push(structuredClone(request)); const current = get(request.target); if (request.command.kind !== "document.save") throw Error("Synthetic document save only"); const next = { ...current, revision: current.revision + "+", contentRevision: current.contentRevision + "+", document: request.command.document, title: request.command.title }; states.set(key(request.target), next); return { status: "committed", target: request.target, operationId: request.operationId, persistence: "test-only", historyId: "synthetic-h", snapshot: next }; }, lookupOperation: async (target, operationId) => ({ status: "not-found", target, operationId, terminal: true }) };
+const duplicate = new URLSearchParams(location.search).has("duplicate");
+const layout: NotesLayoutState = { version: 1, scope, tabs: [{ id: "pane-a", target: { kind: "page", pageId: "a" }, title: "A", pinned: false }, { id: "pane-b", target: { kind: "page", pageId: duplicate ? "a" : "b" }, title: "B", pinned: false }], activeTabId: "pane-a", split: { axis: "horizontal", tabIds: ["pane-b"] }, previewTabId: null };
+const root = createRoot(document.getElementById("root")!);
+Object.assign(window, { tabbedCoeditingFixture: { ports: () => [...ports.keys()], port: (id: string) => ports.get(id), state: (id: string) => presets.get(id)?.controller.getState(), requests: () => requests, capture: (id: string) => ports.get(id)?.capture({ blockId: "first", from: 6, to: 12 }), offer: (id: string, ticket: DocumentCoeditingTicket) => ports.get(id)?.offer(ticket, "Synthetic pane wording"), unmount: () => root.unmount() } });
+root.render(<main><p>Synthetic tabbed coediting · no real AI</p><NotesTabbedWorkspace host={host} initialLayout={layout} config={{ version: 1, appearance: "classic", locale: "en" }} coediting={({ paneId }) => ({ paneId, onReady: port => { if (port) ports.set(paneId, port); else ports.delete(paneId); } })} renderModes={({ target, preset, document }) => { if (target.kind === "page") presets.set(target.pageId, preset); return document; }} renderDocument={({ editor, editable, sideMenu }) => <BlockNoteView editor={editor} editable={editable} sideMenu={false}>{sideMenu}</BlockNoteView>} /></main>);

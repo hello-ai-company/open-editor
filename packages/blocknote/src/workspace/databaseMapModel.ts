@@ -125,3 +125,26 @@ export function buildMapRowPresentations(input: {
     return { item, status, projection };
   });
 }
+
+export type MapPinCluster = { rows: readonly MapRowPresentation[]; projection: MapPinProjection };
+/** Screen-space connected components. Coordinates remain exact; no geographic jitter.
+ * Spatial buckets bound work for loaded rows instead of comparing every pair. */
+export function clusterMapPins(rows: readonly MapRowPresentation[], width: number, height: number, radius = 32): MapPinCluster[] {
+  if (![width, height, radius].every(Number.isFinite) || width <= 0 || height <= 0 || radius <= 0) return [];
+  const pixel = (percent: number, size: number) => Math.max(14, Math.min(size - 14, percent * size / 100));
+  const located = rows.filter(row => row.projection && row.status.kind === "located");
+  const parents = located.map((_, index) => index), buckets = new Map<string, number[]>();
+  const find = (index: number): number => { while (parents[index] !== index) { parents[index] = parents[parents[index]!]!; index = parents[index]!; } return index; };
+  located.forEach((row, index) => {
+    const x = pixel(row.projection!.xPercent, width), y = pixel(row.projection!.yPercent, height);
+    const bx = Math.floor(x / radius), by = Math.floor(y / radius);
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (const other of buckets.get(`${bx + dx}:${by + dy}`) ?? []) {
+      const p = located[other]!.projection!;
+      if (Math.hypot(x - pixel(p.xPercent, width), y - pixel(p.yPercent, height)) < radius) parents[find(index)] = find(other);
+    }
+    const key = `${bx}:${by}`; buckets.set(key, [...(buckets.get(key) ?? []), index]);
+  });
+  const groups = new Map<number, MapRowPresentation[]>();
+  located.forEach((row, index) => { const key = find(index); groups.set(key, [...(groups.get(key) ?? []), row]); });
+  return [...groups.values()].map(group => ({ rows: group, projection: { ...group[0]!.projection! } }));
+}

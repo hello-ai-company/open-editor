@@ -1,3 +1,5 @@
+import { NotesFeedbackControl, useNotesFeedback } from "./NotesFeedback.js";
+import { NotesIcon } from "./notesPresentation.js";
 import { Component, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { EditorDocument, JsonValue } from "@hello-ai-company/editor-core";
 import { copyLegacyNotesJson } from "../document/legacyNotes.js";
@@ -41,9 +43,14 @@ export type NotesCanvasState = {
   recovery?: NotesCanvasRecovery; message: string;
 };
 export type NotesCanvasController = {
+  /** Present on controllers created by this package; validates externally owned surfaces. */
+  readonly identity?: { readonly scope: NotesLayoutScope; readonly target: NotesTarget };
   getState(): NotesCanvasState; subscribe(listener: () => void): () => void;
   read(): Promise<boolean>; edit(draft: NotesCanvasDraft, options?: { repair?: boolean }): void;
   setDocumentRevision(revision: string): void; save(): Promise<boolean>; reconcile(): Promise<boolean>;
+  /** After this writer's canonical body receipt, revalidate retained layout against
+   * the current document only if canonical Canvas bytes/revision remain unchanged. */
+  rebaseDocumentRevision?(revision: string): Promise<boolean>;
   cancel(): void; dispose(): void;
 };
 const themes: readonly NotesCanvasTheme[] = ["minimal", "editorial", "modern", "premium", "playful", "technical"];
@@ -121,6 +128,7 @@ export function createNotesCanvasController(options: {
     state = frozen({ ...state, status: "unknown", draft: checkedDraft(request.draft), recovery, dirty: true, message: "Recovered uncertain Canvas operation; query before retrying" }); repair = request.repair;
   }
   const controller: NotesCanvasController = {
+    identity: frozen({ scope, target }),
     getState: () => state,
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     async read() {
@@ -145,7 +153,20 @@ export function createNotesCanvasController(options: {
       repair = repair || Boolean(opts?.repair); generation++;
       update({ ...state, status: options.host ? "ready" : "local", draft, dirty: true, message: options.host ? "Unsaved Canvas draft" : "Local Canvas draft; not persisted" });
     },
-    setDocumentRevision(revision) { if (!revision) throw new Error("Document revision required"); documentRevision = revision; generation++; },
+    setDocumentRevision(revision) { if (!revision) throw new Error("Document revision required"); if (revision !== documentRevision) { documentRevision = revision; generation++; } },
+    async rebaseDocumentRevision(revision) {
+      if (disposed || flight || state.recovery || !options.host || !state.snapshot || !state.draft || !revision) return false;
+      const baseline = state.snapshot, draft = state.draft, epoch = generation, abort = new AbortController(); flight = abort;
+      try {
+        const snapshot = checkSnapshot(await bounded(options.host.read(scope, target, abort.signal), abort));
+        if (disposed || abort.signal.aborted || generation !== epoch || documentRevision !== revision || state.snapshot !== baseline || state.draft !== draft) return false;
+        if (snapshot.documentRevision !== revision || snapshot.revision !== baseline.revision || !sameJson(snapshot.layout, baseline.layout) || !sameJson(snapshot.view, baseline.view) || snapshot.theme !== baseline.theme || options.validate(draft.layout).length) {
+          update({ ...state, status: "conflict", message: "Canvas or document changed; both drafts retained" }); return false;
+        }
+        update({ ...state, snapshot, status: "ready", message: "Canvas draft checked against the saved document" }); return true;
+      } catch { update({ ...state, status: "error", message: "Canvas revalidation failed; draft retained" }); return false; }
+      finally { if (flight === abort) flight = undefined; }
+    },
     async save() {
       if (disposed || flight || state.recovery || ["loading", "invalid", "conflict", "denied", "error"].includes(state.status)) return false;
       if (!state.dirty) return true;
@@ -181,6 +202,8 @@ export function createNotesCanvasController(options: {
 export type NotesWorkspaceRenderers = {
   createLayout(document: EditorDocument, options: { template: NotesCanvasTemplate; theme: NotesCanvasTheme }): NotesCanvasDraft;
   validateLayout(layout: JsonValue, document: EditorDocument): readonly string[];
+  /** Return issues when a public preview would omit content. No save or conversion is attempted. */
+  validatePublication?(document: EditorDocument): readonly unknown[];
   canvas(context: { document: EditorDocument; draft: NotesCanvasDraft; readOnly: boolean; onChange(draft: NotesCanvasDraft): void }): ReactNode;
   /** Static trusted exporter output only. Embedded user HTML never gets script permission. */
   site?(document: EditorDocument, draft: NotesCanvasDraft, title: string): string;
@@ -194,7 +217,11 @@ export type NotesWorkspaceModesProps = {
   beforeModeChange(): Promise<string | false>;
   renderers?: NotesWorkspaceRenderers; canvasHost?: NotesCanvasHost;
   canvasSnapshot?: NotesCanvasSnapshot; canvasRecovery?: NotesCanvasRecovery;
+  /** Host/session owns its lifetime. Component unmount never disposes this controller. */
+  canvasController?: NotesCanvasController;
+  classic?: boolean;
   language?: "en" | "ja"; children: ReactNode;
+  documentTools?: ReactNode;
   onModeChange?(mode: NotesWorkspaceMode): void;
 };
 
@@ -202,67 +229,98 @@ export function NotesWorkspaceModes(props: NotesWorkspaceModesProps) {
   const { scope, target, document, title, language = "en", renderers } = props, ja = language === "ja";
   const [mode, setMode] = useState<NotesWorkspaceMode>("document"), [template, setTemplate] = useState<NotesCanvasTemplate>("landing-page"), [theme, setTheme] = useState<NotesCanvasTheme>("modern");
   const [width, setWidth] = useState<390 | 768 | 1440>(1440), [slide, setSlide] = useState(0), [busy, setBusy] = useState(false), [error, setError] = useState(""), [creating, setCreating] = useState(false);
-  const latest = useRef(props), epoch = useRef(0), flight = useRef(false), mounted = useRef(true), region = useRef<HTMLDivElement>(null), id = useId();
-  if (latest.current.composing !== props.composing || latest.current.pendingEditors !== props.pendingEditors || latest.current.manualSaveRequired !== props.manualSaveRequired) epoch.current++;
+  const latest = useRef(props), epoch = useRef(0), revisionEpoch = useRef(0), flight = useRef(false), mounted = useRef(true), region = useRef<HTMLDivElement>(null), id = useId();
+  if (Boolean(latest.current.composing) !== Boolean(props.composing) || Boolean(latest.current.pendingEditors) !== Boolean(props.pendingEditors) || Boolean(latest.current.manualSaveRequired) !== Boolean(props.manualSaveRequired)) epoch.current++;
+  if (latest.current.documentRevision !== props.documentRevision) revisionEpoch.current++;
   latest.current = props;
   const key = JSON.stringify([scope.actorId, scope.workspaceId, notesTargetKey(target)]);
   const setup = useMemo(() => {
     const options = { scope, target, documentRevision: props.documentRevision, validate: (layout: JsonValue) => latest.current.renderers?.validateLayout(layout, latest.current.document) ?? ["Canvas renderer unavailable"] };
-    try { return { controller: createNotesCanvasController({ ...options, host: props.canvasHost, snapshot: props.canvasSnapshot, recovery: props.canvasRecovery }), failed: false }; }
-    catch { return { controller: createNotesCanvasController(options), failed: true }; }
-  }, [key, props.canvasHost]);
+    if (props.canvasController) {
+      const identity = props.canvasController.identity;
+      if (identity && sameScope(identity.scope, scope) && notesTargetKey(identity.target) === notesTargetKey(target)) return { controller: props.canvasController, failed: false, owned: false };
+      return { controller: createNotesCanvasController(options), failed: true, owned: true };
+    }
+    try { return { controller: createNotesCanvasController({ ...options, host: props.canvasHost, snapshot: props.canvasSnapshot, recovery: props.canvasRecovery }), failed: false, owned: true }; }
+    catch { return { controller: createNotesCanvasController(options), failed: true, owned: true }; }
+  }, [key, props.canvasHost, props.canvasController]);
   const controller = setup.controller;
   const activeController = useRef(controller); activeController.current = controller;
   const state = useSyncExternalStore(controller.subscribe, controller.getState, controller.getState);
-  useEffect(() => { mounted.current = true; epoch.current++; setMode("document"); setCreating(false); setError(""); void controller.read(); return () => { mounted.current = false; queueMicrotask(() => { if (!mounted.current || activeController.current !== controller) controller.dispose(); }); }; }, [controller]);
+  const feedback = useNotesFeedback();
+  useEffect(() => { if (state.status === "ready" && state.message) feedback?.announce(state.message, "notice"); }, [feedback, state.status, state.message]);
+  useEffect(() => { mounted.current = true; epoch.current++; setMode("document"); setCreating(false); setError(""); void controller.read(); return () => { mounted.current = false; queueMicrotask(() => { if (setup.owned && (!mounted.current || activeController.current !== controller)) controller.dispose(); }); }; }, [controller]);
   useEffect(() => controller.setDocumentRevision(props.documentRevision), [controller, props.documentRevision]);
-  async function run(next: NotesWorkspaceMode, create = false) {
+  async function run(next: NotesWorkspaceMode, create = false, explicitSave = false) {
+    // Selecting the active view is not a navigation or a save request.
+    if (!create && !explicitSave && next === mode) return;
     if (flight.current || props.composing || props.pendingEditors || props.manualSaveRequired) { setError(ja ? "入力の確定と明示保存を待ってください。" : "Finish composing and explicitly save pending editors before switching modes."); return; }
-    flight.current = true; setBusy(true); setError(""); const captured = epoch.current, selectedController = controller;
+    flight.current = true; setBusy(true); setError(""); const captured = epoch.current, capturedRevisionEpoch = revisionEpoch.current, initialRevision = props.documentRevision, selectedController = controller;
     try {
+      const publicationBlocked = () => {
+        if ((next !== "site" && next !== "present") || !latest.current.renderers?.validatePublication?.(latest.current.document).length) return false;
+        setError(ja ? "未対応の内容があるためプレビューを保留しています。Documentの原本は保持しています。" : "Preview paused because some content is unsupported. The original Document is retained.");
+        return true;
+      };
+      if (publicationBlocked()) return;
       const revision = await props.beforeModeChange();
-      if (!revision || epoch.current !== captured || !mounted.current || latest.current.composing || latest.current.pendingEditors || latest.current.manualSaveRequired) { if (mounted.current) setError(ja ? "編集を保持しています。切り替えは完了していません。" : "Edits retained; mode change did not complete."); return; }
+      const revisionCurrent = () => revisionEpoch.current <= capturedRevisionEpoch + 1 && (latest.current.documentRevision === revision || revisionEpoch.current === capturedRevisionEpoch && latest.current.documentRevision === initialRevision);
+      if (!revision || !revisionCurrent() || epoch.current !== captured || !mounted.current || latest.current.composing || latest.current.pendingEditors || latest.current.manualSaveRequired) { if (mounted.current) setError(ja ? "編集を保持しています。切り替えは完了していません。" : "Edits retained; mode change did not complete."); return; }
+      if (publicationBlocked()) return;
       selectedController.setDocumentRevision(revision);
+      if (selectedController.getState().recovery) { setError(ja ? "Canvasの保存結果を照会してください。" : "Query the uncertain Canvas save before switching."); return; }
+      const current = selectedController.getState();
+      if (current.snapshot && current.snapshot.documentRevision !== revision && (props.canvasHost || props.canvasController)) {
+        const checked = current.dirty ? await selectedController.rebaseDocumentRevision?.(revision) : await selectedController.read();
+        if (!checked || selectedController.getState().snapshot?.documentRevision !== revision) throw new Error("Canvas document revalidation failed");
+      }
+      if (publicationBlocked()) return;
       if (next !== "document" && !renderers) throw new Error("Canvas renderers unavailable");
       if (create && renderers) {
         selectedController.edit(renderers.createLayout(latest.current.document, { template, theme }), { repair: state.status === "invalid" });
         setCreating(false);
-      } else if (selectedController.getState().dirty && mode === "canvas" && props.canvasHost && !(await selectedController.save())) { setError(ja ? "Canvasの保存が確定していません。" : "Canvas save is not confirmed."); return; }
-      if (!mounted.current || epoch.current !== captured || latest.current.composing || latest.current.pendingEditors || latest.current.manualSaveRequired) return;
+      } else if (selectedController.getState().dirty && (props.canvasHost || props.canvasController) && !(await selectedController.save())) { setError(ja ? "Canvasの保存が確定していません。" : "Canvas save is not confirmed."); return; }
+      if (!mounted.current || !revisionCurrent() || epoch.current !== captured || latest.current.composing || latest.current.pendingEditors || latest.current.manualSaveRequired) return;
+      if (publicationBlocked()) return;
       setMode(next); props.onModeChange?.(next);
     } catch { if (mounted.current) setError(ja ? "モードを切り替えられません。元の内容は保持されています。" : "Mode change failed; original content is retained."); }
     finally { flight.current = false; if (mounted.current) setBusy(false); }
   }
   let canvas: ReactNode = null, html = "", slides: readonly string[] = [], renderError = false;
   try {
+    if ((mode === "site" || mode === "present") && renderers?.validatePublication?.(document).length) throw new Error("Incomplete publication");
     if (state.draft && renderers && mode === "canvas") canvas = renderers.canvas({ document, draft: state.draft, readOnly: Boolean(busy || state.recovery || !["ready", "local"].includes(state.status)), onChange: draft => { try { controller.edit(draft); } catch { setError(ja ? "変更を適用できません。元の内容は保持されています。" : "Change unavailable; original content retained."); } } });
     if (state.draft && renderers && mode === "site") html = renderers.site?.(document, state.draft, title) ?? "";
     if (state.draft && renderers && mode === "present") slides = renderers.presentation?.(document, state.draft, title) ?? [];
   } catch { renderError = true; }
-  return <section className="oe-notes-modes" aria-busy={busy}>
-    <div role="tablist" aria-label={ja ? "文書の表示モード" : "Document mode"}>
-      {modes.map(item => <button type="button" role="tab" key={item} aria-selected={mode === item} aria-controls={`${id}-${item}`} disabled={busy || Boolean(props.composing || props.pendingEditors || props.manualSaveRequired) || (item !== "document" && (!renderers || setup.failed))} onClick={() => void run(item)} onKeyDown={event => {
+  const createButton = renderers ? <button type="button" disabled={setup.failed || busy || Boolean(props.composing || props.pendingEditors || props.manualSaveRequired) || Boolean(state.recovery) || (state.dirty && state.status !== "invalid")} className={props.classic ? "oe-notes-create-button" : undefined} aria-label={state.status === "invalid" ? (ja ? "レイアウトを修復" : "Repair layout") : props.classic ? (ja ? "Webサイトを作成" : "Create Website") : (ja ? "レイアウトを作成" : "Create layout")} onClick={() => setCreating(true)}>{props.classic ? <span className="oe-notes-create-icon"><NotesIcon name="site" /><sup>+</sup></span> : null}<span>{state.status === "invalid" ? (ja ? "レイアウトを修復" : "Repair layout") : (props.classic ? (ja ? "Webサイトを作成" : "Create Website") : (ja ? "レイアウトを作成" : "Create layout"))}</span></button> : null;
+  const modeTabs = <div role="tablist" aria-label={ja ? "文書の表示モード" : "Document mode"}>
+      {modes.map(item => <button type="button" role="tab" key={item} className={props.classic ? "oe-notes-icon-mode" : undefined} aria-label={item === "document" ? "Document" : item === "canvas" ? "Canvas" : item === "present" ? "Present" : "Site"} aria-selected={mode === item} aria-controls={`${id}-${item}`} disabled={busy || Boolean(props.composing || props.pendingEditors || props.manualSaveRequired) || (item !== "document" && (!renderers || setup.failed))} onClick={() => void run(item)} onKeyDown={event => {
         if (event.nativeEvent.isComposing || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault();
-        const buttons = Array.from(event.currentTarget.parentElement!.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")), index = buttons.indexOf(event.currentTarget);
+        const buttons = Array.from(event.currentTarget.parentElement!.querySelectorAll<HTMLButtonElement>("[role=tab]:not(:disabled)")), index = buttons.indexOf(event.currentTarget);
         buttons[event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + buttons.length) % buttons.length]?.focus();
-      }}>{item === "document" ? "Document" : item === "canvas" ? "Canvas" : item === "present" ? "Present" : "Site"}</button>)}
-    </div>
-    <p role="status">{state.status === "local" ? (ja ? "ローカル下書き・未保存" : "Local draft, not persisted") : state.message}</p>
+      }}>{props.classic ? <NotesIcon name={item} /> : null}<span>{item === "document" ? "Document" : item === "canvas" ? "Canvas" : item === "present" ? "Present" : "Site"}</span></button>)}
+    </div>;
+  return <section className="oe-notes-modes" aria-busy={busy}>
+    {props.classic ? <div className="oe-notes-mode-toolbar">{modeTabs}{createButton}</div> : modeTabs}
+    {state.status !== "ready" || !feedback || setup.failed || error || renderError || state.recovery || state.dirty ? <NotesFeedbackControl id="canvas-state">
+    {state.status !== "ready" || !feedback ? <p role="status">{state.status === "local" ? (ja ? "ローカル下書き・未保存" : "Local draft, not persisted") : state.message}</p> : null}
     {setup.failed ? <p role="alert">{ja ? "Canvasの保存データまたは復旧スコープを確認できません。原本は保持しています。" : "Canvas saved data or recovery scope is invalid. Original data is retained."}</p> : null}
     {error ? <p role="alert">{error}</p> : null}
     {renderError ? <p role="alert">{ja ? "表示処理に失敗しました。元の内容は保持されています。" : "Renderer failed; original content retained."}</p> : null}
     {state.status === "invalid" ? <p role="alert">{ja ? "保存されたレイアウトは無効です。明示的な修復まで保持します。" : "Invalid saved layout is retained until explicit repair."}</p> : null}
     {state.recovery ? <button type="button" disabled={busy} onClick={() => void controller.reconcile()}>{ja ? "保存結果を照会" : "Query save receipt"}</button> : null}
     {state.status === "saving" || state.status === "loading" ? <button type="button" onClick={() => controller.cancel()}>{ja ? "Canvas操作をキャンセル" : "Cancel Canvas action"}</button> : null}
-    {state.dirty && !state.recovery ? <button type="button" disabled={busy || Boolean(props.composing || props.pendingEditors || props.manualSaveRequired) || !props.canvasHost} onClick={() => void run(mode)}>{ja ? "Canvasを保存" : "Save Canvas"}</button> : null}
-    {renderers ? <button type="button" disabled={setup.failed || busy || Boolean(props.composing || props.pendingEditors || props.manualSaveRequired) || Boolean(state.recovery) || (state.dirty && state.status !== "invalid")} onClick={() => setCreating(true)}>{state.status === "invalid" ? (ja ? "レイアウトを修復" : "Repair layout") : (ja ? "レイアウトを作成" : "Create layout")}</button> : null}
+    {state.dirty && !state.recovery ? <button type="button" disabled={busy || Boolean(props.composing || props.pendingEditors || props.manualSaveRequired) || !(props.canvasHost || props.canvasController)} onClick={() => void run(mode, false, true)}>{ja ? "Canvasを保存" : "Save Canvas"}</button> : null}
+    </NotesFeedbackControl> : null}
+    {!props.classic ? createButton : null}
     {creating ? <form onSubmit={event => { event.preventDefault(); void run("canvas", true); }}>
       <label>{ja ? "テンプレート" : "Template"}<select value={template} onChange={event => setTemplate(event.target.value as NotesCanvasTemplate)}>{templates.map(item => <option key={item}>{item}</option>)}</select></label>
       <label>{ja ? "テーマ" : "Theme"}<select value={theme} onChange={event => setTheme(event.target.value as NotesCanvasTheme)}>{themes.map(item => <option key={item}>{item}</option>)}</select></label>
       <button type="submit" disabled={busy}>{state.status === "invalid" ? (ja ? "原本を保持して修復" : "Repair and preserve original") : (ja ? "作成" : "Create")}</button>
       <button type="button" disabled={busy} onClick={() => setCreating(false)}>{ja ? "キャンセル" : "Cancel"}</button>
     </form> : null}
-    <div role="tabpanel" id={`${id}-document`} hidden={mode !== "document"}>{props.children}</div>
+    <div role="tabpanel" id={`${id}-document`} hidden={mode !== "document"}>{props.documentTools ? <div className="oe-notes-editor-surface"><div className="oe-notes-document-cell">{props.children}</div>{props.documentTools}</div> : props.children}</div>
     {mode === "canvas" ? <div role="tabpanel" id={`${id}-canvas`}><NotesModeRenderBoundary resetKey={controller} fallback={ja ? "Canvasの表示処理に失敗しました。原本と入力は保持しています。" : "Canvas renderer failed; original data and input are retained."}>{canvas ?? <p>{ja ? "Canvasレイアウトを作成してください。" : "Create a Canvas layout."}</p>}</NotesModeRenderBoundary></div> : null}
     {mode === "site" ? <div role="tabpanel" id={`${id}-site`}>
       <div role="group" aria-label={ja ? "プレビュー幅" : "Preview width"}>{([390, 768, 1440] as const).map(item => <button type="button" key={item} aria-pressed={width === item} onClick={() => setWidth(item)}>{item}px</button>)}</div>

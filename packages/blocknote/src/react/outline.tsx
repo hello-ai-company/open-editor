@@ -230,6 +230,7 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
   if (!props.open) return null;
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setActiveIndex((i) => Math.min(i + 1, Math.max(results.length - 1, 0)));
@@ -259,6 +260,7 @@ export function QuickNav(props: QuickNavProps): ReactElement | null {
         aria-label={dict.quickNavTitle}
         tabIndex={-1}
         onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
           if (event.key === "Escape") {
             event.preventDefault();
             props.onOpenChange(false);

@@ -1,4 +1,5 @@
 import { createReactBlockSpec } from "@blocknote/react";
+import { interactiveBlockMeta } from "../document/widgetInteraction.js";
 import {
   isEditorDocument,
   type EditorBlock,
@@ -279,6 +280,7 @@ export function createPageTransclusionBlockSpec(runtime: PageTransclusionRuntime
       content: "none" as const
     },
     {
+      meta: interactiveBlockMeta,
       render: (props): ReactElement => (
         <PageTransclusionView runtime={runtime} block={props.block} />
       )

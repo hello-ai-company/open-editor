@@ -5,6 +5,7 @@
 import { syntaxHighlighter, codeBlockOptions } from "@blocknote/code-block";
 import type { OpenEditorPowerFeature } from "../features/types.js";
 import type { EditorCommand } from "../commands/registry.js";
+import { createCodeClipboardSelectionExtension } from "../document/codeClipboardSelection.js";
 
 function codeCommands(): EditorCommand[] {
   return [
@@ -39,7 +40,7 @@ function codeCommands(): EditorCommand[] {
 export function createCodePowerFeature(): OpenEditorPowerFeature {
   return {
     id: "code",
-    extensions: [syntaxHighlighter],
+    extensions: [syntaxHighlighter, createCodeClipboardSelectionExtension()],
     commands: codeCommands()
   };
 }

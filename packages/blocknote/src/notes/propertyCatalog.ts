@@ -17,16 +17,19 @@ export type NotesDatabaseSchemaSnapshot = { revision: string; properties: readon
 export type NotesUserReference = { id: string; label?: string };
 export type NotesFileReference = { assetId: string; name?: string };
 export type NotesLocationValue = { latitude: number; longitude: number; label?: string };
+/** Explicit host-selected legacy representation. A URL is never inferred to be an asset ID. */
+export type NotesLegacyFileValue = { url: string; name?: string; kind?: string; size?: number };
+export type NotesPropertyValueMode = "reference" | "legacy-text" | "legacy-files";
 export type NotesHostedPropertyKind = "user" | "files" | "relation" | "location";
 export type NotesPropertyPicker<T extends JsonValue = JsonValue> = {
   /** Called only by explicit user action. Return undefined on cancel. Scoped identities, not URLs/secrets. */
   pick(request: { definition: NotesDatabasePropertyDefinition; value: JsonValue; signal: AbortSignal }): Promise<T | undefined>;
 };
 export type NotesDatabasePropertyAdapters = {
-  user?: NotesPropertyPicker<NotesUserReference[] | null>;
-  files?: NotesPropertyPicker<NotesFileReference[] | null>;
+  user?: NotesPropertyPicker<NotesUserReference[] | string | null>;
+  files?: NotesPropertyPicker<NotesFileReference[] | NotesLegacyFileValue[] | null>;
   relation?: NotesPropertyPicker<string[] | null>;
-  location?: NotesPropertyPicker<NotesLocationValue | null>;
+  location?: NotesPropertyPicker<NotesLocationValue | string | null>;
 };
 export const NOTES_DATABASE_PROPERTY_LABELS: Readonly<Record<NotesDatabasePropertyKind, string>> = {
   text: "テキスト", number: "数値", select: "選択", multi_select: "複数選択", status: "ステータス", date: "日付", user: "ユーザー", files: "ファイル", checkbox: "チェックボックス", url: "URL", email: "メール", phone: "電話", formula: "計算式", relation: "関連", rollup: "集計", created_time: "作成日時", created_by: "作成者", last_edited_time: "更新日時", last_edited_by: "更新者", button: "アクション", location: "位置", id: "ID"
@@ -60,6 +63,7 @@ export function parseNotesDatabasePropertyDefinition(value: unknown): NotesDatab
   }
   if (safe.config !== undefined) {
     const config = object(safe.config);
+    if (config.valueMode !== undefined && !(config.valueMode === "reference" || config.valueMode === "legacy-text" && ["user", "location"].includes(safe.type) || config.valueMode === "legacy-files" && safe.type === "files")) throw new Error("値の保存形式を確認してください");
     if (config.expression !== undefined && (typeof config.expression !== "string" || config.expression.length > 4000)) throw new Error("計算式を確認してください");
     for (const key of ["databaseId", "relationPropertyId", "targetPropertyId", "actionId"]) if (config[key] !== undefined && !identity(config[key])) throw new Error("設定の参照IDが不正です");
     if (config.aggregation !== undefined && (typeof config.aggregation !== "string" || !["count", "sum", "average", "min", "max"].includes(config.aggregation))) throw new Error("集計方法が不正です");
@@ -75,6 +79,18 @@ export function validateNotesDatabasePropertyValue(definition: NotesDatabaseProp
   if (authority === "unknown" || authority === "host-computed" || authority === "action") throw new Error("この値はホスト管理の読取専用です");
   const safe = copyLegacyNotesJson(value);
   if (safe === null) return null;
+  if (parsed.config?.valueMode === "legacy-text") {
+    if (typeof safe === "string" && safe.length <= 4000) return safe;
+    throw new Error("旧形式の文字列をそのまま選択してください");
+  }
+  if (parsed.config?.valueMode === "legacy-files") {
+    if (Array.isArray(safe) && safe.length <= 100 && safe.every(item => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+      if (typeof item.url !== "string" || item.url.length > 8192 || !/^https?:\/\//i.test(item.url)) return false;
+      return Object.keys(item).every(key => ["url", "name", "kind", "size"].includes(key)) && optionalLabel(item.name) && optionalLabel(item.kind) && (item.size === undefined || typeof item.size === "number" && Number.isFinite(item.size) && item.size >= 0);
+    })) return safe;
+    throw new Error("旧形式のファイル参照を確認してください");
+  }
   if (authority === "editable") return validateNotesPropertyValue({ type: parsed.type === "checkbox" ? "boolean" : parsed.type as NotesWritableProperty["type"], optionIds: parsed.options?.map(option => option.id) }, safe);
   switch (parsed.type) {
     case "relation": if (Array.isArray(safe) && safe.length <= 100 && safe.every(identity) && new Set(safe).size === safe.length) return safe; break;

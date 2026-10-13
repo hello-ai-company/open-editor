@@ -10,6 +10,8 @@ export type PageMentionResolver = (pageId: PageId) => {
   missing?: boolean;
   loading?: boolean;
   error?: boolean;
+  unavailable?: boolean;
+  forbidden?: boolean;
 } | null;
 
 export type PageMentionRuntime = {
@@ -36,9 +38,13 @@ export function formatPageMentionLabel(
   resolver?: PageMentionResolver,
   missingLabel = "Missing page",
   untitledLabel = "Untitled"
-): { label: string; missing: boolean; loading: boolean } {
+): { label: string; missing: boolean; loading: boolean; blocked?: boolean } {
   if (!pageId) return { label: missingLabel, missing: true, loading: false };
   const resolved = resolver?.(pageId);
+  if (resolved?.error || resolved?.unavailable || resolved?.forbidden) {
+    const label = resolved.title.trim() || (resolved.forbidden ? "Page access restricted" : resolved.error ? "Unable to load page" : "Page information unavailable");
+    return { label, missing: false, loading: false, blocked: true };
+  }
   if (resolved?.loading) {
     return { label: untitledLabel, missing: false, loading: true };
   }
@@ -54,7 +60,7 @@ export function applyPageMentionLabel(
   pageId: string,
   runtime: PageMentionRuntime
 ): void {
-  const { label, missing, loading } = formatPageMentionLabel(
+  const { label, missing, loading, blocked } = formatPageMentionLabel(
     pageId,
     runtime.resolve,
     runtime.missingLabel ?? "Missing page",
@@ -63,7 +69,8 @@ export function applyPageMentionLabel(
   span.dataset.pageId = pageId;
   span.dataset.missing = missing ? "true" : "false";
   span.dataset.loading = loading ? "true" : "false";
-  span.setAttribute("role", missing || loading ? "note" : "link");
+  span.dataset.blocked = blocked ? "true" : "false";
+  span.setAttribute("role", missing || loading || blocked ? "note" : "link");
   span.title = loading
     ? "Loading…"
     : missing
@@ -88,6 +95,7 @@ export function createPageMentionDom(
     if (
       span.dataset.missing === "true" ||
       span.dataset.loading === "true" ||
+      span.dataset.blocked === "true" ||
       !pageId
     ) {
       return;

@@ -10,8 +10,8 @@ import { packageConfig, RELEASE_REGISTRY, tarballFilename } from "./public-packa
 
 const BLOCKNOTE = Object.freeze({
   name: "@hello-ai-company/editor-blocknote",
-  version: "0.2.0",
-  filename: "hello-ai-company-editor-blocknote-0.2.0.tgz"
+  version: "0.3.0",
+  filename: "hello-ai-company-editor-blocknote-0.3.0.tgz"
 });
 const RETRY_DELAYS = Object.freeze([2000, 5000, 10000, 20000, 30000, 45000, 60000, 60000, 60000]);
 const RETRY_BUDGET_MS = 300000;

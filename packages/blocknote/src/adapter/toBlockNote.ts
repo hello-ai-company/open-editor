@@ -69,7 +69,11 @@ function mapBlock(
     partial.props = block.props as Record<string, boolean | number | string>;
   }
   if (block.content !== undefined) {
-    partial.content = block.content;
+    // Restore BlockNote's automatic-width sentinel without compacting columns.
+    const content = block.content;
+    partial.content = block.type === "table" && content && typeof content === "object" && !Array.isArray(content) && content.type === "tableContent" && Array.isArray(content.columnWidths)
+      ? { ...content, columnWidths: content.columnWidths.map(width => width === null ? undefined : width) } as never
+      : content;
   }
   if (block.children !== undefined && block.children.length > 0) {
     partial.children = block.children.map((child, index) =>

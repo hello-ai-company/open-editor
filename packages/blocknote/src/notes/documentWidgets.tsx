@@ -1,5 +1,7 @@
+import { NotesIcon } from "../react/notesPresentation.js";
+import { interactiveBlockMeta, createInteractiveWidgetInputExtension } from "../document/widgetInteraction.js";
 import { createReactBlockSpec } from "@blocknote/react";
-import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement } from "react";
+import { memo, useMemo, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import type { OpenEditorPowerFeature } from "../features/types.js";
 import { copyLegacyNotesJson } from "../document/legacyNotes.js";
 import { createHtmlWidgetPreview, parseHtmlWidgetSource, type HtmlWidgetSource } from "../document/htmlWidget.js";
@@ -93,13 +95,17 @@ export function hitNotesDrawingStroke(document: NotesDrawingDocument, point: Not
   }
   return undefined;
 }
-function StrokeGraphic({ stroke }: { stroke: NotesDrawingStroke }): ReactElement {
+const StrokeGraphic = memo(function StrokeGraphic({ stroke }: { stroke: NotesDrawingStroke }): ReactElement {
   const b = bounds(stroke), style = { fill: "none", stroke: stroke.color, strokeWidth: stroke.width, opacity: stroke.tool === "highlighter" ? 0.35 : 1, strokeLinecap: "round", strokeLinejoin: "round" } as const;
   if (stroke.tool === "rectangle") return <rect {...style} x={b.minX} y={b.minY} width={b.maxX - b.minX} height={b.maxY - b.minY} />;
   if (stroke.tool === "ellipse") return <ellipse {...style} cx={(b.minX + b.maxX) / 2} cy={(b.minY + b.maxY) / 2} rx={(b.maxX - b.minX) / 2} ry={(b.maxY - b.minY) / 2} />;
   if (stroke.points.length === 1) return <circle cx={stroke.points[0]!.x} cy={stroke.points[0]!.y} r={stroke.width / 2} fill={stroke.color} opacity={style.opacity} />;
   return <polyline {...style} points={stroke.points.map(point => `${point.x},${point.y}`).join(" ")} />;
-}
+});
+const DrawingStroke = memo(function DrawingStroke({ stroke, selected }: { stroke: NotesDrawingStroke; selected: boolean }) {
+  const b = selected ? bounds(stroke) : undefined;
+  return <g><StrokeGraphic stroke={stroke} />{b ? <rect x={b.minX - 4} y={b.minY - 4} width={b.maxX - b.minX + 8} height={b.maxY - b.minY + 8} fill="none" stroke="#176b64" strokeWidth="2" strokeDasharray="5 3" /> : null}</g>;
+});
 /** Canvas export draws only validated vectors; no images, fonts, URLs or external renderer. */
 export function paintNotesDrawing(context: CanvasRenderingContext2D, drawing: NotesDrawingDocument): void {
   const inspected = inspectNotesDrawingPayload(JSON.stringify(drawing)); if (!inspected.editable) throw new Error(inspected.reason);
@@ -117,7 +123,8 @@ export function paintNotesDrawing(context: CanvasRenderingContext2D, drawing: No
 export type NotesDrawingWidgetProps = { source: string; readOnly?: boolean; onChange(source: string, expectedSource: string): void; onExportPng?(blob: Blob): void };
 const tools = ["select", "pen", "highlighter", "eraser", "line", "rectangle", "ellipse"] as const;
 export function NotesDrawingWidget({ source, readOnly = false, onChange, onExportPng }: NotesDrawingWidgetProps): ReactElement {
-  const inspected = inspectNotesDrawingPayload(source), history = useRef(createNotesDrawingHistory(source));
+  const inspected = useMemo(() => inspectNotesDrawingPayload(source), [source]);
+  const [initialHistory] = useState(() => createNotesDrawingHistory(source)), history = useRef(initialHistory);
   const [tool, setTool] = useState<(typeof tools)[number]>("pen"), [color, setColor] = useState("#176b64"), [width, setWidth] = useState(4), [selected, setSelected] = useState<string>(), [preview, setPreview] = useState<NotesDrawingStroke>(), [erased, setErased] = useState<readonly string[]>([]), [error, setError] = useState(""), [clearOpen, setClearOpen] = useState(false), [, refresh] = useState(0);
   const gesture = useRef<{ pointer: number; base: string; start: NotesDrawingPoint; stroke?: NotesDrawingStroke; selected?: string; eraser?: string[]; overflow?: boolean } | undefined>(undefined);
   const clearButton = useRef<HTMLButtonElement>(null), canvasRef = useRef<SVGSVGElement>(null);
@@ -137,24 +144,27 @@ export function NotesDrawingWidget({ source, readOnly = false, onChange, onExpor
   return <section className="oe-notes-widget oe-notes-drawing" contentEditable={false} aria-label="Whiteboard" onKeyDown={event => {
     event.stopPropagation(); if (event.nativeEvent.isComposing) return;
     if (event.key === "Escape" && clearOpen) { event.preventDefault(); setClearOpen(false); clearButton.current?.focus(); return; }
-    if (event.target !== event.currentTarget.querySelector("svg")) return;
+    if (event.target !== canvasRef.current) return;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") { event.preventDefault(); run(event.shiftKey ? "redo" : "undo"); }
     else if (selected && (event.key === "Delete" || event.key === "Backspace")) { event.preventDefault(); run({ kind: "delete", id: selected }); setSelected(undefined); }
     else if (selected && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); const step = event.shiftKey ? 10 : 1; run({ kind: "move", id: selected, dx: event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0, dy: event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0 }); }
     else if (event.key === "Escape") { gesture.current = undefined; setPreview(undefined); setErased([]); setSelected(undefined); }
   }}>
     <header><strong>Whiteboard</strong><span>{drawing.strokes.length} strokes</span></header>
-    <div role="toolbar" aria-label="Drawing tools" style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-      {tools.map(value => <button key={value} type="button" disabled={disabled} aria-pressed={tool === value} onClick={() => { gesture.current = undefined; setPreview(undefined); setErased([]); setTool(value); }}>{value}</button>)}
+    <div className="oe-notes-drawing-tools" role="toolbar" aria-label="Drawing tools">
+      <div className="oe-notes-drawing-modes" role="group" aria-label="Drawing mode">
+      {tools.map(value => <button key={value} type="button" disabled={disabled} aria-label={value} title={value[0]!.toUpperCase() + value.slice(1)} aria-pressed={tool === value} onClick={() => { gesture.current = undefined; setPreview(undefined); setErased([]); setTool(value); }}><NotesIcon name={value} /><span className="oe-notes-sr-only">{value}</span></button>)}
+      </div><div className="oe-notes-drawing-options">
       <label>Color<input type="color" aria-label="Stroke color" disabled={disabled} value={color} onChange={event => setColor(event.target.value)} /></label>
       <label>Width<input type="range" min="1" max="32" aria-label="Stroke width" disabled={disabled} value={width} onChange={event => setWidth(Number(event.target.value))} /></label>
-      <label>Selected stroke<select aria-label="Selected stroke" value={selected ?? ""} onChange={event => { setSelected(event.target.value || undefined); setTool("select"); }}><option value="">None</option>{drawing.strokes.map((stroke, index) => <option key={stroke.id} value={stroke.id}>{index + 1}. {stroke.tool}</option>)}</select></label>
-      <button type="button" disabled={disabled || !history.current.canUndo()} onClick={() => run("undo")}>Undo drawing</button><button type="button" disabled={disabled || !history.current.canRedo()} onClick={() => run("redo")}>Redo drawing</button>
-      <button type="button" disabled={disabled || !selected} onClick={() => { if (selected) run({ kind: "delete", id: selected }); setSelected(undefined); }}>Delete selected stroke</button>
-      <button ref={clearButton} type="button" disabled={disabled || drawing.strokes.length === 0} onClick={() => setClearOpen(true)}>Clear drawing</button><button type="button" onClick={exportPng}>Export PNG</button>
-    </div>
+      <label>Stroke<select aria-label="Selected stroke" value={selected ?? ""} onChange={event => { setSelected(event.target.value || undefined); setTool("select"); }}><option value="">None</option>{drawing.strokes.map((stroke, index) => <option key={stroke.id} value={stroke.id}>{index + 1}. {stroke.tool}</option>)}</select></label>
+      </div><div className="oe-notes-drawing-actions" role="group" aria-label="Drawing actions">
+      <button type="button" disabled={disabled || !history.current.canUndo()} onClick={() => run("undo")} aria-label="Undo drawing" title="Undo drawing"><NotesIcon name="undo" /></button><button type="button" disabled={disabled || !history.current.canRedo()} onClick={() => run("redo")} aria-label="Redo drawing" title="Redo drawing"><NotesIcon name="redo" /></button>
+      <button type="button" disabled={disabled || !selected} onClick={() => { if (selected) run({ kind: "delete", id: selected }); setSelected(undefined); }} aria-label="Delete selected stroke" title="Delete selected stroke"><NotesIcon name="trash" /></button>
+      <button ref={clearButton} type="button" disabled={disabled || drawing.strokes.length === 0} onClick={() => setClearOpen(true)} aria-label="Clear drawing" title="Clear drawing"><NotesIcon name="trash" /><span>Clear</span></button><button type="button" onClick={exportPng} aria-label="Export PNG" title="Export PNG"><NotesIcon name="export" /><span>PNG</span></button>
+    </div></div>
     {clearOpen ? <div role="group" aria-label="Confirm clearing whiteboard"><p>Clear all strokes? Undo remains available.</p><button type="button" disabled={disabled} onClick={() => { run({ kind: "clear", confirmed: true }); setSelected(undefined); setClearOpen(false); canvasRef.current?.focus(); }}>Confirm clear</button><button type="button" onClick={() => { setClearOpen(false); clearButton.current?.focus(); }}>Cancel clear</button></div> : null}
-    <svg ref={canvasRef} role="img" aria-label="Drawing canvas. Select a stroke to move it with arrow keys or delete it." tabIndex={0} viewBox={`0 0 ${drawing.width} ${drawing.height}`} preserveAspectRatio="none" style={{ display: "block", width: "100%", aspectRatio: `${drawing.width}/${drawing.height}`, background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, touchAction: "none", maxHeight: "60vh" }} onPointerDown={event => {
+    <svg ref={canvasRef} role="img" aria-label="Drawing canvas. Select a stroke to move it with arrow keys or delete it." tabIndex={0} viewBox={`0 0 ${drawing.width} ${drawing.height}`} preserveAspectRatio="none" className="oe-notes-drawing-canvas" style={{ display: "block", width: "100%", aspectRatio: `${drawing.width}/${drawing.height}`, background: "#ffffff", border: "1px solid #e5e9e6", borderRadius: 10, touchAction: "none", maxHeight: "60vh" }} onPointerDown={event => {
       if (disabled || event.button !== 0 || gesture.current) return; event.preventDefault(); event.currentTarget.focus(); const start = point(event), hit = hitNotesDrawingStroke(drawing, start);
       event.currentTarget.setPointerCapture?.(event.pointerId);
       if (tool === "eraser") { const ids = hit ? [hit] : []; gesture.current = { pointer: event.pointerId, base: source, start, eraser: ids }; setErased(ids); }
@@ -176,9 +186,9 @@ export function NotesDrawingWidget({ source, readOnly = false, onChange, onExpor
       else if (active.eraser) { const hit = hitNotesDrawingStroke(drawing, end); if (hit && !active.eraser.includes(hit)) active.eraser.push(hit); if (active.eraser.length) run({ kind: "erase", ids: active.eraser }); }
       else if (active.selected && (end.x !== active.start.x || end.y !== active.start.y)) run({ kind: "move", id: active.selected, dx: end.x - active.start.x, dy: end.y - active.start.y });
     }} onPointerCancel={() => { gesture.current = undefined; setPreview(undefined); setErased([]); }} onLostPointerCapture={() => { gesture.current = undefined; setPreview(undefined); setErased([]); }}>
-      {drawing.strokes.filter(stroke => !erased.includes(stroke.id)).map(stroke => <g key={stroke.id}><StrokeGraphic stroke={stroke} />{stroke.id === selected ? <rect x={bounds(stroke).minX - 4} y={bounds(stroke).minY - 4} width={bounds(stroke).maxX - bounds(stroke).minX + 8} height={bounds(stroke).maxY - bounds(stroke).minY + 8} fill="none" stroke="#1d4ed8" strokeWidth="2" strokeDasharray="5 3" /> : null}</g>)}{preview ? <StrokeGraphic stroke={preview} /> : null}
+      {drawing.strokes.filter(stroke => !erased.includes(stroke.id)).map(stroke => <DrawingStroke key={stroke.id} stroke={stroke} selected={stroke.id === selected} />)}{preview ? <StrokeGraphic stroke={preview} /> : null}
     </svg>
-    <p>Select and drag to move. Arrow keys move a selected stroke; Delete removes it. Pointer cancellation keeps the saved drawing.</p>{error ? <p role="alert">{error}</p> : null}
+    <details className="oe-notes-drawing-help"><summary>Drawing shortcuts</summary><p>Select and drag to move. Arrow keys move a selected stroke; Delete removes it. Pointer cancellation keeps the saved drawing.</p></details>{error ? <p role="alert">{error}</p> : null}
   </section>;
 }
 
@@ -192,7 +202,8 @@ export type NotesSharedBlockHost = {
   beforeSubmit(recovery: NotesResourceRecovery, signal: AbortSignal): Promise<void>;
 };
 export type NotesSharedBlockState = { status: "empty" | "reading" | "ready" | "pending" | "unknown" | "error"; snapshot?: NotesSharedBlockSnapshot; draft: string; dirty: boolean; message: string };
-export type NotesSharedBlockController = { subscribe(listener: () => void): () => void; getState(): NotesSharedBlockState; read(): Promise<void>; setDraft(body: string): void; discardDraft(): void; save(): Promise<NotesResourceOutcome>; reconcile(): Promise<NotesResourceResult>; cancel(): void; getRecovery(): NotesResourceRecovery | undefined; dispose(): void };
+export type NotesSharedEditorContext = { readOnly: boolean; onComposingChange(value: boolean): void; onBlockedChange(value: boolean): void };
+export type NotesSharedBlockController = { /** Optional instance-scoped host renderer; the source document remains owned by the host. */ renderEditor?(context: NotesSharedEditorContext): ReactNode; subscribe(listener: () => void): () => void; getState(): NotesSharedBlockState; read(): Promise<void>; setDraft(body: string): void; discardDraft(): void; save(): Promise<NotesResourceOutcome>; reconcile(): Promise<NotesResourceResult>; cancel(): void; getRecovery(): NotesResourceRecovery | undefined; dispose(): void };
 /** The controller must be kept by the host/preset beyond a widget mount while any recovery ticket exists. */
 export function createNotesSharedBlockController(host: NotesSharedBlockHost, sharedId: string, options: { recovery?: NotesResourceRecovery; timeoutMs?: number; operationId?: () => string } = {}): NotesSharedBlockController {
   if (!identity(sharedId) || !identity(host.scope.workspaceId) || !identity(host.scope.actorId)) throw new Error("Invalid shared block scope");
@@ -230,22 +241,22 @@ export function createNotesSharedBlockController(host: NotesSharedBlockHost, sha
   };
 }
 export function NotesSharedBlockWidget({ controller, readOnly = false }: { controller: NotesSharedBlockController; readOnly?: boolean }): ReactElement {
-  const state = useSyncExternalStore(controller.subscribe, controller.getState, controller.getState), [composing, setComposing] = useState(false), [error, setError] = useState(""), [discardOpen, setDiscardOpen] = useState(false);
+  const state = useSyncExternalStore(controller.subscribe, controller.getState, controller.getState), [composing, setComposing] = useState(false), [error, setError] = useState(""), [discardOpen, setDiscardOpen] = useState(false), [blocked, setBlocked] = useState(false);
   const active = useRef(controller), mounted = useRef(true); active.current = controller;
-  useEffect(() => { mounted.current = true; const current = controller; setError(""); setDiscardOpen(false); if (controller.getState().status === "empty") void controller.read().catch(error => { if (mounted.current && active.current === current) setError(String(error)); }); return () => { mounted.current = false; }; }, [controller]);
+  useEffect(() => { mounted.current = true; const current = controller; setError(""); setDiscardOpen(false); setComposing(false); setBlocked(false); if (controller.getState().status === "empty") void controller.read().catch(error => { if (mounted.current && active.current === current) setError(String(error)); }); return () => { mounted.current = false; }; }, [controller]);
   const invoke = (work: () => Promise<unknown>): void => { const current = controller; setError(""); void work().catch(error => { if (mounted.current && active.current === current) setError(error instanceof Error ? error.message : "Shared content action failed"); }); };
   return <section className="oe-notes-widget oe-notes-shared" contentEditable={false} aria-label="Shared content" onKeyDown={event => { event.stopPropagation(); if (event.key === "Escape" && !event.nativeEvent.isComposing) controller.cancel(); }}><header><strong>Shared content</strong><span>{state.snapshot?.persistence === "remote-committed" ? "Host-backed shared content" : state.snapshot?.persistence === "test-only" ? "Synthetic shared fixture" : "Local only · no remote synchronization"}</span></header>
-    <textarea aria-label="Shared block text" value={state.draft} maxLength={100_000} disabled={readOnly || state.status !== "ready" || !state.snapshot?.writable} onCompositionStart={() => setComposing(true)} onCompositionEnd={() => setComposing(false)} onChange={event => { if (readOnly) return; try { controller.setDraft(event.target.value); } catch (error) { setError(String(error)); } }} />
-    <button type="button" disabled={readOnly || composing || state.status !== "ready" || !state.dirty || !state.snapshot?.writable} onClick={() => { if (!readOnly) invoke(controller.save); }}>Save shared content</button><button type="button" disabled={state.status !== "unknown"} onClick={() => invoke(controller.reconcile)}>Look up save result</button><button type="button" disabled={state.status !== "pending" && state.status !== "reading"} onClick={controller.cancel}>Cancel shared action</button><button type="button" disabled={composing || state.dirty || state.status === "pending" || state.status === "unknown" || state.status === "reading"} onClick={() => invoke(controller.read)}>Read latest shared content</button><button type="button" disabled={composing || state.status !== "ready" || !state.dirty} onClick={() => setDiscardOpen(true)}>Discard shared draft</button>{discardOpen ? <div role="group" aria-label="Confirm discarding shared draft"><p>Discard only this unsaved draft? Saved shared content stays unchanged.</p><button type="button" disabled={composing || state.status !== "ready"} onClick={() => { try { controller.discardDraft(); setDiscardOpen(false); } catch (error) { setError(String(error)); } }}>Confirm discard draft</button><button type="button" onClick={() => setDiscardOpen(false)}>Keep draft</button></div> : null}<p role="status">{state.message}</p>{error ? <p role="alert">{error}</p> : null}</section>;
+    {controller.renderEditor ? controller.renderEditor({readOnly: readOnly || state.status !== "ready" || !state.snapshot?.writable, onComposingChange: setComposing, onBlockedChange: setBlocked}) : <textarea aria-label="Shared block text" value={state.draft} maxLength={100_000} disabled={readOnly || state.status !== "ready" || !state.snapshot?.writable} onCompositionStart={() => setComposing(true)} onCompositionEnd={() => setComposing(false)} onChange={event => { if (readOnly) return; try { controller.setDraft(event.target.value); } catch (error) { setError(String(error)); } }} />}
+    <button type="button" disabled={readOnly || composing || blocked || state.status !== "ready" || !state.dirty || !state.snapshot?.writable} onClick={() => { if (!readOnly) invoke(controller.save); }}>Save shared content</button><button type="button" disabled={state.status !== "unknown"} onClick={() => invoke(controller.reconcile)}>Look up save result</button><button type="button" disabled={state.status !== "pending" && state.status !== "reading"} onClick={controller.cancel}>Cancel shared action</button><button type="button" disabled={composing || blocked || state.dirty || state.status === "pending" || state.status === "unknown" || state.status === "reading"} onClick={() => invoke(controller.read)}>Read latest shared content</button><button type="button" disabled={composing || state.status !== "ready" || !state.dirty} onClick={() => setDiscardOpen(true)}>Discard shared draft</button>{discardOpen ? <div role="group" aria-label="Confirm discarding shared draft"><p>Discard only this unsaved draft? Saved shared content stays unchanged.</p><button type="button" disabled={composing || state.status !== "ready"} onClick={() => { try { controller.discardDraft(); setDiscardOpen(false); } catch (error) { setError(String(error)); } }}>Confirm discard draft</button><button type="button" onClick={() => setDiscardOpen(false)}>Keep draft</button></div> : null}<p role="status">{state.message}</p>{error ? <p role="alert">{error}</p> : null}</section>;
 }
 
 type WidgetEditor = { document: readonly { id: string; props?: Record<string, unknown>; children?: readonly unknown[] }[]; isEditable: boolean; updateBlock(id: string, update: { props: Record<string, string> }): unknown };
 function currentProps(editor: WidgetEditor, id: string): Record<string, unknown> | undefined { const find = (blocks: readonly { id: string; props?: Record<string, unknown>; children?: readonly unknown[] }[]): Record<string, unknown> | undefined => { for (const block of blocks) { if (block.id === id) return block.props; if (block.children) { const nested = find(block.children as typeof blocks); if (nested) return nested; } } return undefined; }; return find(editor.document); }
 export function createNotesDrawingBlockSpec() {
-  return createReactBlockSpec({ type: NOTES_DRAWING_TYPE, propSchema: { title: { default: "Whiteboard" }, payload: { default: createEmptyNotesDrawing() } }, content: "none" }, { render: ({ block, editor }) => <NotesDrawingWidget source={block.props.payload} readOnly={!editor.isEditable} onChange={(source, expected) => { const target = editor as unknown as WidgetEditor; if (!target.isEditable || currentProps(target, block.id)?.payload !== expected) throw new Error("Drawing changed or editing permission was revoked"); target.updateBlock(block.id, { props: { payload: source } }); }} /> })();
+  return createReactBlockSpec({ type: NOTES_DRAWING_TYPE, propSchema: { title: { default: "Whiteboard" }, payload: { default: createEmptyNotesDrawing() } }, content: "none" }, { meta: interactiveBlockMeta, render: ({ block, editor }) => <NotesDrawingWidget source={block.props.payload} readOnly={!editor.isEditable} onChange={(source, expected) => { const target = editor as unknown as WidgetEditor; if (!target.isEditable || currentProps(target, block.id)?.payload !== expected) throw new Error("Drawing changed or editing permission was revoked"); target.updateBlock(block.id, { props: { payload: source } }); }} /> })();
 }
 export function createNotesSyncedBlockSpec(options: { resolveSharedController?(sharedId: string): NotesSharedBlockController | undefined } = {}) {
-  return createReactBlockSpec({ type: NOTES_SYNCED_TYPE, propSchema: { sharedId: { default: "" }, body: { default: "" } }, content: "none" }, { render: ({ block, editor }) => {
+  return createReactBlockSpec({ type: NOTES_SYNCED_TYPE, propSchema: { sharedId: { default: "" }, body: { default: "" } }, content: "none" }, { meta: interactiveBlockMeta, render: ({ block, editor }) => {
     const controller = options.resolveSharedController?.(block.props.sharedId);
     if (controller) return <NotesSharedBlockWidget key={block.props.sharedId} controller={controller} readOnly={!editor.isEditable} />;
     const bounded = block.props.body.length <= 100_000;
@@ -253,7 +264,7 @@ export function createNotesSyncedBlockSpec(options: { resolveSharedController?(s
   } })();
 }
 export function createNotesDocumentWidgetsFeature(options: { resolveSharedController?(sharedId: string): NotesSharedBlockController | undefined } = {}) {
-  return { id: "notes-document-widgets", blockSpecs: { [NOTES_DRAWING_TYPE]: createNotesDrawingBlockSpec(), [NOTES_SYNCED_TYPE]: createNotesSyncedBlockSpec(options) } } as const satisfies OpenEditorPowerFeature;
+  return { id: "notes-document-widgets", blockSpecs: { [NOTES_DRAWING_TYPE]: createNotesDrawingBlockSpec(), [NOTES_SYNCED_TYPE]: createNotesSyncedBlockSpec(options) }, extensions: [createInteractiveWidgetInputExtension()] } as const satisfies OpenEditorPowerFeature;
 }
 
 export type NotesHtmlPreset = { id: string; revision: string; title: string; source: HtmlWidgetSource };

@@ -1,0 +1,47 @@
+{
+  "candidate": "0.3.0-notes.27",
+  "localOnly": true,
+  "published": false,
+  "scope": "Shared #57 one unapplied HTML source boundary",
+  "status": "shared-synthetic-accepted",
+  "paAdoption": "pending",
+  "all59": "partial",
+  "tests": {
+    "vitest": 1421,
+    "node": 142,
+    "total": 1563,
+    "blocknote": 1112,
+    "durableSource": 28,
+    "durableUI": 7
+  },
+  "browser": {
+    "fixture": "dedicated synthetic IndexedDB",
+    "chrome": "154",
+    "finalEvidence": "output/html27/browser-final-source/result.json",
+    "passed": 14,
+    "failed": 0,
+    "physicalIME": false,
+    "PA_API": false
+  },
+  "regression": {
+    "actualTable": 18,
+    "nativeCodeClipboard": 21,
+    "legacyHTMLCard": "see HANDOFF: original pointer failure retained, stable functional rerun"
+  },
+  "hostRequirements": [
+    "optional atomic scoped complete-value CAS source journal",
+    "private body tickets independent",
+    "checked body receipt and exact captured source cleanup",
+    "existing single writers and async leave fences",
+    "PA ordinary/fast Apply and Cancel acceptance"
+  ],
+  "limitations": [
+    "PA adoption pending",
+    "physical IME/Safari/touch unverified",
+    "rapid pointer behavior not established by stabilized clicks",
+    "memory-only losing CAS reader is exportable, not restart-durable",
+    "full #57/all59 partial",
+    "no latency comparison",
+    "no push/install/publish/deploy or actual API/AI calls"
+  ]
+}

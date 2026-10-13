@@ -1,0 +1,45 @@
+{
+  "candidate": "0.3.0-notes.26",
+  "localOnly": true,
+  "published": false,
+  "scope": "Shared original #37 actual table UI and #57 durable unparsed input",
+  "status": "shared-synthetic-accepted",
+  "paAdoption": "pending",
+  "all59": "partial",
+  "tests": {
+    "vitest": 1386,
+    "node": 142,
+    "total": 1528,
+    "blocknote": 1077,
+    "tableSubset": 38
+  },
+  "browser": {
+    "fixture": "dedicated synthetic IndexedDB",
+    "chrome": "154",
+    "finalEvidence": "output/table26/browser-query-final/result.json",
+    "physicalIME": false,
+    "PA_API": false,
+    "passed": 18,
+    "failed": 0
+  },
+  "regression": {
+    "nativeCodeClipboard": 21,
+    "HTMLCardState": 12
+  },
+  "hostRequirements": [
+    "one resource writer",
+    "versioned exact CAS raw journal with scoped list",
+    "validated local rows binding proof",
+    "unchanged existing wire command",
+    "private durable operation ticket",
+    "checked receipt proof",
+    "enclosing leave/layout fences"
+  ],
+  "limitations": [
+    "PA adoption and schema-owner extraction pending",
+    "full all59 remains partial",
+    "no physical IME or Safari acceptance",
+    "no latency comparison with older CPU-throttled measurements",
+    "no push/install/publish/deploy or actual API/AI call"
+  ]
+}

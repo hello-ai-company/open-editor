@@ -1,3 +1,4 @@
+import { useNotesFeedback } from "./NotesFeedback.js";
 import { useEffect, useId, useRef, useState } from "react";
 import { deserializeEditorDocument, isEditorDocument, serializeEditorDocument, type EditorAsset, type EditorDocument, type EditorUploadFile, type ImageSearchResult } from "@hello-ai-company/editor-core";
 import type { NotesPanelSnapshot, NotesScope, NotesTarget, NotesTemplateRecord, NotesWorkspaceController } from "../notes/contracts.js";
@@ -13,7 +14,7 @@ export type NotesContentCodecs = {
 /** Account/workspace/row identities are explicit. Credentials remain inside the host closure.
  * Legacy AssetUploadScope(documentId/blockId) alone cannot safely identify a row or actor.
  */
-export type NotesMediaScope = { scope: NotesScope; target: NotesTarget; blockId: string };
+export type NotesMediaScope = { scope: NotesScope; target: NotesTarget; blockId: string; placement?: "before" | "after" };
 export type NotesScopedMediaHost = {
   upload?(file: EditorUploadFile, scope: NotesMediaScope, signal: AbortSignal): Promise<EditorAsset>;
   listCloud?(scope: NotesMediaScope, query: string, signal: AbortSignal): Promise<readonly EditorAsset[]>;
@@ -35,6 +36,8 @@ export type NotesContentToolsProps = {
   onExport?(filename: string, text: string, mimeType: string): void;
   maxImportBytes?: number;
   className?: string;
+  classic?: boolean;
+  language?: "en" | "ja";
 };
 export function notesSafeAssetUrl(value: string): boolean {
   try { const url = new URL(value); return (url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password; } catch { return false; }
@@ -56,6 +59,7 @@ export function NotesContentTools(props: NotesContentToolsProps) {
 }
 function ContentTools(props: NotesContentToolsProps) {
   const ops = useNotesPanelCommands(props.controller), uid = useId();
+  const feedback = useNotesFeedback();
   const [tool, setTool] = useState<"import" | "export" | "templates" | "media" | null>(null), [format, setFormat] = useState<NotesContentFormat>("json");
   const [source, setSource] = useState(""), [candidate, setCandidate] = useState<EditorDocument | null>(null), [candidateBase, setCandidateBase] = useState(""), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
   const [templateName, setTemplateName] = useState(""), [templateReview, setTemplateReview] = useState<{ template: NotesTemplateRecord; after: EditorDocument; base: string } | null>(null), [deleteTemplate, setDeleteTemplate] = useState<NotesTemplateRecord | null>(null);
@@ -105,7 +109,9 @@ function ContentTools(props: NotesContentToolsProps) {
     const url = URL.createObjectURL(new Blob([text], { type: FORMAT[format].mime })), anchor = document.createElement("a"); anchor.href = url; anchor.download = filename; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
   };
   return <section className={["oe-notes-content-tools", props.className].filter(Boolean).join(" ")} aria-label="文書と素材の操作">
-    <div className="oe-notes-content-actions">{([["import", "読み込む"], ["export", "書き出す"], ["templates", "テンプレート"], ["media", "メディアを追加"]] as const).map(([id, label]) => <button type="button" key={id} disabled={ops.state.status !== "ready" || id === "import" && !editing || id === "media" && (!editing || !props.media || !currentScope())} onClick={event => begin(id, event.currentTarget)}>{label}</button>)}</div>
+    {props.classic ? <><header className="oe-notes-info-section-header"><strong>{props.language === "ja" ? "読み込みと書き出し" : "Import & export"}</strong><small>{props.language === "ja" ? "Markdown / HTML の文書を移動" : "Move content as Markdown or HTML"}</small></header><div className="oe-notes-info-actions">{(["markdown", "html"] as const).map(value => <button type="button" key={value} disabled={ops.state.status !== "ready" || !props.codecs || ops.state.composing} onClick={event => { setFormat(value); begin("export", event.currentTarget); }}>{FORMAT[value].label}</button>)}<button type="button" disabled={!editing} onClick={event => { setFormat(props.codecs ? "markdown" : "json"); begin("import", event.currentTarget); }}>{props.language === "ja" ? "Markdown/HTMLを読み込む" : "Import Markdown/HTML"}</button></div></> : null}
+    {props.classic ? <details className="oe-notes-more-content-tools"><summary aria-label={props.language === "ja" ? "その他の文書ツール" : "More document tools"}>…</summary><div><button type="button" disabled={ops.state.status !== "ready"} onClick={event => begin("templates", event.currentTarget)}>{props.language === "ja" ? "テンプレート" : "Templates"}</button><button type="button" disabled={!editing || !props.media || !currentScope()} onClick={event => begin("media", event.currentTarget)}>{props.language === "ja" ? "メディアを追加" : "Add media"}</button></div></details> : null}
+    <div className="oe-notes-content-actions" hidden={props.classic}>{([["import", "読み込む"], ["export", "書き出す"], ["templates", "テンプレート"], ["media", "メディアを追加"]] as const).map(([id, label]) => <button type="button" key={id} disabled={ops.state.status !== "ready" || id === "import" && !editing || id === "media" && (!editing || !props.media || !currentScope())} onClick={event => begin(id, event.currentTarget)}>{label}</button>)}</div>
     {tool ? <div ref={dialog} className="oe-notes-content-dialog" role="dialog" aria-modal="true" aria-labelledby={`${uid}-title`} tabIndex={-1} onKeyDown={event => { if (event.key === "Escape" && !notesIsComposing(event) && !ops.busy) { event.preventDefault(); close(); } }}>
       <header><h3 id={`${uid}-title`}>{tool === "import" ? "文書を読み込む" : tool === "export" ? "文書を書き出す" : tool === "templates" ? "テンプレート" : "メディアを追加"}</h3><button type="button" disabled={ops.busy} onClick={close}>閉じる</button></header>
       {tool === "import" || tool === "export" ? <label>形式<select aria-label="文書の形式" value={format} disabled={busy} onChange={event => { setFormat(event.target.value as NotesContentFormat); setCandidate(null); setMessage(""); }}>{formats.map(value => <option value={value} key={value}>{FORMAT[value].label}</option>)}</select></label> : null}
@@ -117,11 +123,11 @@ function ContentTools(props: NotesContentToolsProps) {
         const base = identity(props.controller), selectedFormat = format, text = source;
         asyncWork(async signal => { const parsed = props.codecs ? await props.codecs.parse(selectedFormat, text, signal) : deserializeEditorDocument(text); if (!signal.aborted && mounted.current) { if (!isEditorDocument(parsed)) throw new Error("Invalid document"); setCandidate(structuredClone(parsed)); setCandidateBase(base); } });
       }}>内容を確認</button>{candidate ? <div className="oe-notes-content-review"><p>{candidate.blocks.length} ブロックで現在の本文を置き換えます</p><ContentPreview document={candidate} />{identity(props.controller) !== candidateBase ? <p role="status">文書が変更されました。読み込み内容を保持しています。もう一度確認してください</p> : null}<button type="button" disabled={!editing || busy || ops.state.composing || identity(props.controller) !== candidateBase} onClick={() => {
-        if (identity(props.controller) !== candidateBase || !canEditNow()) return; try { props.controller.setDraft(structuredClone(candidate)); setCandidate(null); setMessage("読み込み内容を本文に反映しました。保存はまだ行っていません"); } catch { setMessage("本文を変更できませんでした。読み込み内容を保持しています"); }
+        if (identity(props.controller) !== candidateBase || !canEditNow()) return; try { props.controller.setDraft(structuredClone(candidate)); setCandidate(null); feedback ? feedback.announce("読み込み内容を反映しました。未保存です", "success") : setMessage("読み込み内容を本文に反映しました。保存はまだ行っていません"); } catch { setMessage("本文を変更できませんでした。読み込み内容を保持しています"); }
       }}>確認して本文を置き換える</button><button type="button" onClick={() => setCandidate(null)}>反映をキャンセル</button></div> : null}</> : null}
       {tool === "export" ? <><p>現在の本文を書き出します</p><button type="button" disabled={busy || ops.state.composing} onClick={() => {
         const document = structuredClone(props.controller.getState().draft ?? props.controller.getState().snapshot!.document), selectedFormat = format;
-        asyncWork(async signal => { const text = props.codecs ? await props.codecs.serialize(selectedFormat, document, signal) : serializeEditorDocument(document); if (!signal.aborted && mounted.current) { download(text); setMessage("文書を書き出しました"); } });
+        asyncWork(async signal => { const text = props.codecs ? await props.codecs.serialize(selectedFormat, document, signal) : serializeEditorDocument(document); if (!signal.aborted && mounted.current) { download(text); feedback ? feedback.announce("書き出しファイルを用意しました", "success") : setMessage("文書を書き出しました"); } });
       }}>ファイルを書き出す</button></> : null}
       {tool === "templates" ? <><form onSubmit={event => { event.preventDefault(); if (!templateName.trim() || ops.state.composing || !ops.available("template.save")) return; void ops.execute({ kind: "template.save", templateId: crypto.randomUUID(), title: templateName.trim(), document: structuredClone(ops.state.snapshot!.document) }).then(ok => { if (ok && mounted.current) { setTemplateName(""); refresh(); } }); }}><label>テンプレート名<input aria-label="テンプレート名" value={templateName} disabled={ops.busy} onChange={event => setTemplateName(event.target.value)} {...composition} /></label><button type="submit" disabled={!templateName.trim() || !ops.available("template.save")}>現在の文書をテンプレートに保存</button></form>{props.panels?.templates ? <ul>{props.panels.templates.map(template => <li key={template.id}><strong>{template.title}</strong><button type="button" disabled={busy || !ops.available("template.apply") || !props.prepareTemplateInsertion} onClick={() => {
         const base = identity(props.controller), current = structuredClone(ops.state.snapshot!.document);
@@ -133,7 +139,7 @@ function ContentTools(props: NotesContentToolsProps) {
         <ul>{assets.map((asset, index) => <li key={`${asset.attachmentId ?? asset.url}:${index}`}><button type="button" disabled={busy || !editing || ops.state.composing} onClick={() => { const scope = currentScope(); if (scope) safePick(asset, scope, identity(props.controller), new AbortController().signal); }}>{asset.name}</button></li>)}{images.map(image => <li key={image.id}><button type="button" disabled={busy || !editing || ops.state.composing} onClick={() => { const scope = currentScope(); if (!scope || !props.media?.acceptImage) return; const base = identity(props.controller); asyncWork(async signal => { const asset = await props.media!.acceptImage!(image, scope, signal); safePick(asset, scope, base, signal); }); }}>{image.title}</button></li>)}</ul>{mediaSource === "images" && moreImages ? <button type="button" disabled={busy} onClick={() => performMediaSearch(imagePage + 1)}>次の画像</button> : null}
         {pickedAsset ? <div><p>{pickedAsset.asset.name}</p><p>{pickedAsset.asset.mimeType} {pickedAsset.asset.size ?? ""}</p><p>選択した素材を現在のブロックに追加します</p><label>表示形式<select aria-label="素材の表示形式" value={presentation} disabled={busy || ops.busy} onChange={event => setPresentation(event.target.value as "compact" | "card")}><option value="compact">コンパクト</option><option value="card">カード</option></select></label><button type="button" disabled={busy || !editing || ops.state.composing || identity(props.controller) !== pickedAsset.base || JSON.stringify(currentScope()) !== JSON.stringify(pickedAsset.scope) || !props.onAssetAccepted && !ops.available("media.attach")} onClick={() => {
           if (!canEditNow() || identity(props.controller) !== pickedAsset.base || !currentScope() || JSON.stringify(currentScope()) !== JSON.stringify(pickedAsset.scope)) return;
-          if (props.onAssetAccepted) asyncWork(async signal => { await props.onAssetAccepted!(pickedAsset.asset, pickedAsset.scope, signal, presentation); if (!signal.aborted && mounted.current) { setPickedAsset(null); setMessage("素材を本文に反映しました。保存状態を確認してください"); } });
+          if (props.onAssetAccepted) asyncWork(async signal => { await props.onAssetAccepted!(pickedAsset.asset, pickedAsset.scope, signal, presentation); if (!signal.aborted && mounted.current) { setPickedAsset(null); feedback ? feedback.announce("素材を反映しました。未保存です", "success") : setMessage("素材を本文に反映しました。保存状態を確認してください"); } });
           else void ops.execute({ kind: "media.attach", blockId: pickedAsset.scope.blockId, assetId: pickedAsset.asset.attachmentId!, presentation }).then(ok => { if (ok && mounted.current) { setPickedAsset(null); refresh(); } });
         }}>確認して素材を追加</button><button type="button" disabled={ops.busy} onClick={() => setPickedAsset(null)}>追加をキャンセル</button></div> : null}
       </> : null}

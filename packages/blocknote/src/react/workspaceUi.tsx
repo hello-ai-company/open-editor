@@ -191,6 +191,7 @@ export function WorkspacePagePicker(
   );
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
     const next = applyWorkspacePickerKey(event.key, {
       highlight,
       resultsLength: results.length
@@ -229,6 +230,7 @@ export function WorkspacePagePicker(
       aria-labelledby={headingId}
       tabIndex={-1}
       onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
         if (event.key === "Escape") {
           event.preventDefault();
           pick(null);

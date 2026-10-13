@@ -1,0 +1,102 @@
+{
+  "version": "0.3.0-notes.35",
+  "localOnly": true,
+  "published": false,
+  "baseHead": "2046b1d24bd57caf3212b1fa1ebcbc9785f36e99",
+  "browserCases": 157,
+  "suites": [
+    {
+      "name": "commands-fixed-final",
+      "cases": 16,
+      "allPassed": true,
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui35/output/ui35/commands-fixed-final/result.json",
+      "browser": "154.0.8037.99"
+    },
+    {
+      "name": "browser-fixed-final",
+      "cases": 23,
+      "allPassed": true,
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui35/output/ui35/browser-fixed-final/result.json",
+      "browser": "154.0.8037.99"
+    },
+    {
+      "name": "movement-accepted",
+      "cases": 15,
+      "allPassed": true,
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui35/output/ui35/movement-accepted/result.json",
+      "browser": "154.0.8037.99"
+    },
+    {
+      "name": "resize-complete",
+      "cases": 20,
+      "allPassed": true,
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui35/output/ui35/resize-complete/result.json",
+      "browser": "154.0.8037.99"
+    },
+    {
+      "name": "regression-tools",
+      "cases": 33,
+      "allPassed": true,
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui35/output/ui35/regression-tools/result.json",
+      "browser": "154.0.8037.99"
+    },
+    {
+      "name": "regression-html",
+      "cases": 14,
+      "allPassed": true,
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui35/output/ui35/regression-html/result.json",
+      "browser": "154.0.8037.99"
+    },
+    {
+      "name": "regression-table",
+      "cases": 18,
+      "allPassed": true,
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui35/output/ui35/regression-table/result.json",
+      "browser": "154.0.8037.99"
+    },
+    {
+      "name": "regression-coediting",
+      "cases": 14,
+      "allPassed": true,
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui35/output/ui35/regression-coediting/result.json",
+      "browser": "154.0.8037.99"
+    },
+    {
+      "name": "regression-tabbed",
+      "cases": 4,
+      "allPassed": true,
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui35/output/ui35/regression-tabbed/result.json",
+      "browser": "154.0.8037.99"
+    }
+  ],
+  "tests": {
+    "total": 1615,
+    "blocknote": 1164,
+    "vitest": 1473,
+    "node": 142,
+    "allPassed": true
+  },
+  "preservation": {
+    "files": 1691,
+    "allUnchanged": true
+  },
+  "limitations": [
+    "Host adoption/search/navigation/AI-review and actual canonical DB acceptance are separate gates.",
+    "Physical Japanese IME candidate confirmation, Safari and touch remain unverified; composition events were simulated.",
+    "Synthetic fixture Vite with linked external dependencies denied some KaTeX font assets; font fidelity is not accepted by these browser operation tests. Production example build bundles fonts.",
+    "No matched paint/CPU/paste timing compared with old Chromium 144 figures.",
+    "Actual user URL for database text below the editor remains unidentified."
+  ],
+  "newGuards": [
+    "Live commandsAvailable disables slash/+ during composition, retained input, saving and recovery",
+    "Non-text + does not format another caret block"
+  ],
+  "releaseChecks": {
+    "typecheck": true,
+    "build": true,
+    "exampleBuild": true,
+    "tests": true,
+    "diff": true,
+    "lint": "not defined"
+  }
+}

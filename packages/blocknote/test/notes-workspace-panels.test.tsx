@@ -1,3 +1,4 @@
+import { notesInsertionCommands } from "../src/react/NotesInsertionCommands.js";
 /** @vitest-environment jsdom */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -8,7 +9,7 @@ import type { NotesCommandOutcome, NotesWorkspaceController, NotesWorkspaceState
 import { NotesDocumentSidebar } from "../src/react/NotesDocumentSidebar.js";
 import { NotesInspector } from "../src/react/NotesInspector.js";
 import { NotesRowDetail } from "../src/react/NotesRowDetail.js";
-import { NOTES_INSERT_CATALOG, NOTES_STYLE_CATALOG, notesAvailableCatalog, type NotesEditorBridge } from "../src/react/notesWorkspacePanels.js";
+import { NOTES_INSERT_CATALOG, NOTES_STYLE_CATALOG, notesAvailableCatalog, notesCatalogUnavailable, type NotesEditorBridge } from "../src/react/notesWorkspacePanels.js";
 
 let container: HTMLDivElement, root: Root;
 const global = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -24,12 +25,87 @@ function fixture() {
   const bridge: NotesEditorBridge = { index, installedBlockTypes: ["paragraph", "heading", "checkListItem", "image", "table", "oeColumns", "oeColumn"], supportedInsertActions: ["text", "image", "columns", "whiteboard"], supportedStyleActions: ["heading", "fontMono"], editable: true, focusBlock: vi.fn(), toggleTask: vi.fn(), insert: vi.fn(), format: vi.fn() };
   return { controller, bridge, update };
 }
-function button(text: string): HTMLButtonElement { const match = [...container.querySelectorAll("button")].find(element => element.textContent?.trim() === text); if (!match) throw new Error(`Missing button: ${text}`); return match; }
+function button(text: string): HTMLButtonElement { const match = [...document.body.querySelectorAll("button")].find(element => element.textContent?.trim() === text); if (!match) throw new Error(`Missing button: ${text}`); return match; }
 function click(text: string): void { act(() => button(text).click()); }
 function input(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, value: string): void { act(() => { const prototype = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype : element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event(element instanceof HTMLSelectElement ? "change" : "input", { bubbles: true })); }); }
 const panels = { revision: "panels1", comments: [{ id: "c", blockId: "h", text: "合成コメント", resolved: false, createdAt: "2026-10-07" }], history: [{ id: "v", revision: "v1", name: "合成の版", createdAt: "2026-10-07" }] };
 
 describe("reusable Notes panels", () => {
+  it("distinguishes missing schema from missing authorized actions without enabling either", () => {
+    const equation = NOTES_INSERT_CATALOG.find(item => item.kind === "equation")!;
+    expect(notesCatalogUnavailable(equation, ["equation"], [])).toBe("feature");
+    expect(notesCatalogUnavailable(equation, [], ["mathBlock"])).toBe("binding");
+    expect(notesCatalogUnavailable(equation, ["equation"], ["mathBlock"])).toBeUndefined();
+    const { controller, bridge } = fixture();
+    act(() => root.render(<NotesInspector controller={controller} bridge={bridge} classic language="en" />));
+    const math = container.querySelector<HTMLButtonElement>('[aria-label="TeX equation"]')!;
+    const video = container.querySelector<HTMLButtonElement>('[aria-label="Video"]')!;
+    expect(math.disabled).toBe(true); expect(math.title).toBe("Requires an installed editor feature");
+    bridge.installedBlockTypes = [...bridge.installedBlockTypes, "video"];
+    act(() => root.render(<NotesInspector controller={controller} bridge={bridge} classic language="en" />));
+    expect(container.querySelector<HTMLButtonElement>('[aria-label="Video"]')!.title).toBe("Requires an authorized host binding");
+    act(() => { math.click(); video.click(); }); expect(bridge.insert).not.toHaveBeenCalled();
+  });
+  it("lets a configured external rail control just one labelled panel", () => {
+    const { controller, bridge } = fixture(), change = vi.fn();
+    act(() => root.render(<NotesInspector controller={controller} bridge={bridge} classic language="en" tabs={["insert", "info"]} activePanel="info" hideTabs onPanelChange={change} />));
+    expect(container.querySelector('[role="tablist"]')?.hasAttribute("hidden")).toBe(true);
+    expect(container.querySelector('[role="tabpanel"]')?.getAttribute("aria-label")).toBe("Info");
+    expect(container.querySelector('[data-panel="insert"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Style"]')).toBeNull();
+    act(() => root.render(<NotesInspector controller={controller} bridge={bridge} classic language="en" tabs={["insert", "info"]} activePanel="insert" hideTabs onPanelChange={change} />));
+    expect(container.querySelector('[role="tabpanel"]')?.getAttribute("aria-label")).toBe("Insert");
+    expect(bridge.insert).not.toHaveBeenCalled(); expect(controller.setDraft).not.toHaveBeenCalled();
+  });
+  it("highlights literal search snippets, navigates matches with Enter/Shift-Enter, and clears on leaving search", () => {
+    const { controller, bridge } = fixture();
+    bridge.setSearchQuery = vi.fn(query => ({ count: query ? 4 : 0, capped: false })); bridge.focusSearchMatch = vi.fn(() => true);
+    act(() => root.render(<NotesDocumentSidebar controller={controller} bridge={bridge} initialTab="search" />));
+    const search = container.querySelector<HTMLInputElement>('input[type="search"]')!; input(search, "合成");
+    expect(container.querySelectorAll("mark").length).toBeGreaterThan(0);
+    act(() => search.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+    expect(bridge.focusSearchMatch).toHaveBeenLastCalledWith(0);
+    act(() => search.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", shiftKey: true, bubbles: true })));
+    expect(bridge.focusSearchMatch).toHaveBeenLastCalledWith(3);
+    const calls = vi.mocked(bridge.focusSearchMatch).mock.calls.length;
+    act(() => search.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", isComposing: true, bubbles: true })));
+    expect(vi.mocked(bridge.focusSearchMatch).mock.calls).toHaveLength(calls);
+    click("見出し"); expect(bridge.setSearchQuery).toHaveBeenLastCalledWith("");
+    expect(controller.execute).not.toHaveBeenCalled();
+  });
+  it("retains search and selection during composition even when key events omit isComposing", () => {
+    const { controller, bridge } = fixture(); bridge.setSearchQuery = vi.fn(query => ({ count: query ? 4 : 0, capped: false })); bridge.focusSearchMatch = vi.fn(() => true);
+    act(() => root.render(<NotesDocumentSidebar controller={controller} bridge={bridge} initialTab="search" />));
+    const search = container.querySelector<HTMLInputElement>('input[type="search"]')!; input(search, "合成");
+    act(() => { search.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true })); search.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); search.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); button("次の一致").click(); button("検索をクリア").click(); container.querySelector<HTMLButtonElement>("li button")!.click(); });
+    expect(search.value).toBe("合成"); expect(bridge.focusSearchMatch).not.toHaveBeenCalled(); expect(bridge.focusBlock).not.toHaveBeenCalled();
+    act(() => { search.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true })); search.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); });
+    expect(bridge.focusSearchMatch).toHaveBeenCalledWith(0); expect(controller.execute).not.toHaveBeenCalled();
+  });
+  it("keeps optional custom bridges usable and escapes punctuation in snippets", () => {
+    const { controller, bridge } = fixture(); bridge.index.replaceFromBlocks([{ id: "literal", type: "paragraph", content: "Find [a] and unrelated a" }]);
+    act(() => root.render(<NotesDocumentSidebar controller={controller} bridge={bridge} initialTab="search" />));
+    input(container.querySelector<HTMLInputElement>('input[type="search"]')!, "[a]");
+    expect(container.querySelector("mark")?.textContent).toBe("[a]"); expect(container.textContent).not.toContain("次の一致");
+    act(() => root.render(null)); expect(controller.execute).not.toHaveBeenCalled();
+  });
+  it("shares insert availability and bilingual aliases with slash without authorizing unbound tools", () => {
+    const { bridge } = fixture();
+    const commands = notesInsertionCommands(bridge, "en");
+    expect(commands.map(item => item.kind)).toEqual(notesAvailableCatalog(NOTES_INSERT_CATALOG, bridge.supportedInsertActions, bridge.installedBlockTypes).map(item => item.kind));
+    expect(commands.find(item => item.kind === "columns")?.aliases).toContain("カラム");
+    expect(commands.some(item => item.kind === "collection")).toBe(false);
+    const japanese = notesInsertionCommands(bridge, "ja");
+    expect(japanese.find(item => item.kind === "text")?.label).toBe("テキスト");
+    expect(commands.find(item => item.kind === "text")?.label).toBe("Text");
+  });
+  it("delegates right inspector choices to the common bridge and preserves older bridges", async () => {
+    const { controller, bridge } = fixture();
+    bridge.requestInsert = vi.fn(async () => undefined);
+    act(() => root.render(<NotesInspector controller={controller} bridge={bridge} classic language="en" />));
+    await act(async () => { container.querySelector<HTMLButtonElement>('[aria-label="Text"]')!.click(); });
+    expect(bridge.requestInsert).toHaveBeenCalledTimes(1); expect(bridge.insert).not.toHaveBeenCalled();
+  });
   it("filters all 23 insert and 21 style definitions using actual installed schema and bound actions", () => {
     expect(NOTES_INSERT_CATALOG).toHaveLength(23); expect(NOTES_STYLE_CATALOG).toHaveLength(21);
     expect(notesAvailableCatalog(NOTES_INSERT_CATALOG, ["equation", "columns", "image"], ["math", "oeColumns", "image"]).map(item => item.kind)).toEqual(["image"]);
@@ -73,6 +149,23 @@ describe("reusable Notes panels", () => {
     expect(container.querySelector('[role="alertdialog"]')).toBeNull();
     act(() => update({ snapshot: { ...controller.getState().snapshot!, capabilities: [] } }));
     expect(button("この版を復元").disabled).toBe(true); expect(button("現在の版を保存").disabled).toBe(true);
+  });
+  it("reads an authorized history body as inert text without switching or restoring the writer", () => {
+    const { controller, bridge } = fixture();
+    const history = [{ ...panels.history[0]!, title: "Saved title", document: { schemaVersion: 1 as const, blocks: [{ id: "old", type: "paragraph", content: "<script>untrusted()</script> Saved body" }] } }];
+    act(() => root.render(<NotesDocumentSidebar controller={controller} bridge={bridge} panels={{ ...panels, history }} initialTab="history" />));
+    expect(container.querySelector("details")?.textContent).toContain("Saved body");
+    expect(container.querySelector("script")).toBeNull(); expect(controller.execute).not.toHaveBeenCalled(); expect(controller.open).not.toHaveBeenCalled(); expect(bridge.focusBlock).not.toHaveBeenCalled();
+    click("この版を復元"); expect(container.querySelector('[role="alertdialog"]')).not.toBeNull(); expect(controller.execute).not.toHaveBeenCalled();
+  });
+  it("uses the chosen table size once and cancelling leaves the document unchanged", async () => {
+    const { controller, bridge } = fixture(); bridge.supportedInsertActions = ["tableInsert"];
+    act(() => root.render(<NotesInspector controller={controller} bridge={bridge} />));
+    click("表"); expect(bridge.insert).not.toHaveBeenCalled(); click("キャンセル"); expect(bridge.insert).not.toHaveBeenCalled();
+    click("表"); const size = document.body.querySelector<HTMLButtonElement>('[aria-label="3行 4列の表を挿入"]')!;
+    await act(async () => { size.click(); size.click(); await Promise.resolve(); });
+    expect(bridge.insert).toHaveBeenCalledTimes(1); expect(bridge.insert).toHaveBeenCalledWith("tableInsert", expect.any(AbortSignal), { table: { rows: 3, columns: 4 } });
+    expect(controller.execute).not.toHaveBeenCalled();
   });
   it("retains metadata input when an external revision changes and blocks the stale patch", async () => {
     const { controller, bridge, update } = fixture(); act(() => root.render(<NotesDocumentSidebar controller={controller} bridge={bridge} initialTab="info" />));

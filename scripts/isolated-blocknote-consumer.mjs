@@ -21,7 +21,7 @@ import {
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 const CORE_VERSION = CORE_CANDIDATE_VERSION;
-const BN_VERSION = "0.2.0";
+const BN_VERSION = "0.3.0";
 const CORE_FLOOR = CORE_DEP_RANGE;
 const BN_TGZ_NAME = `hello-ai-company-editor-blocknote-${BN_VERSION}.tgz`;
 const BN_PKG = "@hello-ai-company/editor-blocknote";
@@ -489,7 +489,9 @@ function assertAdaptiveRegistryGate() {
     process.exit(1);
   }
 
-  const dir = mkdtempSync(join(tmpdir(), "oe-bn-consumer-reg-"));
+
+
+const dir = mkdtempSync(join(tmpdir(), "oe-bn-consumer-reg-"));
   try {
     writeFileSync(
       join(dir, "package.json"),
@@ -546,10 +548,48 @@ function assertAdaptiveRegistryGate() {
   }
 }
 
+function smokeAgentChat() {
+  const featureDir = mkdtempSync(join(tmpdir(), 'oe-bn-agent-chat-'));
+  try {
+    run('npm', ['pack', '-w', '@hello-ai-company/editor-ai', '--ignore-scripts', '--pack-destination', featureDir], root);
+    const aiTarball = join(featureDir, 'hello-ai-company-editor-ai-0.3.0.tgz');
+    writeFileSync(join(featureDir, 'package.json'), JSON.stringify({ name:'isolated-agent-chat', private:true, type:'module', dependencies:{
+      [CORE_PKG]:coreDependency, [BN_PKG]:`file:${bnTgz}`,
+      '@hello-ai-company/editor-ai':`file:${aiTarball}`, '@blocknote/core':'0.54.2', '@blocknote/react':'0.54.2', react:'19.1.0', 'react-dom':'19.1.0'
+    }}));
+    const install = npmInstallRelease(featureDir);
+    if (install.status !== 0) throw new Error(`Agent-chat candidate install failed: ${install.stderr}`);
+    writeFileSync(join(featureDir, 'smoke.mjs'), `
+import assert from 'node:assert/strict';
+import { AgentChatProviderBoundary, createAgentChatFeature } from '@hello-ai-company/editor-blocknote/agent-chat';
+import { createAgentChatSession } from '@hello-ai-company/editor-ai';
+assert.equal(typeof AgentChatProviderBoundary, 'function');
+assert.equal(typeof createAgentChatSession, 'function');
+assert.equal(createAgentChatFeature().id, 'agent-chat');
+console.log('isolated agent-chat + candidate AI runtime passed');
+`);
+    run('node', ['smoke.mjs'], featureDir);
+    run('npm', ['install','--no-save','--ignore-scripts','--no-audit','--no-fund','typescript@5.9.2'], featureDir);
+    writeFileSync(join(featureDir,'consume.ts'), `import {createAgentChatFeature, type AgentChatBinding} from '@hello-ai-company/editor-blocknote/agent-chat';
+const feature=createAgentChatFeature();
+export const id:string=feature.id;
+export type Binding=AgentChatBinding;
+`);
+    writeFileSync(join(featureDir,'tsconfig.json'), JSON.stringify({compilerOptions:{target:'ES2022',module:'NodeNext',moduleResolution:'NodeNext',strict:true,noEmit:true,skipLibCheck:true,jsx:'react-jsx'},include:['consume.ts']}));
+    run('npx',['tsc','--noEmit','-p','tsconfig.json'],featureDir);
+    for (const name of [BN_PKG,'@hello-ai-company/editor-ai']) {
+      const installed=JSON.parse(readFileSync(join(featureDir,'node_modules',name,'package.json'),'utf8'));
+      const lock=JSON.parse(readFileSync(join(featureDir,'package-lock.json'),'utf8'));
+      if(installed.version!=='0.3.0' || !lock.packages[`node_modules/${name}`].resolved.endsWith('.tgz')) throw new Error('Agent-chat dependency did not use the 0.3 candidate tarball');
+    }
+  } finally { rmSync(featureDir,{recursive:true,force:true}); }
+}
+
 const dir = mkdtempSync(join(tmpdir(), "oe-bn-consumer-"));
 try {
   assertStaticCoreFloor();
   smokeBasePositive(dir);
+  smokeAgentChat();
   for (const [feature, peer] of [
     ["math", "@blocknote/math-block"],
     ["diagram", "@blocknote/diagram-block"],
@@ -566,7 +606,7 @@ try {
     for (const name of [CORE_PKG, BN_PKG]) {
       const installedPath = join(dir, "node_modules", name);
       const pkg = JSON.parse(readFileSync(join(installedPath, "package.json"), "utf8"));
-      if (pkg.version !== "0.2.0") throw new Error("Candidate version mismatch");
+      if (pkg.version !== (name === BN_PKG ? BN_VERSION : CORE_VERSION)) throw new Error("Candidate version mismatch");
       const lock = JSON.parse(readFileSync(join(dir, "package-lock.json"), "utf8"));
       if (!lock.packages?.[`node_modules/${name}`]?.resolved?.endsWith(".tgz")) throw new Error("Candidate was not installed from a tarball");
     }

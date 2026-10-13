@@ -1,6 +1,10 @@
 # @hello-ai-company/editor-blocknote
 
-## 0.2.0
+## 0.3.0 — unpublished candidate
+
+This source prepares a new minor release; npm 0.2.0 remains the immutable published line. Use reviewed candidate tarballs for new APIs until a separately approved publication. Core stays 0.2.0. See the [0.3 migration boundary](https://github.com/hello-ai-company/open-editor/blob/main/docs/migration-0.3.md).
+
+## Published 0.2.0 baseline
 
 Requires `editor-core ^0.2.0`; BlockNote peers
 remain `^0.54.2`, with math/diagram/code optional. Adds optional persistent database
@@ -13,6 +17,8 @@ See the [migration guide](https://github.com/hello-ai-company/open-editor/blob/m
 OpenEditor BlockNote power layer on **BlockNote `^0.54.2`** (MPL-2.0).
 
 ## Install
+
+These registry commands install the published line. The new opt-in `./agent-chat` entry requires both reviewed BlockNote 0.3.0 and AI 0.3.0 candidate tarballs; ordinary consumers can omit AI.
 
 ```bash
 npm install @hello-ai-company/editor-blocknote @hello-ai-company/editor-core
@@ -55,6 +61,31 @@ const power = createOpenEditorPowerPreset({
 | `./diagram` | Optional Mermaid diagram feature |
 | `./code` | Optional Shiki syntax highlighting |
 | `./power.css` | OpenEditor-owned UI styles |
+
+## Legacy numbered lists and callouts
+
+The legacy Notes codec maps `numbered_list.listStart` to native
+`numberedListItem.props.start`, and `callout.calloutVariant` / `calloutTitle`
+to native `callout.props.variant` / `title`. Starts must be integers from
+1 through 999999999. Callout variants are `info`, `warning`, `success`, and
+`danger`; titles are strings of at most 500 UTF-16 code units. Invalid values
+are rejected during both import and export, including new-block creation.
+
+An absent numbered start remains absent, preserving native list continuation.
+An absent callout variant/title has native `info`/empty semantics; a native
+no-op save does not add these fields. Equivalent native text-run coalescing,
+empty text runs, and false built-in boolean styles retain the exact original
+inline source and raw text fallback. Unknown host fields stay in the archive,
+and edits merge current metadata while rejecting changed source/provenance.
+
+Native numbering uses the start only at the beginning of a contiguous list.
+A later sibling can retain `start: 7` in its data yet display its predecessor's
+number plus one. Hosts proposing exact literal-number conversions must account
+for neighboring numbered blocks and other proposals in the same batch. The
+codec alone does not authorize such conversions, type changes, or list splitting.
+
+Divider still has native `content: "none"`; its original text is archived but
+not displayed. It is not a source-retaining text-conversion target.
 
 ## Host-owned saved database views
 
@@ -113,7 +144,7 @@ Use `createBlockChangeBridge` / `useOpenEditorBlockChanges` and `createDocumentI
 
 ## Publication
 
-Metadata targets public npmjs (`publishConfig.access: public`). Versions `0.1.0` and `0.1.1` are already published and immutable. Publishing `0.2.0` requires a reviewed main commit and an owner-triggered release; this repository does **not** auto-publish on merge.
+Metadata targets public npmjs (`publishConfig.access: public`). Versions `0.1.0` and `0.1.1` are already published and immutable. Versions `0.2.0` are also published and immutable. Publishing new `0.3.0` requires a reviewed main commit and an owner-triggered release; this repository does **not** auto-publish on merge.
 
 ## Notes workspace integration candidate
 
@@ -135,3 +166,37 @@ recovery and idempotent receipts. Unbound mutations must remain unavailable.
 Local form drafts survive component unmount within their controller lifetime;
 restart durability requires explicit host storage. Read the candidate's host
 contract and feature acceptance matrix before replacing an application workspace.
+
+
+### Optional host inline-link restrictions
+
+A Notes host can opt into its durable link codec through `NotesInsertionHost`:
+`isValidLink(href)` adds a live URL restriction, `linkBlockTypes` lists native
+block types that can persist inline links, and `allowLinkHardBreaks: false`
+rejects hard line breaks anywhere in a linked block. Omission preserves SDK
+behavior. Install restrictions when mounting the writer; introducing them into
+an existing unrestricted writer requires a fresh writer instance.
+
+The URL predicate is checked by the picker, native paste/autolink and native
+create/edit forms, with live actor/workspace validation. A URL-restricted picker
+uses explicit URLs rather than inferring permission for internal page references.
+Selected literal link labels retain whitespace and existing marks. Restricted
+native block/hardbreak transactions are rejected atomically, leaving the previous
+draft unchanged; unsupported source content is never silently stripped. Links
+use the existing body draft/save path and native local Undo, independently from
+persisted history restore.
+
+## Optional reviewed employee chat
+
+The `/agent-chat` candidate entry adds an opt-in private chat marker and host
+boundary. `getEmployeeContext` adds complete canonical employee instructions and
+explicit approved-memory selection. `applyDocument` adds selected rich block
+review, before/after proposal comparison and explicit guarded draft acceptance.
+`renderActions(agentId, blockId)` mounts a separate host-governed action surface;
+it is never dispatched by model output. All three additions are optional. Readonly
+and public exports remain inert. See [the host contract](../../docs/embedded-agent-chat.md).
+
+An optional read-only `provider.recover` enables a separate prior-response recovery
+button for interrupted approved sends, including after reload. Recovery never
+generates again or applies document changes. Cancellation, original-source checks,
+current employee/memory checks and atomic private-history revision guards apply.

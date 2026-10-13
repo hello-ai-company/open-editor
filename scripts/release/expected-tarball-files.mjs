@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 function sourceFiles(directory) {
@@ -19,7 +19,12 @@ export function expectedTarballFiles(packageDirectory, { css = false } = {}) {
       expected.add(`package/dist/${stem}${suffix}`);
     }
   }
-  if (css) expected.add("package/dist/power.css");
+  if (css) {
+    expected.add("package/dist/power.css");
+    if (existsSync(join(packageDirectory, "src/react/notesLucideIcons.ts"))) {
+      expected.add("package/dist/react/NOTES-ICON-LICENSE.txt");
+    }
+  }
   return expected;
 }
 

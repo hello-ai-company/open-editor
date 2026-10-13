@@ -1,0 +1,18 @@
+{
+  "candidate": "0.3.0-notes.24",
+  "base": "508cd2bc4eb14a8559e6f1eff728ee75a4d18f5c",
+  "status": "scoped-sdk-pass-awaiting-host-owner-adoption",
+  "checks": 1484,
+  "typecheck": true,
+  "build": true,
+  "exampleBuild": true,
+  "lint": "not configured",
+  "clipboardBrowserCases": 21,
+  "hostAdopted": false,
+  "realAI": false,
+  "paidCalls": 0,
+  "originalStoreTestWrites": 0,
+  "wholeAppSmoothCertified": false,
+  "deferredDB37Head": "e11adab77f48abd303e0906973ba088bf2b754c0",
+  "unverified": ["PA .24 combined adoption/restart", "Safari/Firefox", "physical IME/touch", "cut/cross-block/readonly/Shadow DOM clipboard paths", "unsupported-widget host persistence"]
+}

@@ -25,6 +25,16 @@ const DEFAULT_KNOWN = [
 ];
 
 describe("adapter round-trip", () => {
+  it("preserves automatic and explicit table column widths through JSON save and reload", () => {
+    const block = { id: "table", type: "table", content: { type: "tableContent", columnWidths: [undefined, 180, undefined], headerRows: undefined, rows: [{ cells: [[], [], []] }] } };
+    const saved = JSON.parse(serializeEditorDocument(fromBlockNote([block])));
+    expect(saved.blocks[0].content.columnWidths).toEqual([null, 180, null]);
+    const reloaded = toBlockNote(saved, { knownBlockTypes: DEFAULT_KNOWN });
+    expect((reloaded[0]!.content as { columnWidths: unknown[] }).columnWidths).toEqual([undefined, 180, undefined]);
+    expect(fromBlockNote(reloaded)).toEqual(saved);
+    expect(block.content.columnWidths).toEqual([undefined, 180, undefined]);
+    expect(() => fromBlockNote([{ id: "unknown", type: "custom", content: [undefined, "keep"] }])).toThrow("Block content must be JsonValue");
+  });
   it("round-trips default-like blocks through EditorDocument", () => {
     const bn = [
       {

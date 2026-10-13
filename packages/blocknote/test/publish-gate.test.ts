@@ -4,12 +4,12 @@ import rootPackageJsonSource from "../../../package.json?raw";
 
 const AUTHORIZED_NAME = "@hello-ai-company/editor-blocknote";
 const AUTHORIZED_REGISTRY = "https://registry.npmjs.org";
-const AUTHORIZED_VERSION = "0.2.0";
+const AUTHORIZED_VERSION = "0.3.0";
 const AUTHORIZED_LICENSE = "MIT";
 const AUTHORIZED_ACCESS = "public";
 const AUTHORIZED_CORE_DEP = "@hello-ai-company/editor-core";
 const AUTHORIZED_PEER_CORE = "^0.54.2";
-const FORBIDDEN_VERSIONS = ["0.0.0-private", "latest", "1.0.0"] as const;
+const FORBIDDEN_VERSIONS = ["0.2.0", "0.0.0-private", "latest", "1.0.0"] as const;
 const FORBIDDEN_REGISTRIES = ["https://npm.pkg.github.com"] as const;
 
 const pkg = JSON.parse(packageJsonSource) as {
@@ -38,7 +38,7 @@ describe("public npmjs publish gate — editor-blocknote", () => {
     }
   });
 
-  it("fails unless version is the authorized R2 candidate 0.2.0", () => {
+  it("fails unless version is the authorized R2 candidate 0.3.0", () => {
     expect(pkg.name).toBe(AUTHORIZED_NAME);
     expect(pkg.version).toBe(AUTHORIZED_VERSION);
     for (const version of FORBIDDEN_VERSIONS) {

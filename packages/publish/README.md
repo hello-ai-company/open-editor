@@ -1,6 +1,12 @@
 # `@hello-ai-company/editor-publish`
 
-## 0.2.0
+## 0.3.0 — unpublished candidate
+
+This source prepares a new minor release; npm 0.2.0 remains the immutable published line. Use reviewed candidate tarballs for new APIs until a separately approved publication. Core stays 0.2.0. See the [0.3 migration boundary](https://github.com/hello-ai-company/open-editor/blob/main/docs/migration-0.3.md).
+
+The 0.3 candidate requires `editor-canvas ^0.3.0` and `editor-core ^0.2.0`.
+
+## Published 0.2.0 baseline
 
 Requires `editor-core ^0.2.0` and
 `editor-canvas ^0.2.0`. Hidden Canvas content is excluded from derived Site/Present

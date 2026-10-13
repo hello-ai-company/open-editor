@@ -1,0 +1,64 @@
+/* Shared portal surfaces inherit the owner palette through NotesOverlayPortal. */
+.oe-notes-icon-picker-dialog{position:absolute;inset:clamp(12px,8vh,70px) auto auto 50%;transform:translateX(-50%);width:min(400px,calc(100% - 24px));max-height:calc(100% - 24px);display:flex;flex-direction:column;gap:12px;padding:18px;box-sizing:border-box;border:1px solid var(--note-line,#ddd);border-radius:16px;background:var(--note-canvas,#fff);color:var(--note-text,#24332b);box-shadow:0 18px 60px #0003;pointer-events:auto}
+.oe-notes-icon-picker-dialog header,.oe-notes-icon-picker-dialog footer{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.oe-notes-icon-picker-dialog button,.oe-notes-icon-picker-dialog input,.oe-notes-icon-picker-dialog select{font:inherit;color:inherit;background:transparent;border:1px solid var(--note-line,#ddd);border-radius:8px;min-height:40px;padding:6px 10px}
+.oe-notes-icon-picker-dialog input{min-width:0;width:100%;box-sizing:border-box}
+.oe-notes-icon-picker-dialog header button{font-size:22px;min-width:40px}
+.oe-notes-icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px;overflow:auto;max-height:300px;padding:3px}
+.oe-notes-icon-grid button{display:grid;place-items:center;padding:8px;min-height:44px;border-color:transparent}
+.oe-notes-icon-grid button:hover,.oe-notes-icon-grid button[aria-pressed=true]{background:color-mix(in srgb,currentColor 8%,transparent);border-color:var(--note-line,#ddd)}
+.oe-notes-icon-picker-dialog :focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.oe-notes-classic .oe-notes-title-icon{display:grid;place-items:center}
+.oe-notes-icon-text{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.oe-notes-page-media{position:relative}
+.oe-notes-page-icon-badge{position:absolute;right:-4px;bottom:-4px;display:grid;place-items:center;width:26px;height:26px;border:1px solid var(--note-line,#ddd);border-radius:7px;background:var(--note-canvas,#fff);color:var(--note-text,#24332b);box-shadow:0 2px 5px #0001;font-size:16px}
+.oe-notes-classic .oe-notes-mode-toolbar .oe-notes-icon-mode{position:relative;display:grid;place-items:center;width:44px;min-height:44px;padding:10px}
+.oe-notes-classic .oe-notes-icon-mode>span{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);opacity:0;visibility:hidden;pointer-events:none;white-space:nowrap;font-size:11px;font-weight:500;background:var(--note-canvas);color:var(--note-text);border:1px solid var(--note-line);border-radius:6px;padding:4px 7px;z-index:20}
+.oe-notes-classic .oe-notes-icon-mode:hover>span,.oe-notes-classic .oe-notes-icon-mode:focus-visible>span{visibility:visible;opacity:1}
+.oe-notes-classic .oe-notes-mode-toolbar .oe-notes-create-button{display:flex;align-items:center;gap:8px;font-size:12px}
+.oe-notes-create-icon{position:relative;display:inline-flex}
+.oe-notes-create-icon sup{position:absolute;right:-4px;bottom:-5px;background:var(--note-canvas);font-size:12px;line-height:12px;border-radius:4px}
+.oe-notes-blocknote-document{position:relative}
+.oe-notes-drop-indicator{position:absolute;left:38px;right:18px;height:3px;background:var(--oe-notes-accent,#207e69);z-index:15;border-radius:3px;pointer-events:none}
+.oe-notes-drop-indicator:before{content:"";position:absolute;left:-3px;top:-2px;width:7px;height:7px;border-radius:50%;background:inherit}
+.oe-notes-drop-status{font-size:11px;color:var(--note-text,#24332b)}
+.oe-notes-classic .oe-notes-tool-item .oe-notes-tool-hover{pointer-events:auto;max-height:calc(100vh - 24px);overflow:auto}
+.oe-notes-tool-example{height:116px;display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;background:#f7f7f4;color:#24332b;border:1px solid #e5e7e0;border-radius:8px;overflow:hidden;text-align:left}
+.oe-notes-tool-example pre{font:11px/1.7 monospace;white-space:pre-wrap;color:#28574c;margin:0}
+.oe-notes-example-table{display:grid;grid-template-columns:1fr 1fr;width:100%;border-left:1px solid #d9dfd7;border-top:1px solid #d9dfd7;font-size:10px}
+.oe-notes-example-table span{padding:6px;border-right:1px solid #d9dfd7;border-bottom:1px solid #d9dfd7}
+.oe-notes-example-table span:nth-child(-n+2){font-weight:650;background:#e8eee6}
+.oe-notes-example-columns{display:flex;gap:8px;width:100%;align-items:stretch;font-size:9px}
+.oe-notes-example-columns>div{flex:1;padding:7px;border:1px solid #d9dfd7;background:white;border-radius:5px}
+.oe-notes-example-columns i,.oe-notes-example-text i,.oe-notes-example-lines i{display:block;background:#d9dfd7;height:5px;border-radius:3px;margin:8px 0;width:90%}
+.oe-notes-example-equation{font:italic 28px Georgia,serif}
+.oe-notes-example-diagram{display:flex;align-items:center;gap:10px;font-size:11px}
+.oe-notes-example-diagram span{padding:12px;border:1px solid #a8b9aa;border-radius:8px;background:#e9f0e5}
+.oe-notes-example-image{position:relative;width:100%;height:80px;background:#e2ede6;border-radius:5px;overflow:hidden}
+.oe-notes-example-image svg{width:100%;height:100%;fill:#87ac96}
+.oe-notes-example-image b{position:absolute;inset:28px auto auto 45%;color:white}
+.oe-notes-example-audio{display:flex;align-items:center;gap:4px}
+.oe-notes-example-audio i{width:4px;background:#769b88;border-radius:3px}
+.oe-notes-example-audio small{font-size:9px;margin-left:6px}
+.oe-notes-example-card{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #d9dfd7;background:white;border-radius:7px;font-size:12px}
+.oe-notes-example-card b{font-size:11px;padding:6px;background:#e9f0e5;border-radius:5px}
+.oe-notes-example-card small{display:block;font-size:9px;color:#63756a;margin-top:5px}
+.oe-notes-example-lines,.oe-notes-example-text{width:100%}
+.oe-notes-example-lines hr{border:0;border-top:1px solid #a8b9aa;margin:16px 0}
+.oe-notes-example-list{display:grid;gap:8px;font-size:11px}
+.oe-notes-example-text strong{font-size:16px}.oe-notes-example-text p{font-size:10px;margin:10px 0}
+.oe-notes-example-text[data-kind=quote]{padding-left:12px;border-left:3px solid #a8b9aa;font-style:italic}
+.oe-notes-example-text[data-kind=callout]{background:#e8eee6;padding:10px;border-radius:5px}
+.oe-notes-example-text[data-kind=fontSerif]{font-family:Georgia,serif}.oe-notes-example-text[data-kind=fontMono]{font-family:monospace}
+@media(pointer:coarse),(max-width:720px){.oe-notes-classic .oe-notes-mode-toolbar .oe-notes-icon-mode{width:auto;display:flex;gap:5px;font-size:11px;padding:8px}.oe-notes-classic .oe-notes-icon-mode>span{position:static;z-index:auto;transform:none;opacity:1;visibility:visible;border:0;padding:0;background:transparent;font-size:11px}.oe-notes-classic .oe-notes-mode-toolbar .oe-notes-create-button{font-size:11px}}
+/* Keep all four named modes in one row on narrow screens. */
+@media(max-width:720px){.oe-notes-classic .oe-notes-mode-toolbar>[role=tablist]{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;gap:4px}.oe-notes-classic .oe-notes-mode-toolbar .oe-notes-icon-mode{width:100%;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:2px;min-height:44px;padding:3px 2px}.oe-notes-classic .oe-notes-icon-mode>span{font-size:10px;line-height:14px}}
+
+/* Portals sit outside the themed workspace; use the copied owner palette. */
+.oe-notes-overlay-layer button{background:var(--note-canvas,#fffcf7);border-color:var(--note-line,#ded8cd)}
+.oe-notes-overlay-layer>.oe-notes-icon-picker-dialog{top:12px;max-height:calc(100% - 24px)}
+@media(pointer:coarse){
+  .oe-notes-overlay-layer button,.oe-notes-unified-selection button{min-height:44px;min-width:44px}
+  .oe-notes-overlay-layer>.oe-notes-table-picker{width:min(288px,calc(100% - 24px))}
+  .oe-notes-overlay-layer .oe-notes-table-grid button{min-height:44px;min-width:0}
+}

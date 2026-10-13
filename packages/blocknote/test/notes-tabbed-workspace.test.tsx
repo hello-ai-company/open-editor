@@ -6,6 +6,7 @@ import { createEditorDocument } from "@hello-ai-company/editor-core";
 import type { NotesCommandResult, NotesDocumentSnapshot, NotesTarget, NotesWorkspaceHost } from "../src/notes/contracts.js";
 import { closeNotesTab, notesLayoutStorageKey, notesTargetKey, openNotesTab, splitNotesTab, type NotesLayoutStorage } from "../src/notes/layoutState.js";
 import { createNotesTabbedWorkspaceSession, NotesTabbedWorkspace } from "../src/react/NotesTabbedWorkspace.js";
+import { createNotesCanvasController } from "../src/react/NotesWorkspaceModes.js";
 
 // Keep renderer tests separate: here we exercise the actual public ownership/orchestration shell.
 vi.mock("../src/react/NotesWorkspace.js", async () => {
@@ -38,6 +39,44 @@ function fixture() {
 }
 
 describe("reusable Notes tab/pane owner", () => {
+  it("keeps invalid-layout recovery visible without a document owner, including the default presentation", async () => {
+    const f = fixture(), raw = '{"invalid":"keep original"}', key = notesLayoutStorageKey(scope);
+    f.values.set(key, raw);
+    const container = document.createElement("div"), root = createRoot(container); document.body.append(container);
+    const flag = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }; flag.IS_REACT_ACT_ENVIRONMENT = true;
+    try {
+      await act(async () => root.render(<NotesTabbedWorkspace host={f.host} layoutStorage={f.storage} />));
+      expect(container.querySelector('.oe-notes-layout-feedback[role="alert"]')).not.toBeNull();
+      expect(document.querySelector('.oe-notes-floating-surface')).toBeNull();
+      const repair = container.querySelector<HTMLButtonElement>('.oe-notes-layout-feedback button')!;
+      expect(repair.textContent).toBe("元の表示データを保持して修復"); expect(f.values.get(key)).toBe(raw); expect(f.commit).not.toHaveBeenCalled();
+      await act(async () => repair.click()); expect(JSON.parse(f.values.get(key)!).legacyOriginal).toBe(raw); expect(container.querySelector('.oe-notes-layout-feedback')).toBeNull();
+    } finally { await act(async () => root.unmount()); container.remove(); flag.IS_REACT_ACT_ENVIRONMENT = false; }
+  });
+  it("reselects the active resource without saving, persisting, or clearing dirty IME input", async () => {
+    const f = fixture(), session = createNotesTabbedWorkspaceSession({ host: f.host, initialTarget: page("a"), layoutStorage: f.storage });
+    await session.initialize(); const writer = session.getPreset(page("a")).controller;
+    writer.setDraft(doc("human input")); writer.setComposing(true);
+    const layout = session.getState().layout, input = writer.getState(), writes = f.writes.mock.calls.length;
+    for (let i = 0; i < 6; i++) expect(await session.open(page("a"))).toBe(true);
+    expect(session.getState().layout).toBe(layout); expect(writer.getState()).toBe(input);
+    expect(f.writes).toHaveBeenCalledTimes(writes); expect(f.commit).not.toHaveBeenCalled();
+    expect(await session.open(page("b"))).toBe(false);
+    expect(writer.getState()).toMatchObject({ dirty: true, composing: true }); session.dispose();
+  });
+  it("allows a host to decline Canvas for rows while retaining page Canvas and one factory decision per target", async () => {
+    const f = fixture(), row: NotesTarget = { kind: "row", databaseId: "db1", rowId: "r" };
+    const createCanvasController = vi.fn(({ target }: { target: NotesTarget }) => target.kind === "row" ? undefined : createNotesCanvasController({ scope, target, documentRevision: "c1", validate: () => [] }));
+    const session = createNotesTabbedWorkspaceSession({ host: f.host, initialTarget: row, createCanvasController }); await session.initialize();
+    expect(session.getCanvasController(row)).toBeUndefined(); expect(session.getCanvasController(row)).toBeUndefined(); expect(createCanvasController).toHaveBeenCalledTimes(1);
+    expect(await session.open(page("a"))).toBe(true); const pageCanvas = session.getCanvasController(page("a")); expect(pageCanvas).toBeDefined(); expect(session.getCanvasController(page("a"))).toBe(pageCanvas); expect(createCanvasController).toHaveBeenCalledTimes(2);
+    const dispose = vi.spyOn(pageCanvas!, "dispose"); session.dispose(); expect(dispose).toHaveBeenCalledTimes(1);
+  });
+  it("keeps row raw input guarded even when Canvas is explicitly unavailable", async () => {
+    const f = fixture(), row: NotesTarget = { kind: "row", databaseId: "db1", rowId: "r" }, createCanvasController = vi.fn(() => undefined);
+    const session = createNotesTabbedWorkspaceSession({ host: f.host, initialTarget: row, createCanvasController }); await session.initialize();
+    session.getPreset(row).controller.setLocalDraft("pending-row-field", "Keep"); expect(await session.open(page("a"))).toBe(false); expect(session.getState().layout.tabs).toHaveLength(1); expect(f.commit).not.toHaveBeenCalled(); session.dispose();
+  });
   it("keeps one fixed controller per scoped target and saves draft before opening another tab", async () => {
     const f = fixture(), session = createNotesTabbedWorkspaceSession({ host: f.host, initialTarget: page("a") }); await session.initialize();
     const a = session.getPreset(page("a")), b = session.getPreset(page("b")); expect(a).not.toBe(b); expect(session.getPreset(page("a"))).toBe(a);

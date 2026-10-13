@@ -26,3 +26,18 @@ if (importCount === 0 || /@import\s/.test(css)) {
 
 mkdirSync(dirname(dest), { recursive: true });
 writeFileSync(dest, css);
+
+// tsc removes source comments. Preserve the upstream SVG license in emitted code
+// so downstream bundlers can retain its @license notice without a runtime dependency.
+const iconsSource = readFileSync(join(srcRoot, "react/notesLucideIcons.ts"), "utf8");
+const iconLicense = iconsSource.match(/^\/\*\* @license[\s\S]*?\*\/\n/)?.[0];
+if (!iconLicense?.includes("Lucide Contributors") || !iconLicense.includes("Permission to use")) throw new Error("Missing Lucide license notice");
+const iconsOutput = join(root, "packages/blocknote/dist/react/notesLucideIcons.js");
+writeFileSync(join(dirname(iconsOutput), "NOTES-ICON-LICENSE.txt"), iconLicense);
+const emittedIcons = readFileSync(iconsOutput, "utf8");
+if (!emittedIcons.startsWith(iconLicense)) {
+  writeFileSync(iconsOutput, iconLicense + emittedIcons);
+  const sourceMapPath = iconsOutput + ".map", sourceMap = JSON.parse(readFileSync(sourceMapPath, "utf8"));
+  sourceMap.mappings = ";".repeat(iconLicense.split("\n").length - 1) + sourceMap.mappings;
+  writeFileSync(sourceMapPath, JSON.stringify(sourceMap));
+}

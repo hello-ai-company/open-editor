@@ -1,0 +1,33 @@
+{
+  "candidate": "0.3.0-notes.22",
+  "status": "scoped-sdk-pass-awaiting-host-owner-adoption",
+  "base": "9306d2b4203ab0b67aa83617c1dff8bdf8f72eff",
+  "checks": 1472,
+  "typecheck": true,
+  "build": true,
+  "exampleBuild": true,
+  "fixtureTypecheck": true,
+  "lint": "not configured",
+  "hostAdopted": false,
+  "realAI": false,
+  "paidCalls": 0,
+  "originalStoreTestWrites": 0,
+  "wholeAppSmoothCertified": false,
+  "preservation": {
+    "pausedCRUD": 10,
+    "priorArtifacts": 302,
+    "frozen20": 706,
+    "frozen21": 811
+  },
+  "deferredDB37Head": "e11adab77f48abd303e0906973ba088bf2b754c0",
+  "unverified": [
+    "PA .22 host acceptance",
+    "native outer-handle and column-content drag (headless diagnostic timeout)",
+    "physical touch/Safari/actual IME",
+    "authorized media/Unsplash/live shared resources",
+    "all database visual paths and deferred DB37 writer",
+    "long sessions and whole-app performance"
+  ],
+  "browserGroups": 13,
+  "nativeDragCertified": false
+}

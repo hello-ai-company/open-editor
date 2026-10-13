@@ -5,6 +5,12 @@
  * 4F-4A: Board + Calendar renderers via shared shell + renderer dispatch.
  * 4F-4B: List + Gallery renderers (read-only presentation).
  */
+import { NotesIcon } from "../react/notesPresentation.js";
+import { NotesFeedbackControl } from "../react/NotesFeedback.js";
+import { interactiveBlockMeta } from "../document/widgetInteraction.js";
+import { NotesRevisionedTable } from "./notesTableView.js";
+import { useEditorLocalDraft } from "../document/draftLifecycle.js";
+import { readDatabaseInputDraft, type DatabaseFilterDraft } from "./databaseViewDraft.js";
 import { createReactBlockSpec } from "@blocknote/react";
 import type {
   DatabaseFilter,
@@ -73,7 +79,9 @@ import {
   persistDatabaseViewConfigIfAuthoritative,
   registerDatabaseViewConfig,
   type DatabaseViewConfigHydrationState,
+  type DatabaseViewConfigHydration,
   type DatabaseViewConfigIdentity,
+  type DatabaseViewConfigWriteVersion,
   type DatabaseViewConfig
 } from "./databaseViewConfig.js";
 import {
@@ -132,12 +140,7 @@ function emptyMessage(snap: DatabaseViewSnapshot): string {
   }
 }
 
-type FilterDraft = {
-  id: string;
-  propertyId: string;
-  operator: string;
-  value: string;
-};
+type FilterDraft = DatabaseFilterDraft;
 
 type DatabaseViewBlock = {
   id?: string;
@@ -604,7 +607,7 @@ function cellDisplayText(
   if (def.type === "select" || def.type === "status") {
     return formatSelectDisplay(value, def.options);
   }
-  return formatDatabaseCellDisplay(value, def.type);
+  return formatDatabaseCellDisplay(value, def.type === "unknown" && def.rawType === "location" ? "location" : def.type);
 }
 
 function defaultOperatorForType(type: DatabasePropertyType): string {
@@ -649,7 +652,15 @@ function DatabaseTableView(props: {
   );
 }
 
-function StoreBackedDatabaseView(props: {
+/** Internal store surface, exported from this module for lifecycle regressions. */
+export function StoreBackedDatabaseView(props: Parameters<typeof StoreBackedDatabaseViewContent>[0]): ReactElement {
+  const { block } = props;
+  const viewKey = databaseViewInstanceKey(block.id ?? "", block.props.databaseId, block.props.viewId);
+  const lifecycle = useEditorLocalDraft(block.id ?? viewKey, "database-view-preferences:" + block.props.viewId);
+  return <StoreBackedDatabaseViewContent key={JSON.stringify([lifecycle.identity, block.props.databaseId, block.props.viewId, block.props.viewType])} {...props} />;
+}
+
+function StoreBackedDatabaseViewContent(props: {
   runtime: DatabaseViewRuntime;
   block: DatabaseViewBlock;
   onViewChange?: (selection: DatabaseViewPick) => void;
@@ -683,51 +694,102 @@ function StoreBackedDatabaseView(props: {
     warning: null
   }));
   const [saveError, setSaveError] = useState<string | null>(null);
+  const preferences = useEditorLocalDraft(block.id ?? viewKey, "database-view-preferences:" + viewId);
+  const [preferenceBlocked, setPreferenceBlocked] = useState(false);
+  const saveErrorRef = useRef<string | null>(null), preferenceGeneration = useRef(0);
   const [loadRetryCount, setLoadRetryCount] = useState(0);
   const [loadRetrying, setLoadRetrying] = useState(false);
   const [configuredViews, setConfiguredViews] = useState<DatabaseViewConfigIdentity[]>([]);
   const configRef = useRef(hydration.config);
+  const versionRef = useRef<DatabaseViewConfigWriteVersion | undefined>(undefined);
+  const resources = useMemo(() => ({ configProvider: runtime.databaseViewConfig, databaseProvider: runtime.database, store }), [runtime.databaseViewConfig, runtime.database, store]);
+  const resourcesRef = useRef(resources); resourcesRef.current = resources;
+  const [review, setReview] = useState<{ loaded: DatabaseViewConfigHydration; local: DatabaseViewConfig; generation: number; key: string; resources: typeof resources } | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const reviewGuard = useRef<(() => void) | undefined>(undefined);
+  const registerReviewGuard = useMemo(() => (guard: (() => void) | undefined) => { reviewGuard.current = guard; }, []);
+  const assertReviewInputClean = () => { if (!reviewGuard.current) throw new Error("View input is not ready for review"); reviewGuard.current(); };
   const activeHydrationKeyRef = useRef(hydrationKey);
   activeHydrationKeyRef.current = hydrationKey;
   const writer = useMemo(
     () => createDatabaseViewConfigWriter(runtime.databaseViewConfig, (error) => {
-      if (activeHydrationKeyRef.current === hydrationKey) setSaveError(error);
-    }),
+      if (activeHydrationKeyRef.current === hydrationKey) { saveErrorRef.current = error; setSaveError(error); }
+    }, { version: () => versionRef.current }),
     [runtime.databaseViewConfig, hydrationKey]
   );
 
   useEffect(() => {
     let current = true;
+    activeHydrationKeyRef.current = hydrationKey;
     setSaveError(null);
+    saveErrorRef.current = null;
+    setPreferenceBlocked(false);
     void loadDatabaseViewHydration({
       provider: runtime.databaseViewConfig,
       databaseProvider: runtime.database,
       databaseId,
       viewId: viewId || "main",
       viewType: configType
-    }).then((loaded) => {
+    }).then(async (loaded) => {
       if (!current) return;
+      try { preferences.assertCurrent(); } catch {
+        // Hydration may finish after another editor has cached newer settings.
+        // Stop before store/query/default-registration side effects.
+        setPreferenceBlocked(true);
+        setHydration({ key: hydrationKey, ready: true, config: loaded.config, state: loaded.state, warning: hydrationWarning(loaded.state) });
+        return;
+      }
       const priorIsReady = hydration.key === hydrationKey && hydration.ready;
       let state = loaded.state;
       let config = loaded.config;
+      let databaseMetadata = loaded.databaseMetadata, databaseSchema = loaded.databaseSchema;
+      versionRef.current = loaded.version;
+      const retained = preferences.value;
+      if (retained !== undefined) {
+        const cache = retained && typeof retained === "object" && !Array.isArray(retained) ? retained : undefined;
+        const validIdentity = cache?.databaseId === databaseId && cache.viewId === viewId && Object.keys(cache).every(key => ["databaseId", "viewId", "config", "version"].includes(key));
+        const retainedVersion = cache?.version;
+        const validVersion = retainedVersion && typeof retainedVersion === "object" && !Array.isArray(retainedVersion) && typeof retainedVersion.readId === "string" && retainedVersion.readId.length > 0 && retainedVersion.readId.length <= 512 && (retainedVersion.revision === null || typeof retainedVersion.revision === "string" && retainedVersion.revision.length > 0 && retainedVersion.revision.length <= 512);
+        // Never rebase retained human input onto a newer read without review.
+        if (runtime.databaseViewConfig?.saveVersioned) versionRef.current = validVersion ? { readId: retainedVersion.readId as string, revision: retainedVersion.revision as string | null } : undefined;
+        // Retained settings can contain property references even when the remote
+        // config is missing. Use the same metadata/schema admission as a host load.
+        const recovered = validIdentity ? await loadDatabaseViewHydration({ provider: { load: async () => cache?.config }, databaseProvider: runtime.database, databaseId, viewId, viewType: configType }) : undefined;
+        if (!current) return;
+        try { preferences.assertCurrent(); } catch {
+          setPreferenceBlocked(true);
+          setHydration({ key: hydrationKey, ready: true, config: loaded.config, state: loaded.state, warning: hydrationWarning(loaded.state) });
+          return;
+        }
+        if (validIdentity && (!runtime.databaseViewConfig?.saveVersioned || validVersion) && recovered?.valid && !recovered.warnings.length && recovered.state === "ready" && ["ready", "missing"].includes(state)) {
+          config = recovered.config;
+          databaseMetadata = recovered.databaseMetadata ?? databaseMetadata;
+          databaseSchema = recovered.databaseSchema ?? databaseSchema;
+          saveErrorRef.current = "Retained unsaved database view settings";
+          setSaveError(saveErrorRef.current);
+        } else {
+          setPreferenceBlocked(true);
+          if (recovered && !["ready", "missing"].includes(recovered.state)) state = recovered.state;
+        }
+      }
       if (databaseId) {
         if (priorIsReady && (state === "ready" || state === "missing")) {
           try {
             if (!store.setQueryState) throw new Error("Store cannot replace hydrated query state");
-            store.setQueryState(viewKey, config, loaded.databaseMetadata, loaded.databaseSchema);
+            store.setQueryState(viewKey, config, databaseMetadata, databaseSchema);
           } catch {
             state = "metadata-unavailable";
             config = configRef.current;
           }
         } else if (!priorIsReady) {
-          store.ensureView(viewKey, databaseId, config, loaded.databaseSchema);
+          store.ensureView(viewKey, databaseId, config, databaseSchema);
         } else {
           config = configRef.current;
         }
       }
       // Register generated view identities for the host picker, but never replace
       // an existing config (or a config hidden by a transient load failure).
-      if (state === "missing" && loaded.missing && runtime.databaseViewConfig?.save) {
+      if (retained === undefined && state === "missing" && loaded.missing && (runtime.databaseViewConfig?.save || runtime.databaseViewConfig?.saveVersioned)) {
         void persistDatabaseViewConfigIfAuthoritative(state, writer, config).then(() =>
           listDatabaseViewConfigIdentities(runtime.databaseViewConfig, databaseId).then((views) => {
             if (current) setConfiguredViews(views);
@@ -763,7 +825,7 @@ function StoreBackedDatabaseView(props: {
     }).finally(() => {
       if (current && loadRetryCount > 0) setLoadRetrying(false);
     });
-    return () => { current = false; };
+    return () => { current = false; activeHydrationKeyRef.current = "disposed"; };
   }, [configType, databaseId, hydrationKey, loadRetryCount, runtime.database, runtime.databaseViewConfig, store, viewId, viewKey, writer]);
 
   useEffect(() => {
@@ -777,10 +839,17 @@ function StoreBackedDatabaseView(props: {
   const readyHydration = hydration.key === hydrationKey && hydration.ready;
   if (readyHydration) configRef.current = hydration.config;
   const updateConfig = (patch: Parameters<typeof patchDatabaseViewConfig>[1]) => {
+    if (preferenceBlocked || !preferences.available) return;
+    try { preferences.assertCurrent(); } catch { setPreferenceBlocked(true); return; }
     const next = patchDatabaseViewConfig(configRef.current, patch);
+    const generation = ++preferenceGeneration.current;
+    const durable = preferences.persisted && (runtime.databaseViewConfig?.save || runtime.databaseViewConfig?.saveVersioned) && ["ready", "missing"].includes(hydration.state);
+    if (durable) preferences.set(JSON.parse(JSON.stringify({ databaseId, viewId, config: next, ...(versionRef.current ? { version: versionRef.current } : {}) })));
     configRef.current = next;
     setHydration((current) => current.key === hydrationKey ? { ...current, config: next } : current);
-    void persistDatabaseViewConfigIfAuthoritative(hydration.state, writer, next);
+    void persistDatabaseViewConfigIfAuthoritative(hydration.state, writer, next).then((saved) => {
+      if (saved && durable && generation === preferenceGeneration.current && activeHydrationKeyRef.current === hydrationKey && !saveErrorRef.current) { try { preferences.set(undefined); } catch { /* Keep resumed input. */ } }
+    });
   };
 
   const snap = useSyncExternalStore(
@@ -805,10 +874,48 @@ function StoreBackedDatabaseView(props: {
     );
   }
 
-  return (
+  const reviewLatest = async () => {
+    const generation = preferenceGeneration.current;
+    const capturedResources = resources;
+    try {
+      preferences.assertCurrent();
+      assertReviewInputClean();
+      const local = structuredClone(configRef.current);
+      const loaded = await loadDatabaseViewHydration({ provider: runtime.databaseViewConfig, databaseProvider: runtime.database, databaseId, viewId: viewId || "main", viewType: configType });
+      if (generation !== preferenceGeneration.current || activeHydrationKeyRef.current !== hydrationKey || resourcesRef.current !== capturedResources) return;
+      preferences.assertCurrent();
+      assertReviewInputClean();
+      if (!loaded.valid || !["ready", "missing"].includes(loaded.state)) throw new Error("Latest settings could not be read. Resolve an unconfirmed save before reviewing.");
+      setReview({ loaded, local, generation, key: hydrationKey, resources: capturedResources }); setReviewError(null);
+    } catch { if (activeHydrationKeyRef.current === hydrationKey) setReviewError("Latest settings unavailable. Your original settings are retained; Retry save only reconciles an unconfirmed operation."); }
+  };
+  const useLatest = () => {
+    if (!review || review.key !== hydrationKey || review.generation !== preferenceGeneration.current || review.resources !== resourcesRef.current) return;
+    try {
+      preferences.assertCurrent();
+      assertReviewInputClean();
+      if (!store.setQueryState) throw new Error("Store cannot replace reviewed settings");
+      store.setQueryState(viewKey, review.loaded.config, review.loaded.databaseMetadata, review.loaded.databaseSchema);
+      preferences.set(undefined);
+      versionRef.current = review.loaded.version; configRef.current = review.loaded.config;
+      setHydration({ key: hydrationKey, ready: true, config: review.loaded.config, state: review.loaded.state, warning: hydrationWarning(review.loaded.state) });
+      setPreferenceBlocked(false); saveErrorRef.current = null; setSaveError(null); setReview(null); setReviewError(null);
+    } catch { setReviewError("Settings changed while reviewing. Original input is retained; review again."); }
+  };
+  return (<div contentEditable={false} className="oe-database-view-container">
+    {review && review.key === hydrationKey ? <section className="oe-database-view__config-review" role="region" aria-label="Review latest view settings">
+      <p>Your unsaved settings remain retained. Using latest discards these local settings without writing to the host.</p>
+      <details><summary>Your unsaved settings</summary><pre>{JSON.stringify(review.local, null, 2)}</pre></details>
+      <details><summary>Latest saved settings</summary><pre>{JSON.stringify(review.loaded.config, null, 2)}</pre></details>
+      <button type="button" onClick={useLatest}>Use latest settings</button>
+      <button type="button" onClick={() => { setReview(null); setReviewError(null); }}>Cancel review</button>
+    </section> : null}
+    {reviewError ? <p role="alert">{reviewError}</p> : null}
     <SharedDatabaseViewShell
       snap={snap}
       store={store}
+      key={viewKey}
+      blockId={block.id}
       viewKey={viewKey}
       viewId={viewId}
       viewType={viewType}
@@ -816,41 +923,56 @@ function StoreBackedDatabaseView(props: {
       runtime={runtime}
       viewConfig={hydration.config}
       onViewConfigChange={updateConfig}
-      configWarning={hydration.warning}
-      canRetryConfigLoad={Boolean(runtime.databaseViewConfig?.load && hydration.state !== "ready" && hydration.state !== "missing")}
+      beforeViewConfigChange={() => preferences.assertCurrent()}
+      configWarning={preferenceBlocked ? "Original database view settings are retained. Restore their identity and metadata before editing." : hydration.warning}
+      canRetryConfigLoad={Boolean((runtime.databaseViewConfig?.load || runtime.databaseViewConfig?.loadVersioned) && hydration.state !== "ready" && hydration.state !== "missing")}
       configLoadRetrying={loadRetrying}
       onRetryConfigLoad={() => {
         setLoadRetrying(true);
         setLoadRetryCount((count) => count + 1);
       }}
       configSaveError={saveError}
-      onRetryConfigSave={() => void writer.retry().then(() =>
-        listDatabaseViewConfigIdentities(runtime.databaseViewConfig, databaseId).then(setConfiguredViews)
-      )}
+      onReviewLatestConfig={saveError || preferenceBlocked ? () => void reviewLatest() : undefined}
+      onConfigReviewGuard={registerReviewGuard}
+      onRetryConfigSave={() => { if (preferenceBlocked) return; try { preferences.assertCurrent(); } catch { setPreferenceBlocked(true); return; } const generation = preferenceGeneration.current; void persistDatabaseViewConfigIfAuthoritative(hydration.state, writer, configRef.current).then((saved) => {
+        if (saved && generation === preferenceGeneration.current && activeHydrationKeyRef.current === hydrationKey && !saveErrorRef.current) { try { preferences.set(undefined); } catch { /* A newer draft is retained. */ } }
+        return listDatabaseViewConfigIdentities(runtime.databaseViewConfig, databaseId).then(setConfiguredViews);
+      }); }}
       database={snap.meta}
       availableViews={viewChoices}
       onViewChange={props.onViewChange}
-      canChangeViews={props.canChangeViews}
+      canChangeViews={props.canChangeViews && (!preferences.persisted || preferences.value === undefined)}
+      editingBlocked={preferenceBlocked || !preferences.available}
     />
-  );
+  </div>);
 }
 
 /** Shared interactive shell — exported for fail-closed viewType regressions. */
-export function SharedDatabaseViewShell(props: {
+export function SharedDatabaseViewShell(props: Parameters<typeof SharedDatabaseViewShellContent>[0]): ReactElement {
+  const lifecycle = useEditorLocalDraft(props.blockId ?? props.viewKey, "database-view-input:" + props.viewId);
+  return <SharedDatabaseViewShellContent key={JSON.stringify([lifecycle.identity, props.snap.databaseId, props.viewId])} {...props} />;
+}
+
+function SharedDatabaseViewShellContent(props: {
   snap: DatabaseViewSnapshot;
   store: DatabaseRuntimeStore;
   viewKey: string;
+  blockId?: string;
+  editingBlocked?: boolean;
   viewId: string;
   viewType: string;
   titleHint: string;
   runtime: DatabaseViewRuntime;
   viewConfig?: DatabaseViewConfig;
   onViewConfigChange?: (patch: Parameters<typeof patchDatabaseViewConfig>[1]) => void;
+  beforeViewConfigChange?: () => void;
   configWarning?: string | null;
   canRetryConfigLoad?: boolean;
   configLoadRetrying?: boolean;
   onRetryConfigLoad?: () => void;
   configSaveError?: string | null;
+  onReviewLatestConfig?: () => void;
+  onConfigReviewGuard?: (guard: (() => void) | undefined) => void;
   onRetryConfigSave?: () => void;
   database?: EditorDatabase | null;
   availableViews?: readonly DatabaseViewChoice[];
@@ -863,9 +985,21 @@ export function SharedDatabaseViewShell(props: {
     viewId: viewId || "main",
     viewType: isDatabaseViewType(viewType) ? viewType : "table"
   });
-  const updateViewConfig = props.onViewConfigChange;
   const getTitle = runtime.getTitle;
-  const [searchInput, setSearchInput] = useState(snap.queryState.query);
+  const uiDraft = useEditorLocalDraft(props.blockId ?? viewKey, "database-view-input:" + viewId);
+  const admittedDraft = readDatabaseInputDraft(uiDraft.value, snap.databaseId, viewId);
+  const [inputConflict, setInputConflict] = useState<string | null>(null);
+  const draftBlocked = props.editingBlocked || !uiDraft.available || admittedDraft.blocked || Boolean(inputConflict);
+  const updateViewConfig = draftBlocked ? undefined : props.onViewConfigChange;
+  const uiFields = useRef<Record<string, JsonValue>>(admittedDraft.fields);
+  const cacheField = (field: string, value?: JsonValue) => {
+    if (!uiDraft.persisted) return;
+    if (draftBlocked) throw new Error("Original database draft retained; restore its database identity before editing");
+    const next = { ...uiFields.current }; if (value === undefined) delete next[field]; else next[field] = value;
+    uiDraft.set(Object.keys(next).length ? { databaseId: snap.databaseId, viewId, fields: next } : undefined); uiFields.current = next;
+  };
+  const composingSearch = useRef(false);
+  const [searchInput, setSearchInput] = useState(typeof uiFields.current.search === "string" ? uiFields.current.search : snap.queryState.query);
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [createError, setCreateError] = useState<string | null>(null);
@@ -874,14 +1008,41 @@ export function SharedDatabaseViewShell(props: {
     field: string;
   } | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [filterDrafts, setFilterDrafts] = useState<FilterDraft[]>(() =>
-    filtersToDrafts(snap.queryState.filters)
-  );
+  const initialFilters = admittedDraft.fields.filters ?? filtersToDrafts(snap.queryState.filters);
+  const [filterDrafts, setFilterDraftState] = useState<FilterDraft[]>(initialFilters), filterDraftRef = useRef(initialFilters);
+  const setFilterDrafts = (update: FilterDraft[] | ((previous: FilterDraft[]) => FilterDraft[]), preserve = true) => {
+    const next = typeof update === "function" ? update(filterDraftRef.current) : update;
+    if (preserve) { try { cacheField("filters", next); } catch (error) { retainInputConflict(error); return; } }
+    filterDraftRef.current = next; setFilterDraftState(next);
+  };
   const [filterError, setFilterError] = useState<string | null>(null);
+  const [tableQueryError, setTableQueryError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSearchRef = useRef<{ commit: () => void } | null>(null);
   const appliedFiltersRef = useRef(snap.queryState.filters);
   const baseId = useId();
+  const mounted = useRef(true);
+  const tableQueryEpoch = useRef(0);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const assertInputCurrent = () => { uiDraft.assertCurrent(); props.beforeViewConfigChange?.(); };
+  const retainInputConflict = (error: unknown) => { if (mounted.current) setInputConflict(error instanceof Error ? error.message : "Original database input is retained"); };
+  const changeTableQuery = (change: () => void) => {
+    if (!runtime.tableEditing) { change(); return; }
+    const port = runtime.tableEditing, source = port.source(), request = ++tableQueryEpoch.current;
+    if (!source) return;
+    void port.registry.beforeLeave(source.parentTarget, new AbortController().signal).then(clean => {
+      if (!mounted.current || request !== tableQueryEpoch.current || JSON.stringify(port.source()) !== JSON.stringify(source)) return;
+      if (!clean || !port.registry.captureLeaveGuard(source.parentTarget)()) { setTableQueryError("Table input retained. Save or explicitly discard it before changing the view or query."); return; }
+      try { assertInputCurrent(); change(); setTableQueryError(null); } catch (error) { retainInputConflict(error); }
+    }).catch(() => { if (mounted.current && request === tableQueryEpoch.current && JSON.stringify(port.source()) === JSON.stringify(source)) setTableQueryError("Input could not be stored. The current view is retained."); });
+  };
+  useEffect(() => {
+    props.onConfigReviewGuard?.(() => {
+      assertInputCurrent();
+      if (composingSearch.current || pendingSearchRef.current || Object.keys(uiFields.current).length || store.getView(viewKey).mutating) throw new Error("Finish or cancel current view input before reviewing settings");
+    });
+    return () => props.onConfigReviewGuard?.(undefined);
+  }, [props.onConfigReviewGuard, viewKey, store]);
 
   const resolved = resolveDatabasePropertyDefinitions({
     legacySchema: snap.schema,
@@ -889,7 +1050,7 @@ export function SharedDatabaseViewShell(props: {
   });
   const defMap = propertyDefinitionMap(resolved);
   const createIds = creatablePropertyIds(resolved);
-  const mutationsAllowed = metadataAllowsRowMutations({
+  const mutationsAllowed = !runtime.tableEditing && !draftBlocked && metadataAllowsRowMutations({
     getDatabase: snap.capabilities.getDatabase,
     metaStatus: snap.metaStatus
   });
@@ -905,7 +1066,7 @@ export function SharedDatabaseViewShell(props: {
   const sortablePropertyDefs = resolved.filter((d) => d.type !== "unknown");
 
   useEffect(() => {
-    setSearchInput(snap.queryState.query);
+    if (uiFields.current.search === undefined) setSearchInput(snap.queryState.query);
   }, [snap.queryState.query]);
 
   useEffect(() => {
@@ -913,7 +1074,7 @@ export function SharedDatabaseViewShell(props: {
       return;
     }
     appliedFiltersRef.current = snap.queryState.filters;
-    setFilterDrafts(filtersToDrafts(snap.queryState.filters));
+    if (uiFields.current.filters === undefined) setFilterDrafts(filtersToDrafts(snap.queryState.filters), false);
     setFilterError(null);
   }, [snap.queryState.filters]);
 
@@ -923,7 +1084,9 @@ export function SharedDatabaseViewShell(props: {
       debounceRef.current = null;
       const pending = pendingSearchRef.current;
       pendingSearchRef.current = null;
-      pending?.commit();
+      // Notes input belongs to its source document and must survive forced unmount.
+      // Standalone integrations keep the existing flush-on-unmount behavior.
+      if (!uiDraft.persisted) pending?.commit();
     };
   }, [viewKey]);
 
@@ -943,15 +1106,23 @@ export function SharedDatabaseViewShell(props: {
     "Database";
 
   // First-page reload keeps prior rows visible, but must block Load more / writes.
-  const busy = Boolean(snap.mutating) || snap.status === "loading";
+  const busy = draftBlocked || Boolean(snap.mutating) || snap.status === "loading";
 
   const onSearchChange = (value: string) => {
+    try { cacheField("search", value); } catch (error) { retainInputConflict(error); return; }
     setSearchInput(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (composingSearch.current) return;
     const pending = {
       commit: () => {
-        store.setQuery(viewKey, value);
-        updateViewConfig?.({ query: value.slice(0, 500) });
+        try {
+          changeTableQuery(() => {
+            assertInputCurrent();
+            store.setQuery(viewKey, value);
+            updateViewConfig?.({ query: value.slice(0, 500) });
+            cacheField("search", undefined);
+          });
+        } catch (error) { retainInputConflict(error); }
       }
     };
     pendingSearchRef.current = pending;
@@ -1112,7 +1283,8 @@ export function SharedDatabaseViewShell(props: {
       )
     : `${snap.queryState.sortBy}:${snap.queryState.direction}`;
 
-  const onSortChange = (raw: string) => {
+  const applySortChange = (raw: string) => {
+    try { assertInputCurrent(); } catch (error) { retainInputConflict(error); return; }
     const parsed = parseSortSelectValue(raw);
     if (!parsed) {
       setFilterError("Invalid sort selection");
@@ -1140,8 +1312,10 @@ export function SharedDatabaseViewShell(props: {
     store.setSort(viewKey, parsed.sortBy, parsed.direction);
     updateViewConfig?.({ sortBy: parsed.sortBy, direction: parsed.direction, propertySort: null });
   };
+  const onSortChange = (raw: string) => changeTableQuery(() => applySortChange(raw));
 
-  const applyFilters = () => {
+  const applyFiltersNow = () => {
+    try { assertInputCurrent(); } catch (error) { retainInputConflict(error); return; }
     setFilterError(null);
     const built: DatabaseFilter[] = [];
     for (const draftRow of filterDrafts) {
@@ -1168,25 +1342,30 @@ export function SharedDatabaseViewShell(props: {
     try {
       store.setFilters(viewKey, built);
       updateViewConfig?.({ filters: built });
+      cacheField("filters", undefined);
     } catch (err) {
       setFilterError(
         err instanceof Error ? err.message : "Invalid filters"
       );
     }
   };
+  const applyFilters = () => changeTableQuery(applyFiltersNow);
 
-  const clearFilters = () => {
+  const clearFiltersNow = () => {
+    try { assertInputCurrent(); } catch (error) { retainInputConflict(error); return; }
     setFilterError(null);
     setFilterDrafts([]);
     try {
       store.setFilters(viewKey, []);
       updateViewConfig?.({ filters: [] });
+      cacheField("filters", undefined);
     } catch (err) {
       setFilterError(
         err instanceof Error ? err.message : "Failed to clear filters"
       );
     }
   };
+  const clearFilters = () => changeTableQuery(clearFiltersNow);
 
   const updateFilterDraft = (
     id: string,
@@ -1437,12 +1616,17 @@ export function SharedDatabaseViewShell(props: {
           aria-label={`Edit ${def.name} for ${item.rowKey}`}
           onClick={() => startEdit(item, def)}
         >
-          {cellDisplayText(def, item.row[def.id]) || "—"}
+          <span className="oe-database-view__cell-preview" title={cellDisplayText(def, item.row[def.id])}>{cellDisplayText(def, item.row[def.id]) || "—"}</span>
         </button>
       );
     }
 
-    return <>{cellDisplayText(def, item.row[def.id])}</>;
+    const value = item.row[def.id], text = cellDisplayText(def, value);
+    if (text.length > 120 || value && typeof value === "object") {
+      let details = text; try { if (typeof value === "object") details = JSON.stringify(value, null, 2); } catch { /* Safe display fallback. */ }
+      return <details className="oe-database-view__cell-details"><summary><span className="oe-database-view__cell-preview">{text || "—"}</span></summary><pre>{details}</pre></details>;
+    }
+    return <span className="oe-database-view__cell-preview" title={text}>{text || "—"}</span>;
   };
 
   const knownViewType = isDatabaseViewType(viewType) ? viewType : null;
@@ -1521,6 +1705,14 @@ export function SharedDatabaseViewShell(props: {
   };
 
   const renderTableBody = (): ReactElement => {
+    const source = runtime.tableEditing?.source();
+    if (source && runtime.tableEditing && !snap.queryState.filters.length && !snap.queryState.propertySort && snap.queryState.pageSize >= 1 && snap.queryState.pageSize <= 50) {
+      return <NotesRevisionedTable registry={runtime.tableEditing.registry} binding={{ ...source, databaseId: snap.databaseId, viewId: viewId || "main", query: { query: snap.queryState.query, trashed: snap.queryState.trashMode === "trash", sortBy: snap.queryState.sortBy, direction: snap.queryState.direction, limit: snap.queryState.pageSize } }} blockId={props.blockId ?? viewKey} fallback={renderLegacyTableBody()} editingBlocked={draftBlocked} onOpenRow={runtime.onOpenRow ? rowKey => runtime.onOpenRow?.({ databaseId: snap.databaseId, rowKey, viewId, viewType: "table" }) : undefined} />;
+    }
+    return renderLegacyTableBody();
+  };
+
+  const renderLegacyTableBody = (): ReactElement => {
     if (!snap.capabilities.list) {
       return (
         <p className="oe-database-view__empty" role="status">
@@ -1610,7 +1802,7 @@ export function SharedDatabaseViewShell(props: {
                   snap.mutating?.rowKey === item.rowKey ? true : undefined
                 }
               >
-                <td>{item.rowKey}</td>
+                <td>{runtime.onOpenRow ? <button type="button" className="oe-database-view__chip" aria-label={"Open row " + item.rowKey} disabled={busy} onClick={() => runtime.onOpenRow?.({ databaseId: snap.databaseId, rowKey: item.rowKey, viewId, viewType: "table" })}>{item.rowKey}</button> : item.rowKey}</td>
                 {resolved.map((def) => (
                   <td key={def.id}>{renderCellEditor(item, def)}</td>
                 ))}
@@ -1627,7 +1819,7 @@ export function SharedDatabaseViewShell(props: {
                           )
                         }
                       >
-                        ↑
+                        <NotesIcon name="moveUp" /><span className="oe-notes-sr-only">↑</span>
                       </button>
                       <button
                         type="button"
@@ -1639,7 +1831,7 @@ export function SharedDatabaseViewShell(props: {
                           )
                         }
                       >
-                        ↓
+                        <NotesIcon name="moveDown" /><span className="oe-notes-sr-only">↓</span>
                       </button>
                     </>
                   ) : null}
@@ -1655,7 +1847,7 @@ export function SharedDatabaseViewShell(props: {
                         )
                       }
                     >
-                      Delete
+                      <NotesIcon name="trash" />Delete
                     </button>
                   ) : null}
                   {snap.queryState.trashMode === "trash" &&
@@ -1670,7 +1862,7 @@ export function SharedDatabaseViewShell(props: {
                         )
                       }
                     >
-                      Restore
+                      <NotesIcon name="undo" />Restore
                     </button>
                   ) : null}
                 </td>
@@ -1699,6 +1891,7 @@ export function SharedDatabaseViewShell(props: {
       aria-busy={busy || undefined}
       aria-label={`${title} (${normalizedViewType})`}
     >
+      {tableQueryError ? <NotesFeedbackControl id={"table-query:" + baseId}><span role="alert">{tableQueryError}</span><button type="button" aria-label="Close table query notice" onClick={() => setTableQueryError(null)}>×</button></NotesFeedbackControl> : null}
       <header className="oe-database-view__header">
         <div className="oe-database-view__heading">
           <h3 className="oe-database-view__title">{title}</h3>
@@ -1726,11 +1919,13 @@ export function SharedDatabaseViewShell(props: {
             currentViewType: viewType,
             currentTitleHint: titleHint
           })}
-          canChange={props.canChangeViews ?? false}
-          onChange={props.onViewChange}
+          canChange={(props.canChangeViews ?? false) && (!uiDraft.persisted || uiDraft.value === undefined)}
+          onChange={selection => changeTableQuery(() => props.onViewChange?.(selection))}
           viewConfigProvider={runtime.databaseViewConfig}
         />
       </header>
+
+      {draftBlocked ? <p className="oe-database-view__error" role="alert">Original database input is retained. Editing is unavailable until its draft identity and format are restored.</p> : null}
 
       {props.configWarning ? (
         <p className="oe-database-view__notice" role="status">
@@ -1752,6 +1947,7 @@ export function SharedDatabaseViewShell(props: {
           ) : null}
         </p>
       ) : null}
+      {props.onReviewLatestConfig ? <button type="button" className="oe-database-view__chip" onClick={props.onReviewLatestConfig}>Review latest settings</button> : null}
 
       <div
         className="oe-database-view__toolbar"
@@ -1766,6 +1962,9 @@ export function SharedDatabaseViewShell(props: {
             placeholder="Search…"
             aria-label="Search rows"
             maxLength={500}
+            disabled={draftBlocked}
+            onCompositionStart={() => { composingSearch.current = true; uiDraft.setComposition(true); if (debounceRef.current) clearTimeout(debounceRef.current); pendingSearchRef.current = null; }}
+            onCompositionEnd={(event) => { composingSearch.current = false; uiDraft.setComposition(false); onSearchChange(event.currentTarget.value); }}
             onChange={(event) => onSearchChange(event.target.value)}
           />
         </label>
@@ -1773,6 +1972,7 @@ export function SharedDatabaseViewShell(props: {
           <span className="oe-sr-only">Sort</span>
           <select
             aria-label="Sort rows"
+            disabled={draftBlocked}
             value={sortSelectValue}
             onChange={(event) => onSortChange(event.target.value)}
           >
@@ -1810,7 +2010,7 @@ export function SharedDatabaseViewShell(props: {
                   : "oe-database-view__chip"
               }
               aria-pressed={snap.queryState.trashMode === "active"}
-              onClick={() => store.setTrashMode(viewKey, "active")}
+              onClick={() => changeTableQuery(() => store.setTrashMode(viewKey, "active"))}
             >
               Active
             </button>
@@ -1822,7 +2022,7 @@ export function SharedDatabaseViewShell(props: {
                   : "oe-database-view__chip"
               }
               aria-pressed={snap.queryState.trashMode === "trash"}
-              onClick={() => store.setTrashMode(viewKey, "trash")}
+              onClick={() => changeTableQuery(() => store.setTrashMode(viewKey, "trash"))}
             >
               Trash
             </button>
@@ -1834,7 +2034,7 @@ export function SharedDatabaseViewShell(props: {
           onClick={() => catchStoreMutation(store.refresh(viewKey))}
           disabled={busy}
         >
-          Refresh
+          <NotesIcon name="refresh" />Refresh
         </button>
         {snap.capabilities.create &&
         snap.queryState.trashMode === "active" &&
@@ -1845,16 +2045,18 @@ export function SharedDatabaseViewShell(props: {
             onClick={beginCreate}
             disabled={busy || creating || createIds.length === 0}
           >
-            New row
+            <NotesIcon name="plus" />New row
           </button>
         ) : null}
       </div>
 
       {supportsFilters ? (
-        <div
+        <fieldset
           className="oe-database-view__filters"
           role="group"
           aria-label="Property filters"
+          disabled={draftBlocked}
+          style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
         >
           {filterDrafts.map((draftRow, index) => {
             const def = defMap.get(draftRow.propertyId);
@@ -1908,7 +2110,7 @@ export function SharedDatabaseViewShell(props: {
                       )
                     }
                   >
-                    Remove
+                    <NotesIcon name="close" />Remove
                   </button>
                 </div>
               </div>
@@ -1926,7 +2128,7 @@ export function SharedDatabaseViewShell(props: {
                 ])
               }
             >
-              + Filter
+              <NotesIcon name="filter" />Filter
             </button>
             <button
               type="button"
@@ -1934,7 +2136,7 @@ export function SharedDatabaseViewShell(props: {
               onClick={applyFilters}
               disabled={busy}
             >
-              Apply
+              <NotesIcon name="check" />Apply
             </button>
             <button
               type="button"
@@ -1942,7 +2144,7 @@ export function SharedDatabaseViewShell(props: {
               onClick={clearFilters}
               disabled={busy && filterDrafts.length === 0}
             >
-              Clear filters
+              <NotesIcon name="close" />Clear filters
             </button>
           </div>
           {filterError ? (
@@ -1955,7 +2157,7 @@ export function SharedDatabaseViewShell(props: {
               {snap.filterNotice}
             </p>
           ) : null}
-        </div>
+        </fieldset>
       ) : null}
 
       {snap.mutationError ? (
@@ -2051,10 +2253,6 @@ export function SharedDatabaseViewShell(props: {
         ) : null}
       </div>
 
-      <p className="oe-database-view__footnote">
-        Document stores databaseId/viewId/viewType only — rows come from the
-        host provider via DatabaseRuntimeStore.
-      </p>
     </section>
   );
 }
@@ -2245,6 +2443,7 @@ export function createDatabaseViewBlockSpec(
       content: "none" as const
     },
     {
+      meta: interactiveBlockMeta,
       render: (props): ReactElement => (
         <DatabaseTableView
           runtime={runtime}

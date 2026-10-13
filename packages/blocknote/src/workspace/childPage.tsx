@@ -1,10 +1,11 @@
+import { ReferencePresentation } from "./referencePresentation.js";
 import { createReactBlockSpec } from "@blocknote/react";
+import { interactiveBlockMeta } from "../document/widgetInteraction.js";
 import type { PageId } from "@hello-ai-company/editor-core";
 import { useEffect, useSyncExternalStore, type ReactElement } from "react";
 import type { PageRuntimeStore } from "./pageRuntimeStore.js";
-import type { PageCardResolveResult } from "./pageCard.js";
+import { resolvePageCardDisplay, type PageCardResolveResult, type PageCardDisplay } from "./pageCard.js";
 import { CHILD_PAGE_TYPE } from "./types.js";
-import { isSafeMediaUrl } from "../security/safeUrl.js";
 
 export type ChildPageRuntime = {
   store?: PageRuntimeStore;
@@ -12,101 +13,24 @@ export type ChildPageRuntime = {
   onOpen?: (pageId: PageId) => void;
   missingLabel?: string;
   untitledLabel?: string;
+  unavailableLabel?: string;
+  errorLabel?: string;
+  forbiddenLabel?: string;
+  emptyLabel?: string;
   subscribe?: (listener: () => void) => () => void;
 };
 
-export type ChildPageDisplay = {
-  title: string;
-  preview?: string;
-  imageUrl?: string;
-  imageAlt?: string;
-  missing: boolean;
-  loading: boolean;
-  error: boolean;
-};
+export type ChildPageDisplay = PageCardDisplay;
 
-export function resolveChildPageDisplay(
-  runtime: ChildPageRuntime,
-  pageId: string,
-  titleHint = ""
-): ChildPageDisplay {
-  if (runtime.store && pageId) {
-    const snap = runtime.store.get(pageId);
-    if (snap.status === "loading" || snap.status === "idle") {
-      return {
-        title: titleHint || runtime.untitledLabel || "Untitled",
-        loading: true,
-        missing: false,
-        error: false
-      };
-    }
-    if (snap.status === "missing") {
-      return {
-        title: runtime.missingLabel ?? "Missing page",
-        missing: true,
-        loading: false,
-        error: false
-      };
-    }
-    if (snap.status === "error") {
-      return {
-        title: runtime.missingLabel ?? "Missing page",
-        missing: true,
-        loading: false,
-        error: true
-      };
-    }
-    return {
-      title:
-        snap.title.trim() ||
-        titleHint ||
-        runtime.untitledLabel ||
-        "Untitled",
-      preview: snap.preview,
-      imageUrl: isSafeMediaUrl(snap.imageUrl) ? snap.imageUrl.trim() : undefined,
-      imageAlt: snap.imageAlt,
-      missing: false,
-      loading: false,
-      error: false
-    };
-  }
-
-  const resolved = runtime.resolve?.(pageId);
-  if (resolved?.loading) {
-    return {
-      title: titleHint || runtime.untitledLabel || "Untitled",
-      loading: true,
-      missing: false,
-      error: false
-    };
-  }
-  const missing = !pageId || !resolved || Boolean(resolved.missing);
-  if (missing) {
-    return {
-      title: runtime.missingLabel ?? "Missing page",
-      missing: true,
-      loading: false,
-      error: Boolean(resolved?.error)
-    };
-  }
-  return {
-    title:
-      resolved.title.trim() ||
-      titleHint ||
-      runtime.untitledLabel ||
-      "Untitled",
-    preview: resolved.preview,
-    imageUrl: isSafeMediaUrl(resolved.imageUrl) ? resolved.imageUrl.trim() : undefined,
-    imageAlt: resolved.imageAlt,
-    missing: false,
-    loading: false,
-    error: false
-  };
+export function resolveChildPageDisplay(runtime: ChildPageRuntime, pageId: string, titleHint = ""): ChildPageDisplay {
+  return resolvePageCardDisplay(runtime, pageId, titleHint);
 }
 
 function ChildPageView(props: {
   runtime: ChildPageRuntime;
-  block: { props: { pageId: string; titleHint: string } };
+  block: { props: { pageId: string; titleHint: string; presentation?: string } };
+  onPresentationChange?: (value: string) => void;
+  onHistory?: (redo: boolean) => void;
 }): ReactElement {
   const { runtime, block } = props;
   const pageId = block.props.pageId;
@@ -141,7 +65,9 @@ function ChildPageView(props: {
         ? " oe-child-page--missing"
         : "";
 
+  const presentation = block.props.presentation ?? "modern";
   return (
+    <section className="oe-reference-block" data-presentation={presentation}>
     <button
       type="button"
       className={`oe-child-page${stateClass}`}
@@ -149,16 +75,17 @@ function ChildPageView(props: {
       data-missing={display.missing ? "true" : "false"}
       data-loading={display.loading ? "true" : "false"}
       data-error={display.error ? "true" : "false"}
+      data-status={display.status}
       aria-label={
         display.loading
           ? "Loading child page"
-          : `Child page: ${display.title}`
+          : `Child page: ${display.title}${display.statusLabel && display.statusLabel !== display.title ? `: ${display.statusLabel}` : ""}`
       }
       aria-busy={display.loading || undefined}
-      disabled={display.loading}
+      disabled={display.status !== "ready" || !runtime.onOpen}
       onClick={(event) => {
         event.preventDefault();
-        if (!display.missing && !display.loading) runtime.onOpen?.(pageId);
+        if (display.status === "ready") runtime.onOpen?.(pageId);
       }}
     >
       <span className="oe-child-page__badge">Child</span>
@@ -172,10 +99,13 @@ function ChildPageView(props: {
       <span className="oe-child-page__title">
         {display.loading ? "Loading…" : display.title}
       </span>
+      {display.statusLabel && display.statusLabel !== display.title ? <span className="oe-child-page__status" role="status">{display.statusLabel}</span> : null}
       {display.preview && !display.loading ? (
         <span className="oe-child-page__preview">{display.preview}</span>
       ) : null}
     </button>
+    <ReferencePresentation value={presentation} child onChange={props.onPresentationChange} onHistory={props.onHistory} />
+    </section>
   );
 }
 
@@ -189,13 +119,19 @@ export function createChildPageBlockSpec(runtime: ChildPageRuntime = {}) {
       type: CHILD_PAGE_TYPE,
       propSchema: {
         pageId: { default: "" as const },
-        titleHint: { default: "" as const }
+        titleHint: { default: "" as const },
+        presentation: { default: "modern" as const, values: ["modern", "simple", "link"] as const }
       },
       content: "none" as const
     },
     {
+      meta: interactiveBlockMeta,
       render: (props): ReactElement => (
-        <ChildPageView runtime={runtime} block={props.block} />
+        <ChildPageView runtime={runtime} block={props.block} onPresentationChange={props.editor.isEditable ? value => {
+          const live = props.editor.getBlock(props.block.id);
+          if (!props.editor.isEditable || !live || live.type !== props.block.type || live.props.pageId !== props.block.props.pageId) throw new Error("Page reference changed");
+          props.editor.updateBlock(props.block.id, { props: { presentation: value as typeof props.block.props.presentation } });
+        } : undefined} onHistory={props.editor.isEditable ? redo => { if (props.editor.isEditable && !props.editor.prosemirrorView.composing) { if (redo) props.editor.redo(); else props.editor.undo(); } } : undefined} />
       )
     }
   )();

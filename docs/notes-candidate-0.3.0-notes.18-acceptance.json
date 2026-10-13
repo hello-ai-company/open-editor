@@ -1,0 +1,40 @@
+{
+  "candidate": "0.3.0-notes.18",
+  "role": "UI-only local candidate; paused CRUD not included",
+  "syntheticOnly": true,
+  "paidCalls": 0,
+  "backendWrites": 0,
+  "validation": {
+    "typecheck": "passed",
+    "tests": 1439,
+    "build": "passed",
+    "exampleBuild": "passed",
+    "lint": "not configured",
+    "browserProbes": 12,
+    "fourDirectionSplit": "passed on standalone and actual host preview",
+    "themeContrastMinimum": 6.3,
+    "saveUnknownLookup": "passed using intercepted POST/GET",
+    "independentFinalReview": "passed for code + real screen interaction + 12-theme immediate/steady palette; scoped limitations retained",
+    "finalPaletteBrowserProbes": 3,
+    "actualHostStandalone": "x0 full viewport at 1440/390; no application sidebar; writer744→1064 fold"
+  },
+  "acceptance": {
+    "full59FunctionSignoff": false,
+    "full35VisualSignoff": false,
+    "allButtonSmoothness": false,
+    "nativeIME": false,
+    "Safari": false,
+    "productionRollout": false
+  },
+  "preservation": {
+    "pausedCrudWipFiles": 10,
+    "protectedPriorFiles": 302,
+    "unchanged": true
+  },
+  "adoption": {
+    "correctedPreviewPort": 5203,
+    "originalHostPort": 49290,
+    "installedIntoOriginalHost": false,
+    "openedCorrectedStandaloneInMacChrome": true
+  }
+}

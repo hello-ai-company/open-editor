@@ -449,7 +449,7 @@ describe("DatabaseViewConfig hydration and persistence", () => {
     await Promise.all([first, second]);
     expect(seen).toEqual(["older", "newer"]);
     expect(persisted).toBe("newer");
-    expect(olderErrors).toEqual([]);
+    expect(olderErrors).toEqual([null]);
     expect(latestErrors.at(-1)).toBeNull();
   });
 

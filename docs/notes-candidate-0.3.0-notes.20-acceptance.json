@@ -1,0 +1,32 @@
+{
+  "candidate": "0.3.0-notes.20",
+  "status": "PASS_SCOPED",
+  "hostAdopted": false,
+  "syntheticOnly": true,
+  "paidCalls": 0,
+  "validation": {
+    "typecheck": "passed",
+    "distinctTests": 1454,
+    "blocknoteTests": 1013,
+    "build": "passed",
+    "exampleBuild": "passed",
+    "lint": "not configured",
+    "rootHostPhases": 8,
+    "rootExtendedCases": 15,
+    "independentReview": "PASS_SCOPED"
+  },
+  "preservation": {
+    "pausedCrudFiles": 10,
+    "protectedPriorFiles": 302,
+    "changed": 0
+  },
+  "limits": [
+    "whole-source/UI audit pending",
+    "Whiteboard refinement pending",
+    "native touch/IME and Safari unverified",
+    "every edge collision unverified",
+    "no universal performance improvement",
+    "no500blockpaste comparison",
+    "host adoption pending"
+  ]
+}

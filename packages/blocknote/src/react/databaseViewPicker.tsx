@@ -186,6 +186,7 @@ export function DatabaseViewPicker(props: DatabaseViewPickerProps): ReactElement
         aria-labelledby={headingId}
         tabIndex={-1}
         onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+          if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
           if (event.key === "Escape") {
             event.preventDefault();
             dismiss();

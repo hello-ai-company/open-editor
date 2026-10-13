@@ -499,9 +499,16 @@ dialog.oe-overlay::backdrop {
 }
 
 .oe-page-card__preview,
-.oe-child-page__preview {
+.oe-child-page__preview,
+.oe-page-card__status,
+.oe-child-page__status {
   font-size: 0.9em;
   color: var(--oe-ui-muted);
+}
+
+.oe-page-card:disabled,
+.oe-child-page:disabled {
+  cursor: default;
 }
 
 .oe-child-page__badge {

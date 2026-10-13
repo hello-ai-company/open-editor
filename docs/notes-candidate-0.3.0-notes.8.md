@@ -1,0 +1,24 @@
+# Notes local candidate 0.3.0-notes.8
+
+A new immutable local integration candidate based on the merged .7 source. This is not an npm release, a deployed application, full PersonalAI migration acceptance, or complete visual equality. Previous candidate .0–.7 archives and manifests remain protected. No additional remote push/merge, publication, deployment, credentials/security change or paid provider call belongs to this phase.
+
+## Changes
+
+- A tab session owns one scoped Canvas controller per target. Mode surfaces borrow it without disposing it on tab unmount. Body and Canvas drafts, revisions, recovery receipts and scope checks participate in guarded navigation, close, split and layout changes. Revalidation after this writer's canonical body save preserves a valid Canvas draft; concurrent Canvas revisions and stale external body revisions stop the transition. Real IME/pending input ABA changes remain barriers.
+- `createNotesIndexedDBLayoutStorage` is an optional local adapter. Raw-byte CAS executes in one readwrite transaction across browser connections. Only the configured actor/workspace key is writable; explicitly supplied legacy keys are read-only. Invalid original records remain untouched. It creates no remote durability or authorization claim.
+- Opt-in legacy codec v2 adds supported existing whiteboard arrays, local shared body, web/page presentation, asset presentation, explicitly bound DB title/view and table color editing. v1 archives/APIs remain unchanged. v2 export requires the authoritative host profile and current raw records, preserves unknown/lazy DB/provider fields and unchanged JSON strings, and rejects identity/profile forgery or concurrent reviewed-field changes. Unknown drawing fields/tools/coordinate spaces and unsupported source variants remain inert. New specialized block creation is not implemented by this codec.
+- `createLegacyNotesEditingFeature` renders the supported existing drawing/link/page/asset projections through public schemas. It performs no automatic asset request or page navigation. Shared/database authority stays in separately bound hosts.
+- Optional `appearance: 'classic'` and twelve `pageStyle` values apply portable CSS extracted from the accepted original Notes synthetic baseline. A shared navigation portal preserves the single writer per target. Default appearance remains available.
+- `MINIMAL-EXAMPLE.tsx`/`.md` use public installed entries and power.css, and compile against the extracted candidate. Stable authorized Notes/Canvas hosts, renderer peers and optional restart recoveries come from the consuming application.
+
+## Verification and limits
+
+43 independently authored new regressions cover Canvas/session ownership, no stale transitions, real input ABA, legacy no-op/current unknown-field preservation, lazy DB and forged profiles. The full local suite passes 1,253 tests, workspace typecheck/build and example build. The repository has no lint script; whitespace validation uses `git diff --check`. Browser verification uses synthetic records/mocks, blocks external traffic and makes no model calls.
+
+The workbench demonstrates local Canvas layout/view/theme persistence, pinned/split tabs on reload, and exact-ticket lookup after lost acknowledgment without resending or duplicating history. These are synthetic IndexedDB receipts, not proof of production server transactions. Production auth, DB/page/shared/asset providers, canonical legacy archive storage and remote fencing remain host acceptance requirements.
+
+Visual comparison uses Chrome 154, DPR1, en-US, light global theme, Reduced Motion, the same title and paragraph/block ID, 1600x1000. The fixture reserves 268px for excluded host app chrome; it does not copy app routing/branding/private UI. Across twelve themes, 768 recorded title/body/block-content/rail computed values match the reference. Desktop x/width of navigation/detail/surface/body/rail match. Responsive and keyboard evidence is recorded separately.
+
+Full-screen image equality has **not** been established: title metadata/icon/cover/tags/breadcrumb DOM, vertical placement, original toolbar/English labels, native dialogs and configured library/DB workflows differ or remain unverified. Do not remove PersonalAI UI/data on the basis of the matched CSS subset. Browser profiles and captures are local synthetic evidence, not application migration approval.
+
+Historical 391ms/598ms values used a different browser/route/metric and are not directly comparable. The .7 and .8 synthetic Notes five-sample measurements use Chrome154, 1440x900, CPU4x and the same navigation/two-frame and 500-paragraph paste metrics; report their raw samples and medians with the candidate handoff. No performance improvement is asserted from the small difference. The example still emits the existing >500kB chunk warning.

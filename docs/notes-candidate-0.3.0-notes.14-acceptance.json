@@ -1,0 +1,616 @@
+{
+  "candidate": "0.3.0-notes.14",
+  "fullReplacement": false,
+  "all59Accepted": false,
+  "all35CSSEquality": false,
+  "rows": [
+    {
+      "id": 1,
+      "requirement": "Sidebar Pages / Library / Document modes",
+      "publicEvidence": "NotesWorkspace/NotesNavigation/config; Navigation tests; Chrome drawers",
+      "remainingAcceptance": "Scoped synthetic IndexedDB persistence verified since .8; actual PA preference mapping remains pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 2,
+      "requirement": "Root/child page tree",
+      "publicEvidence": "NotesNavigation tree; NotesInsertDialog child create; Navigation + picker tests",
+      "remainingAcceptance": "Authorized complete/paged host tree and canonical create required",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 3,
+      "requirement": "Tree move",
+      "publicEvidence": "NotesNavigation canMoveNotesPage + page.move; Cycle/scope/revision/cancel tests",
+      "remainingAcceptance": "Production workspace-CAS move/order transaction absent",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 4,
+      "requirement": "Sibling order",
+      "publicEvidence": "NotesNavigation page.move position; Navigation tests",
+      "remainingAcceptance": "Production reorder and reload not verified",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 5,
+      "requirement": "Favorite and recent panels",
+      "publicEvidence": "NotesLibrary favorite/recent; Navigation tests",
+      "remainingAcceptance": "Recent is session-only; host favorite persistence not connected",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 6,
+      "requirement": "Trash",
+      "publicEvidence": "NotesLibrary trash/actions/confirmation; Navigation tests",
+      "remainingAcceptance": "Synthetic host omits permanent-delete capability; production deletion not connected",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 7,
+      "requirement": "Library filters/sort/density",
+      "publicEvidence": "NotesLibrary controls + paging; Navigation tests; independent stale-query fixtures",
+      "remainingAcceptance": "Preference persistence and every configured filter remain integration gates",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 8,
+      "requirement": "Library classification editor",
+      "publicEvidence": "Metadata panel; optional bridge.classify; Panel/cache tests",
+      "remainingAcceptance": "Library-specific classification workflow and actual provider not integrated",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 9,
+      "requirement": "Child-page hub",
+      "publicEvidence": "NotesPageHub; Navigation tests",
+      "remainingAcceptance": "Full configured DB summaries/relations and durable preference mapping pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 10,
+      "requirement": "Page preview drawer",
+      "publicEvidence": "NotesNavigation authorized preview/resize; Navigation focus/cancel tests",
+      "remainingAcceptance": "Actual legacy drawer/relations fixture and all resize paths pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 11,
+      "requirement": "Workspace search",
+      "publicEvidence": "NotesWorkspace query/paging epoch; Independent query/cursor race checks",
+      "remainingAcceptance": "Classic input and explicit assistant row hits are integrated in .12; full catalog DB search/highlight/provider integration remains pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 12,
+      "requirement": "Search assistant / include web",
+      "publicEvidence": "NotesAssistancePanel explicit query/include-Web/cancel/results; portable-service tests and synthetic reading probe",
+      "remainingAcceptance": "Service is optional and read-only; actual authorized provider/consent/context binding remains pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 13,
+      "requirement": "Open tabs and split panes",
+      "publicEvidence": "NotesTabbedWorkspace supports one cached optional Canvas decision per loaded target; 2 regression tests; .13 DB rows open without Canvas",
+      "remainingAcceptance": "Actual PA optional row Canvas binding/reload remains pending; native drag/preferences still unaccepted",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 14,
+      "requirement": "Title/icon/cover/breadcrumb header",
+      "publicEvidence": "NotesPageHeader safe host-mapped cover image/alt/layout; common gallery; synthetic Apply/reload/cancel; old archives retained",
+      "remainingAcceptance": "Actual PA cover metadata mapping, all six cover geometry variants, emoji catalog and original cover/upload/source workflows remain unaccepted",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": true
+    },
+    {
+      "id": 15,
+      "requirement": "Style gallery / cover",
+      "publicEvidence": "NotesStyleGalleryButton owner-bounded modal, 12 style previews, optional bounded scoped cover catalog, staged metadata.patch, cancel/retention, IME/current input/catalog guards; synthetic Chrome",
+      "remainingAcceptance": "PA catalog/upload/Unsplash mapping, original 24 preset book gallery/pixel equality and paired durable metadata receipts remain pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": true
+    },
+    {
+      "id": 16,
+      "requirement": "Related pages / backlinks",
+      "publicEvidence": "Existing BacklinksPanel/relationIndex/page runtimes; Existing package tests",
+      "remainingAcceptance": "Common Notes backlinks/explicit relations panel not fully integrated",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 17,
+      "requirement": "App context/voice/webclip/Ask AI",
+      "publicEvidence": "navigationExtras/renderModes/proposal slots; Public types",
+      "remainingAcceptance": "Configured app actions/voice/webclip/AI routing unbound",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 18,
+      "requirement": "Left document inspector tabs",
+      "publicEvidence": "NotesDocumentSidebar seven panels; Panel tests; Chrome tasks/comments",
+      "remainingAcceptance": "Configured data providers and all seven real-host panels pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 19,
+      "requirement": "Heading outline",
+      "publicEvidence": "Document index + outline focusBlock; Panel tests",
+      "remainingAcceptance": "Nested/long real-host heading/selection parity pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 20,
+      "requirement": "Task list/toggle",
+      "publicEvidence": "NotesDocumentSidebar task toggle; Chrome toggle/save/reload",
+      "remainingAcceptance": "Legacy checklist codec + real host roundtrip pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 21,
+      "requirement": "Media panel",
+      "publicEvidence": "NotesDocumentSidebar media/attachments; Panel tests",
+      "remainingAcceptance": "Actual scoped assets/attachment panel projection unbound",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 22,
+      "requirement": "Document body search",
+      "publicEvidence": "NotesDocumentSidebar literal body query; Panel tests",
+      "remainingAcceptance": "Full highlight and configured long/nested search fixture pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 23,
+      "requirement": "Comments",
+      "publicEvidence": "Existing comments CRUD plus captured selected-source block composer; canonical comment.add writer; IME/single-flight/denial/retention and synthetic Chrome save",
+      "remainingAcceptance": "Block-level comments only: no durable character-offset quote anchor. Actual original comment records and provider receipts/legacy variants remain unaccepted",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": true
+    },
+    {
+      "id": 24,
+      "requirement": "History",
+      "publicEvidence": "Existing NotesHistoryReadingPreview optional authorized document; .13 synthetic reading probe; PA format discrepancy source inspection",
+      "remainingAcceptance": "PA .13 owner verified bounded authorized checkpoint/before-save preview and GET-only reading with actual archived payloads; complete legacy format/native/real-host acceptance remains open",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 25,
+      "requirement": "Info/audit/classification/privacy/tags",
+      "publicEvidence": "Read-only audit + configured category/privacy/tags; Panel/controller tests; demo category/private config",
+      "remainingAcceptance": "Host metadata allowlist/rights required; actual classification provider unbound",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 26,
+      "requirement": "Right rail insert/style/info",
+      "publicEvidence": "NotesInspector catalogs + picker binding; 23 insertion/21 style catalog tests; Chrome picker cancel",
+      "remainingAcceptance": "1–5 table picker and three-by-four save/reload accepted in synthetic .12; all real configured controls remain pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 27,
+      "requirement": "Basic text/formatting",
+      "publicEvidence": "NotesBlockNoteDocument public formatting bridge; Panel tests; Chrome style",
+      "remainingAcceptance": "Nested movement is restricted to top-level; complete legacy style parity pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 28,
+      "requirement": "Font family and size",
+      "publicEvidence": "createDocumentTypographyFeature + styles; Existing typography tests; Chrome mono",
+      "remainingAcceptance": "Unsupported old styles preserved inert; all native selection paths pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 29,
+      "requirement": "Inline links/page link presentation",
+      "publicEvidence": "NotesInsertDialog safe/internal links; existing page refs; Picker safety/selection/cancel tests",
+      "remainingAcceptance": "Four public legacy layouts and explicit authorized media preview are available in .12; real codec/widget route binding and edit/unlink workflow remain pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 30,
+      "requirement": "Code/equation/Mermaid",
+      "publicEvidence": "Optional math/diagram/code public features; Existing tests; example installs math + diagram",
+      "remainingAcceptance": "Code optional feature not installed in synthetic Notes route; legacy editors pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 31,
+      "requirement": "Page break/table size selection",
+      "publicEvidence": "Existing .12 table size/auto-width JSON preservation inherited; .13 synthetic insertion/save/reload and installed consumer",
+      "remainingAcceptance": "PA server reviewed text binder rejects table. Complete canonical table_content/marks/properties/CAS/receipt binding and browser acceptance required",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 32,
+      "requirement": "Import/export/statistics/focus",
+      "publicEvidence": "NotesContentTools JSON/Markdown/HTML import/export; Content tests; Chrome template cancel",
+      "remainingAcceptance": "Markdown is lossy; full focus/statistics/export policy and custom codecs pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 33,
+      "requirement": "Quick actions/templates/block deep links",
+      "publicEvidence": "Existing palette + block template helpers/content templates; Content/widget tests",
+      "remainingAcceptance": "Cmd-K integration, deep-link compatibility and full block menu not integrated",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 34,
+      "requirement": "Dictionary hints",
+      "publicEvidence": "NotesDictionaryPanel literal term/reference list; Panel/service tests and synthetic reading probe",
+      "remainingAcceptance": "Authorized entries are injected; original inline highlight/popover/provider binding remains pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 35,
+      "requirement": "Selected text AI/comment toolbar",
+      "publicEvidence": "NotesSelectionTools explicit scoped host service; single-block live range tickets; proposal review/reject/apply; guarded unsaved-body Undo; source/cache/provider/IME guards; 40 new regressions across design/bridge",
+      "remainingAcceptance": "Actual PA AI authorization/privacy/billing/provenance and original floating formatting toolbar CSS remain unbound; multi-block/rich result replacement and durable saved/Secretary Undo remain unaccepted",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": true
+    },
+    {
+      "id": 36,
+      "requirement": "Eleven DB views",
+      "publicEvidence": "All11 existing engines connected through Notes; final .13 database Chrome probe;10 individual-row views actually open existing writer; Dashboard loaded-row aggregate; Gallery/Feed local images; map pin CSS corrected",
+      "remainingAcceptance": "Read-only synthetic render/navigation accepted locally. Actual configured PA views, gallery variants/all legacy layouts and CSS/native interactions remain pending; nearby world-map pins overlap",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 37,
+      "requirement": "DB CRUD/trash/order/remote paging",
+      "publicEvidence": "Synthetic read-only provider verifies remote query/filter/sort/paging4→8→12, config rejection/retry/reload; row property changes use named Notes writer",
+      "remainingAcceptance": "DB-provider CRUD/trash/reorder are deliberately absent; real mutation drain, receipt/CAS, all configured queries and complete aggregates pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 38,
+      "requirement": "DB tree rows",
+      "publicEvidence": "NotesDatabaseExplorer authorized paging/dedup/counts/open; service tests + synthetic 8/12 then12/12 reading probe",
+      "remainingAcceptance": "Public read adapter is integrated; actual PA transport/complete tree and row-drawer interaction remain pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 39,
+      "requirement": "DB previews",
+      "publicEvidence": "NotesDatabaseExplorer bounded 8-row/5-column preview; service tests + owner840 geometry/occlusion probe",
+      "remainingAcceptance": "Bounded preview and unknown/known totals verified locally; all original preview/relations/resizing/provider states remain pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 40,
+      "requirement": "Basic and extended property values",
+      "publicEvidence": "NotesDatabaseProperties/propertyCatalog all 22 authorities; 35 property/schema tests; Chrome row draft guard and .12 all22 synthetic reading probe",
+      "remainingAcceptance": "Ten direct editors, four public hosted picker dialogs, seven canonical read-only and one action; explicit legacy-text/files modes; paired real providers/value/storage acceptance remains pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 41,
+      "requirement": "DB property/schema settings",
+      "publicEvidence": "NotesDatabaseSchema + typed schema commands; Property/schema tests; synthetic row settings",
+      "remainingAcceptance": "Production schema-CAS/options/rows preservation and reload pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 42,
+      "requirement": "Formula/relation/rollup",
+      "publicEvidence": "Typed relation/location/user/file/computed seams; Property authority/safety tests",
+      "remainingAcceptance": "No eval/Function; authoritative formula/rollup computation is host-owned and unbound",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 43,
+      "requirement": "DB row drawer/page body",
+      "publicEvidence": "Exact DB/view/row navigation uses default controller or guarded session.open; source-state/pending-input micro-race tests; existing property writer in Chrome",
+      "remainingAcceptance": "Actual PA row surface contract/entitlements, all native drawer gestures and row-body save formats remain pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 44,
+      "requirement": "Row-local outline/tasks/media/search/comments/history",
+      "publicEvidence": "Same seven document panels on scoped row controller; Panel/row isolation tests",
+      "remainingAcceptance": "Configured row-local history/comment projection and reload pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 45,
+      "requirement": "Assets and attachments",
+      "publicEvidence": "NotesContentTools + NotesInsertDialog scoped media; Mock scope/cancel/URL/attachment tests",
+      "remainingAcceptance": "Actual storage/paste/drop/cover and all real metadata/legacy formats unbound",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 46,
+      "requirement": "Unsplash source",
+      "publicEvidence": "Scoped explicit image search/accept seam; Mock image search/pagination tests",
+      "remainingAcceptance": "Actual authorized catalog/service absent; no live Unsplash claim",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 47,
+      "requirement": "Whiteboard",
+      "publicEvidence": "Independent oeNotesDrawing model/widget; 27 widget tests; Chrome pointer/Undo/Redo/PNG",
+      "remainingAcceptance": "Opt-in v2 maps bounded old drawing payloads; complete shape/viewport/native editing and actual storage admission remain pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 48,
+      "requirement": "HTML widget",
+      "publicEvidence": "Independent oeHtmlWidget + controller source drafts; 29 HTML/source tests; Chrome Apply/reload/IME guards",
+      "remainingAcceptance": "Standard legacy HTML codec covered; full custom preset service and every legacy variant pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 49,
+      "requirement": "Document columns",
+      "publicEvidence": "Independent oeColumns/oeColumn feature; Existing column tests",
+      "remainingAcceptance": "Old custom structures not all mapped; touch/nested long-draft parity pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 50,
+      "requirement": "Synced editable block",
+      "publicEvidence": "oeNotesSyncedBlock + revisioned shared controller; Widget CAS/lost-ACK tests",
+      "remainingAcceptance": "Actual shared host/resolver unbound; opt-in v2 maps bounded old sync structures, but full legacy host semantics remain pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 51,
+      "requirement": "Canonical but non-live types",
+      "publicEvidence": "Unknown envelopes + host archive sidecars; Existing legacy/adapter tests",
+      "remainingAcceptance": "Preservation is not an editor for every canonical legacy type",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 52,
+      "requirement": "Document/Canvas/Present/Site shell",
+      "publicEvidence": "Existing four-mode shell inherited; target-specific optional Canvas factory and .13 synthetic row document/property surface",
+      "remainingAcceptance": "Actual PA optional Canvas connection, all old settings/native fullscreen, and DB-containing mode projection remain unaccepted",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 53,
+      "requirement": "Canvas layout persistence/recovery",
+      "publicEvidence": "createNotesCanvasController double-CAS/recovery contract; 20 layout/Canvas model tests",
+      "remainingAcceptance": "Candidate .8 synthetic CanvasHost + session-owned controller + local IndexedDB reload/lost-ACK lookup verified; production CanvasHost/transactions remain unbound",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 54,
+      "requirement": "Present/Site projection and local export",
+      "publicEvidence": "Injected safe site/presentation renderers; Chrome sandbox/three widths/Present preview; mode keyboard model tests and existing Publish tests",
+      "remainingAcceptance": "Real export projection policy and configured legacy content pending; no deployment",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 55,
+      "requirement": "Ask this page / agent panel",
+      "publicEvidence": "NotesAssistancePanel explicit ask-page/query/cancel/result; portable-service tests",
+      "remainingAcceptance": "Public optional adapter available; real authorized provider and context/consent integration pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 56,
+      "requirement": "Quiet proposals",
+      "publicEvidence": "Existing quiet sessions/cards; NotesProposalRail presentation; Protected .6 six Chrome probes/16 independent assertions",
+      "remainingAcceptance": "Synthetic .12 reject/approve/Undo/lost-ACK uses current scoped writer; real Secretary provenance/partial adoption/receipt binding remains pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 57,
+      "requirement": "Document writer ownership",
+      "publicEvidence": "Synchronous scoped DB input/preferences cache, IME suppression, forced unmount retention, external-cache/timer/hydration races and metadata-bound remount/Retry;17 new lifecycle tests",
+      "remainingAcceptance": "Raw cache is controller-local, not browser-restart durable. Actual nested mutating writer drain, PA body/table admission and receipt integration remain gates",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 58,
+      "requirement": "Scoped host resource changes",
+      "publicEvidence": "Typed command/evidence/recovery + named property/schema edits; Controller/property tests; Chrome lost-ACK lookup",
+      "remainingAcceptance": "PA independent host candidate provides bounded transaction/history/receipt contracts; paired rich-body/schema/resources/legacy acceptance remains pending",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    },
+    {
+      "id": 59,
+      "requirement": "Offline/sync/collaboration",
+      "publicEvidence": "Honest unknown/conflict/offline controller status; Synthetic tests; Chrome lost-ACK lookup",
+      "remainingAcceptance": "No connected remote collaboration/CRDT/auth transport",
+      "hostPairedAcceptance": false,
+      "removalGate": false,
+      "implementationAcceptance": "PARTIAL_PENDING_FULL_WORKFLOW",
+      "localScopeValidatedIn14": false
+    }
+  ],
+  "inheritedCandidate": "0.3.0-notes.12",
+  "browserEvidence": "output/playwright/notes13/run-ea0b7ddaa7c7/results.json",
+  "paDiscrepancyReport": "docs/notes-candidate-0.3.0-notes.13-pa-contract.md",
+  "all59CoverageLedgerPresent": true,
+  "host13ScopedEvidence": {
+    "ownerReported": true,
+    "apiTests": 126,
+    "webTests": 477,
+    "build": "PASS",
+    "knownTableSaveReload": true,
+    "checkpointAndBeforeSavePreview": true,
+    "all11ViewRoundtrips": true,
+    "pendingInputRetention": true,
+    "journalCompatibilityUnmounted": true,
+    "oldCandidateHashMismatches": 0,
+    "source": "PA mac-evidence/notes13-host/HANDOFF.md and OE-NEXT-DELTA.md",
+    "not14HostAcceptance": true
+  }
+}

@@ -156,6 +156,7 @@ export {
   createPageMentionInlineContentSpec,
   createPageMentionResolverFromLinks,
   createPageRuntimeStore,
+  PageRuntimeAccessDeniedError,
   createPageRuntimesFromStore,
   createPageSearchEngine,
   createRelationIndex,
@@ -241,6 +242,7 @@ export {
   type DatabaseViewConfig,
   type DatabaseViewConfigIdentity,
   type DatabaseViewConfigProvider,
+  type DatabaseViewConfigWriteVersion,
   type DatabaseViewConfigHydrationState,
   type DatabaseViewInitialQueryState,
   type DatabaseViewRendererContext,
@@ -275,9 +277,11 @@ export {
 
 export { toPartialBlockCopy } from "./commands/blockCopy.js";
 
-export { createDocumentColumns, updateDocumentColumns, validateDocumentColumns, DOCUMENT_COLUMNS_TYPE, DOCUMENT_COLUMN_TYPE, MAX_DOCUMENT_COLUMNS, type DocumentColumnsAction } from "./document/columns.js";
+export { createDocumentColumns, documentColumnResizeWidths, updateDocumentColumns, validateDocumentColumns, moveDocumentBlock, DOCUMENT_COLUMNS_TYPE, DOCUMENT_COLUMN_TYPE, MAX_DOCUMENT_COLUMNS, type DocumentColumnsAction, type DocumentBlockMove } from "./document/columns.js";
+export { applyDocumentBlockMove, documentBlockKeyboardMove, DocumentBlockMovement } from "./document/blockMovement.js";
 export { createHtmlWidgetPreview, parseHtmlWidgetSource, sanitizeWidgetMarkup, HTML_WIDGET_TYPE, HTML_WIDGET_PRESETS, MAX_WIDGET_SOURCE_CHARACTERS, type HtmlWidgetSource } from "./document/htmlWidget.js";
 export { createDocumentWorkspaceFeature, createDocumentColumnsBlockSpec, createDocumentColumnBlockSpec, createHtmlWidgetBlockSpec, applyDocumentColumnsAction, DocumentColumnsGuard } from "./document/workspaceFeature.js";
+export { createInteractiveWidgetInputExtension } from "./document/widgetInteraction.js";
 
 export {
   createOpenEditorDictionary,
@@ -305,7 +309,13 @@ export {
 } from "./types.js";
 export { importLegacyNotesBlocks, exportLegacyNotesBlocks, type LegacyNotesArchive, type LegacyNotesImport } from "./document/legacyNotes.js";
 export { createDocumentTypographyFeature, createDocumentPageBreakBlockSpec } from "./document/typography.js";
+export { createDefaultDatabaseViewConfig } from "./workspace/databaseViewConfig.js";
+export { createReviewedDatabaseViewConfigProvider } from "./workspace/databaseViewReceipts.js";
+export type { DatabaseViewConfigReceiptPort, DatabaseViewConfigReadRequest, DatabaseViewConfigReadSnapshot, DatabaseViewConfigOperation, DatabaseViewConfigReceipt } from "./workspace/databaseViewReceipts.js";
+export { clusterMapPins, type MapPinCluster } from "./workspace/databaseMapModel.js";
 export { applyNotesMetadataEdits, type NotesMetadataEdit } from "./document/notesMetadata.js";
 export { createRevisionedNotesResourceEditor, validateNotesPropertyValue, type RevisionedNotesResourceEditor, type RevisionedNotesResourceProvider, type NotesResourceSnapshot, type NotesResourceChange, type NotesResourceRequest, type NotesResourceResult, type NotesResourceOutcome, type NotesResourceRecovery, type NotesWritableProperty } from "./workspace/revisionedNotesResource.js";
 export { describeOpenEditorAgentSchema } from "./features/agentSchema.js";
 export * from "./notes/index.js";
+
+export * from "./document/coediting.js";

@@ -129,8 +129,19 @@ describe("all 22 Notes database properties", () => {
     const f = fixture(); await f.controller.open(target); const pick = vi.fn(async () => [{ assetId: "asset", name: "Synthetic" }]);
     const { container } = mount(createElement(NotesDatabaseProperties, { databaseId: "db", rowId: "row", controller: f.controller, definitions: [definition("files")], values: { files: [] }, adapters: { files: { pick } } }));
     expect(pick).not.toHaveBeenCalled(); await act(async () => { click(container, "選択する"); await Promise.resolve(); });
-    expect(container.querySelector("output")!.textContent).toBe('[{"assetId":"asset","name":"Synthetic"}]'); expect(f.commit).not.toHaveBeenCalled(); await submit(container.querySelector("form")!);
+    expect(container.querySelector("output")!.textContent).toBe('Synthetic'); expect(f.commit).not.toHaveBeenCalled(); await submit(container.querySelector("form")!);
     expect(f.commit.mock.calls[0]![0].command).toEqual({ kind: "property.patch", propertyId: "files", value: [{ assetId: "asset", name: "Synthetic" }] });
+  });
+  it("edits multiple selections using labels and preserves an unknown selected ID until explicitly removed", async () => {
+    const f = fixture(); await f.controller.open(target);
+    const { container } = mount(createElement(NotesDatabaseProperties, { databaseId: "db", rowId: "row", controller: f.controller, definitions: [definition("multi_select")], values: { multi_select: ["a", "unknown"] } }));
+    expect(container.querySelector<HTMLInputElement>('[aria-label="保持された値: unknown"]')!.checked).toBe(true);
+    act(() => container.querySelector<HTMLInputElement>('[aria-label="Beta"]')!.click());
+    expect(f.commit).not.toHaveBeenCalled(); await submit(container.querySelector("form")!);
+    // Invalid orphan IDs never gain implicit authority; the draft and exact unknown value remain visible.
+    expect(f.commit).not.toHaveBeenCalled(); expect(container.querySelector<HTMLInputElement>('[aria-label="保持された値: unknown"]')!.checked).toBe(true);
+    act(() => container.querySelector<HTMLInputElement>('[aria-label="保持された値: unknown"]')!.click()); await submit(container.querySelector("form")!);
+    expect(f.commit.mock.calls[0]![0].command).toEqual({ kind: "property.patch", propertyId: "multi_select", value: ["a", "b"] });
   });
   it("cancels an in-flight host picker and ignores a late result without replacing the existing value", async () => {
     const f = fixture(); await f.controller.open(target); let resolve!: (value: { id: string }[]) => void; let signal!: AbortSignal;
@@ -138,7 +149,7 @@ describe("all 22 Notes database properties", () => {
     const { container } = mount(createElement(NotesDatabaseProperties, { databaseId: "db", rowId: "row", controller: f.controller, definitions: [definition("user")], values: { user: [{ id: "existing" }] }, adapters: { user: { pick } } }));
     click(container, "選択する"); click(container, "選択をキャンセル"); expect(signal.aborted).toBe(true);
     await act(async () => { resolve([{ id: "late" }]); await Promise.resolve(); });
-    expect(container.querySelector("output")!.textContent).toBe('[{"id":"existing"}]'); expect(f.commit).not.toHaveBeenCalled();
+    expect(container.querySelector("output")!.textContent).toBe('existing'); expect(f.commit).not.toHaveBeenCalled();
   });
   it("runs a configured button only through a scoped host command and remains usable after its confirmed receipt", async () => {
     const f = fixture(); await f.controller.open(target); const button = { ...definition("button"), config: { actionId: "synthetic-action", label: "確認して実行" } };
