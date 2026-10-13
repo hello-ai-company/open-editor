@@ -7,3 +7,5 @@ The root typecheck now builds editor-ai before consumers. Immutable 0.2 release 
 Mac validation: build/typecheck passed after dependency ordering; AI 373, Canvas 30, Core 57 and Publish 37 unit tests passed. BlockNote 1543 passed, 1 timed out during the parallel full run; both native popover cases passed in a focused rerun. Release-guard suite passed (123 tests before the additional candidate-denial test). Whole-suite success is not asserted until CI confirms. Supplied lockfile reports 9 dependency advisories, including 2 critical.
 
 Install `npm ci --ignore-scripts`, then `npm run typecheck`, `npm test`, `npm run build`. Personal AI consumes the verified vendor tarballs supplied in v26; this SDK checkout does not silently replace those packages.
+
+GitHub follow-up: Node 20 and Node 22 verify jobs both passed at `57922d0`. The preflight jobs rejected extended BlockNote export metadata against the fixed 0.2 public contract. The mandatory Notes icon license was added to the exact inventory; publication metadata guards remain unchanged. This is a source-only Draft and is not release-ready.
