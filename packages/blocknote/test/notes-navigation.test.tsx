@@ -53,7 +53,7 @@ function drag(node: HTMLElement, type: string): void {
   act(() => node.dispatchEvent(event));
 }
 beforeEach(() => { Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 }); (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true; });
-afterEach(() => { cleanups.splice(0).reverse().forEach(cleanup => cleanup()); vi.restoreAllMocks(); });
+afterEach(() => { cleanups.splice(0).reverse().forEach(cleanup => cleanup()); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("NotesNavigation", () => {
   it("uses guarded target navigation with arrow-key expansion, tree focus, and no implicit writes", async () => {
@@ -136,18 +136,29 @@ describe("NotesNavigation", () => {
     expect(props.onCommand).toHaveBeenCalledExactlyOnceWith({ kind: "page", pageId: "child" }, { kind: "page.move", parentId: null, position: 2, expectedWorkspaceRevision: "w1" });
   });
   it("reads hover/focus previews without saving or opening, discards late reads, and returns close focus", async () => {
+    vi.useFakeTimers();
     const reads: { target: string; signal: AbortSignal; resolve(data: NotesPagePreviewData): void }[] = [];
     const props = operations(), { container } = mount(createElement(NotesNavigation, {
       ...props, onPreview: (target, signal) => new Promise<NotesPagePreviewData>(resolve => reads.push({ target: target.kind === "page" ? target.pageId : "", signal, resolve }))
     }));
     const root = container.querySelector<HTMLButtonElement>('[data-page-id="root"]')!, other = container.querySelector<HTMLButtonElement>('[data-page-id="other"]')!;
-    act(() => root.focus()); expect(reads).toHaveLength(1); expect(document.activeElement).toBe(root);
-    act(() => other.focus()); expect(reads).toHaveLength(2); expect(reads[0]!.signal.aborted).toBe(true);
+    act(() => root.focus()); expect(reads).toHaveLength(0); await act(async () => vi.advanceTimersByTimeAsync(200)); expect(reads).toHaveLength(1); expect(document.activeElement).toBe(root);
+    act(() => other.focus()); await act(async () => vi.advanceTimersByTimeAsync(200)); expect(reads).toHaveLength(2); expect(reads[0]!.signal.aborted).toBe(true);
     await act(async () => { reads[0]!.resolve({ page: pages[0]!, content: "Stale content" }); reads[1]!.resolve({ page: pages[3]!, content: "Latest preview", related: [pages[0]!] }); }); await flush();
-    expect(container.querySelector('[aria-label="Otherのプレビュー"]')?.textContent).toContain("Latest preview");
+    expect(document.querySelector('[aria-label="Otherのプレビュー"]')?.textContent).toContain("Latest preview");
     expect(container.textContent).not.toContain("Stale content"); expect(props.onCommand).not.toHaveBeenCalled(); expect(props.onOpen).not.toHaveBeenCalled();
-    click(container, "プレビューを閉じる"); expect(document.activeElement).toBe(other); expect(reads).toHaveLength(2);
-    expect(container.querySelector('.oe-notes-page-preview')).toBeNull();
+    key(other, "Escape"); await act(async () => vi.advanceTimersByTimeAsync(100)); expect(document.activeElement).toBe(other); expect(reads).toHaveLength(2);
+    expect(document.querySelector('.oe-notes-hover-preview')).toBeNull();
+  });
+  it("cancels the delayed preview before a read, and aborts a read on scroll or mode change", async () => {
+    vi.useFakeTimers(); const onPreview = vi.fn((_target, _signal) => new Promise<NotesPagePreviewData>(() => {}));
+    const { container } = mount(createElement(NotesNavigation, { ...operations(), onPreview }));
+    const root = container.querySelector<HTMLButtonElement>('[data-page-id="root"]')!;
+    act(() => root.focus()); act(() => root.blur()); await act(async () => vi.advanceTimersByTimeAsync(250)); expect(onPreview).not.toHaveBeenCalled();
+    act(() => root.focus()); await act(async () => vi.advanceTimersByTimeAsync(200)); const firstSignal = onPreview.mock.calls[0]![1] as AbortSignal;
+    act(() => window.dispatchEvent(new Event("scroll"))); expect(firstSignal.aborted).toBe(true); expect(document.querySelector('[role=tooltip]')).toBeNull();
+    act(() => root.blur()); act(() => root.focus()); await act(async () => vi.advanceTimersByTimeAsync(200));
+    click(container, "ライブラリ"); expect((onPreview.mock.calls[1]![1] as AbortSignal).aborted).toBe(true); expect(document.querySelector('[role=tooltip]')).toBeNull();
   });
   it("allows keyboard preview resizing at 320px and preserves guarded full-open cancellation", async () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 320 });

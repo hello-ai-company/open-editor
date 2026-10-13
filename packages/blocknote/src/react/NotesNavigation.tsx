@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { NotesPageIcon } from "./NotesPageIcon.js";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { NotesCommand, NotesCommandKind, NotesCommandOutcome, NotesPageSummary, NotesPersistenceMode, NotesTarget, NotesWorkspaceSnapshot, NotesWorkspaceState } from "../notes/contracts.js";
+import { createPortal } from "react-dom";
 import { useDialogFocusTrap } from "./useDialogFocusTrap.js";
 
 export type NotesNavigationMode = "pages" | "library" | "document";
@@ -11,6 +13,8 @@ export type NotesPagePresentation = {
   cover?: { url: string; alt?: string };
 };
 export type NotesPageOperations = {
+  language?: "en" | "ja";
+  classic?: boolean;
   workspace: NotesWorkspaceSnapshot;
   activePageId?: string;
   status?: NotesWorkspaceState["status"];
@@ -26,6 +30,7 @@ export type NotesPageOperations = {
   getPresentation?(page: NotesPageSummary): NotesPagePresentation;
 };
 export type NotesNavigationProps = NotesPageOperations & {
+  bodyView?: "body" | "children"; onBodyViewChange?(view: "body" | "children"): void;
   mode?: NotesNavigationMode; onModeChange?(mode: NotesNavigationMode): void;
   recentPageIds?: readonly string[];
   sections?: readonly ("tree" | "library" | "favorites" | "recent" | "trash")[];
@@ -49,7 +54,7 @@ function matches(page: NotesPageSummary, query: string, presentation?: NotesPage
 function PageMedia({ page, presentation }: { page: NotesPageSummary; presentation?: NotesPagePresentation }) {
   const url = presentation?.cover?.url ?? page.cover;
   const safe = url && (/^https?:\/\//i.test(url) || /^blob:/i.test(url) || /^data:image\/(?:png|jpeg|gif|webp);base64,/i.test(url));
-  return <span className="oe-notes-page-media">{safe ? <img src={url} alt={presentation?.cover?.alt ?? ""} loading="lazy" /> : <span aria-hidden="true">{page.icon || (presentation?.kind === "database" ? "▦" : "▤")}</span>}</span>;
+  return <span className="oe-notes-page-media">{safe ? <><img src={url} alt={presentation?.cover?.alt ?? ""} loading="lazy" />{page.icon ? <span className="oe-notes-page-icon-badge"><NotesPageIcon value={page.icon} size={18} /></span> : null}</> : <span aria-hidden="true"><NotesPageIcon value={page.icon} fallback={presentation?.kind === "database" ? "▦" : "▤"} /></span>}</span>;
 }
 /** Fails closed for cycles, missing or deleted destinations, and malformed source ancestry. */
 export function canMoveNotesPage(pages: readonly NotesPageSummary[], pageId: string, parentId: string | null): boolean {
@@ -235,12 +240,19 @@ export function NotesNavigation(props: NotesNavigationProps) {
   const [section, setSection] = useState<"tree" | "favorites" | "recent" | "trash">("tree");
   const dragged = useRef<{ id: string; revision: string } | null>(null), tree = useRef<HTMLDivElement>(null);
   const previewRequest = useRef<{ controller: AbortController; generation: number; pageId: string } | null>(null), previewGeneration = useRef(0), previewOpener = useRef<HTMLElement | null>(null), suppressedPreview = useRef<string | null>(null);
+  const previewId = useId();
+  const previewDelay = useRef<ReturnType<typeof setTimeout> | undefined>(undefined), previewExit = useRef<ReturnType<typeof setTimeout> | undefined>(undefined), previewLeave = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const previewElement = useRef<HTMLElement>(null);
+  const desiredPreview = useRef<{ page: NotesPageSummary; opener: HTMLElement } | null>(null);
+  const [previewAnchor, setPreviewAnchor] = useState<{ x: number; y: number; width: number; height: number; sidebar: { left: number; right: number }; bounds: { left: number; top: number; right: number; bottom: number } } | null>(null), [previewClosing, setPreviewClosing] = useState(false);
+  const stopPreviewTimers = () => { clearTimeout(previewDelay.current); clearTimeout(previewExit.current); clearTimeout(previewLeave.current); previewLeave.current = undefined; previewDelay.current = undefined; previewExit.current = undefined; };
+  useEffect(() => () => stopPreviewTimers(), []);
   const currentPreviewScope = useRef(""); currentPreviewScope.current = scopeKey(props.workspace) + props.workspace.revision;
   useEffect(() => () => { previewGeneration.current++; previewRequest.current?.controller.abort(); }, []);
-  useEffect(() => { previewGeneration.current++; previewRequest.current?.controller.abort(); previewRequest.current = null; suppressedPreview.current = null; setPreview(null); setPreviewLoading(false); }, [props.workspace.revision, props.workspace.scope.actorId, props.workspace.scope.workspaceId]);
+  useEffect(() => { previewGeneration.current++; previewRequest.current?.controller.abort(); previewRequest.current = null; suppressedPreview.current = null; desiredPreview.current = null; stopPreviewTimers(); setPreview(null); setPreviewLoading(false); }, [props.workspace.revision, props.workspace.scope.actorId, props.workspace.scope.workspaceId]);
   const mode = props.mode ?? localMode, sections = props.sections ?? ["tree", "library", "favorites", "recent", "trash"];
   const activeSection = sections.includes(section) ? section : sections.find(item => item !== "library");
-  const setMode = (next: NotesNavigationMode): void => { setLocalMode(next); props.onModeChange?.(next); };
+  const setMode = (next: NotesNavigationMode): void => { closePreview(false, true); setLocalMode(next); props.onModeChange?.(next); };
   const indexed = useMemo(() => new Map(props.workspace.pages.map(page => [page.id, page])), [props.workspace]);
   const expandedActiveIdentity = useRef("");
   useEffect(() => {
@@ -274,27 +286,55 @@ export function NotesNavigation(props: NotesNavigationProps) {
     return rows;
   }, [activeSection, query, props.workspace, props.recentPageIds, indexed, children, expanded, props.getPresentation]);
   const actionPage = actionPageId ? indexed.get(actionPageId) : undefined;
-  const showPreview = (page: NotesPageSummary, opener: HTMLElement): void => {
-    if (!props.onPreview || suppressedPreview.current === page.id || previewRequest.current?.pageId === page.id) return;
-    previewRequest.current?.controller.abort();
-    const controller = new AbortController(), generation = ++previewGeneration.current;
-    const requestScope = currentPreviewScope.current;
-    previewRequest.current = { controller, generation, pageId: page.id }; previewOpener.current = opener;
-    setPreview({ page }); setPreviewLoading(true);
-    void props.onPreview({ kind: "page", pageId: page.id }, controller.signal).then(data => {
-      if (!controller.signal.aborted && generation === previewGeneration.current && requestScope === currentPreviewScope.current && data.page.id === page.id) setPreview(data);
-    }).catch(() => { if (!controller.signal.aborted && generation === previewGeneration.current) setMessage("プレビューを読み込めませんでした"); }).finally(() => { if (!controller.signal.aborted && generation === previewGeneration.current) setPreviewLoading(false); });
-  };
-  const closePreview = (restoreFocus = true): void => {
-    suppressedPreview.current = preview?.page.id ?? previewRequest.current?.pageId ?? null;
+  const closePreview = (restoreFocus = false, immediate = false): void => {
+    const current = desiredPreview.current;
+    if (restoreFocus) suppressedPreview.current = current?.page.id ?? preview?.page.id ?? null;
+    stopPreviewTimers(); desiredPreview.current = null;
     previewGeneration.current++; previewRequest.current?.controller.abort(); previewRequest.current = null;
-    setPreview(null); setPreviewLoading(false); if (restoreFocus && previewOpener.current?.isConnected) previewOpener.current.focus();
+    setPreviewLoading(false);
+    if (immediate || !preview) { setPreview(null); setPreviewClosing(false); }
+    else { setPreviewClosing(true); previewExit.current = setTimeout(() => { setPreview(null); setPreviewClosing(false); }, 100); }
+    const opener = current?.opener ?? previewOpener.current;
+    if (restoreFocus && opener?.isConnected) opener.focus({ preventScroll: true });
   };
+  const showPreview = (page: NotesPageSummary, opener: HTMLElement): void => {
+    if (!props.onPreview || busy(props) || suppressedPreview.current === page.id || desiredPreview.current?.page.id === page.id) return;
+    stopPreviewTimers(); previewGeneration.current++; previewRequest.current?.controller.abort(); previewRequest.current = null;
+    desiredPreview.current = { page, opener }; setPreview(null); setPreviewClosing(false);
+    const generation = previewGeneration.current, requestScope = currentPreviewScope.current;
+    previewDelay.current = setTimeout(() => {
+      if (!opener.isConnected || generation !== previewGeneration.current || requestScope !== currentPreviewScope.current || desiredPreview.current?.opener !== opener) return;
+      const rect = opener.getBoundingClientRect();
+      if (rect.bottom < 0 || rect.top > window.innerHeight) return;
+      const owner = opener.closest(".oe-notes-tabbed-workspace") ?? opener.closest(".oe-notes-workspace"), ownerRect = owner?.getBoundingClientRect();
+      const bounds = { left: Math.max(0, ownerRect?.left ?? 0), top: Math.max(0, ownerRect?.top ?? 0), right: Math.min(window.innerWidth, ownerRect?.right ?? window.innerWidth), bottom: Math.min(window.innerHeight, ownerRect?.bottom ?? window.innerHeight) };
+      const sidebarRect = opener.closest(".oe-notes-workspace-left")?.getBoundingClientRect();
+      setPreviewAnchor({ x: rect.x, y: rect.y, width: rect.width, height: rect.height, sidebar: { left: sidebarRect?.left ?? rect.left, right: sidebarRect?.right ?? rect.right }, bounds });
+      const controller = new AbortController(); previewRequest.current = { controller, generation, pageId: page.id }; previewOpener.current = opener;
+      setPreview({ page }); setPreviewLoading(true);
+      void props.onPreview!({ kind: "page", pageId: page.id }, controller.signal).then(data => {
+        if (!controller.signal.aborted && generation === previewGeneration.current && requestScope === currentPreviewScope.current && data.page.id === page.id) setPreview(data);
+      }).catch(() => { if (!controller.signal.aborted && generation === previewGeneration.current) setMessage("プレビューを読み込めませんでした"); }).finally(() => { if (!controller.signal.aborted && generation === previewGeneration.current) setPreviewLoading(false); });
+    }, 200);
+  };
+  useEffect(() => {
+    const dismiss = (event: Event) => { if (!(event.target instanceof Node && previewElement.current?.contains(event.target))) closePreview(false, true); };
+    window.addEventListener("scroll", dismiss, true); window.addEventListener("resize", dismiss);
+    return () => { window.removeEventListener("scroll", dismiss, true); window.removeEventListener("resize", dismiss); };
+  }, []);
+  const leavePreview = (): void => {
+    if (document.activeElement === desiredPreview.current?.opener && desiredPreview.current?.opener.matches(":focus-visible")) return;
+    clearTimeout(previewLeave.current);
+    if (!preview) { closePreview(false, true); return; }
+    previewLeave.current = setTimeout(() => closePreview(), 180);
+  };
+  const retainPreview = (): void => { clearTimeout(previewLeave.current); previewLeave.current = undefined; };
   const focus = (id: string): void => { setFocused(id); tree.current?.querySelectorAll<HTMLButtonElement>("[role=treeitem]").forEach(button => { if (button.dataset.pageId === id) button.focus(); }); };
   const toggle = (id: string): void => setExpanded(current => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const key = (event: KeyboardEvent<HTMLButtonElement>, id: string): void => {
-    if (event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 || event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.key === " " || event.key === "Enter") return;
+    if (event.key === "Escape") { event.stopPropagation(); closePreview(true); return; }
     const index = visible.findIndex(row => row.page.id === id), page = indexed.get(id);
     if (!page) return;
     let next: string | undefined;
@@ -316,29 +356,51 @@ export function NotesNavigation(props: NotesNavigationProps) {
     try { const result = await props.onCommand({ kind: "page", pageId: source.id }, { kind: "page.move", parentId, position: nextPosition(props.workspace.pages, parentId, source.id), expectedWorkspaceRevision: source.revision }); setMessage(outcomeMessage(result.status, result.status === "committed" ? result.persistence : undefined)); if (result.status === "committed" && !await refreshWorkspace(props)) setMessage(outcomeMessage(result.status, result.persistence) + "。最新の一覧を再読込できませんでした"); }
     catch { setMessage("移動の結果を確認できませんでした"); }
   };
+  const ja = props.language !== "en";
   return <aside className="oe-notes-navigation" aria-label="ノートのナビゲーション">
-    <div className="oe-notes-navigation-modes" role="group" aria-label="ナビゲーション表示">{(["pages", "library", "document"] as const).filter(item => item !== "library" || sections.includes("library")).map(item => <button key={item} type="button" aria-pressed={mode === item} onClick={() => setMode(item)}>{item === "pages" ? "ページ" : item === "library" ? "ライブラリ" : "ドキュメント"}</button>)}</div>
+    {props.classic ? <header className="oe-notes-navigation-heading"><small>KNOWLEDGE</small><h2>{ja ? "ページ" : "Pages"}</h2></header> : null}
+    <div className="oe-notes-navigation-modes" role="group" aria-label="ナビゲーション表示">{(["pages", "library", "document"] as const).filter(item => item !== "library" || sections.includes("library")).map(item => <button key={item} type="button" aria-pressed={mode === item} onClick={() => setMode(item)}>{ja ? item === "pages" ? "ページ" : item === "library" ? "ライブラリ" : props.classic ? "ページ内" : "ドキュメント" : item === "pages" ? "Pages" : item === "library" ? "Library" : props.classic ? "Page tools" : "Document"}</button>)}</div>
     {mode === "document" ? props.documentContent ?? <p>ページを開いてドキュメントを確認してください</p> : <>
-      <label className="oe-notes-search">ページを検索<input type="search" aria-label="ページを検索" value={query} onChange={event => { setQuery(event.target.value); if (!(event.nativeEvent as InputEvent).isComposing) void props.onSearch?.(event.target.value).catch(() => setMessage("検索結果を読み込めませんでした")); }} onCompositionEnd={event => { void props.onSearch?.(event.currentTarget.value).catch(() => setMessage("検索結果を読み込めませんでした")); }} /></label>
-      <div className="oe-notes-navigation-sections" role="group" aria-label="ページの一覧">{(["tree", "favorites", "recent", "trash"] as const).filter(item => sections.includes(item)).map(item => <button key={item} type="button" aria-pressed={activeSection === item} onClick={() => setSection(item)}>{item === "tree" ? "すべて" : item === "favorites" ? "お気に入り" : item === "recent" ? "最近開いた" : "ゴミ箱"}</button>)}</div>
-      <div className="oe-notes-tree-root" onDragOver={event => { if (dragged.current && !busy(props)) event.preventDefault(); }} onDrop={event => { event.preventDefault(); void move(null); }}>最上位に移動</div>
+      <label className="oe-notes-search">{ja ? "ページを検索" : "Search pages"}<input type="search" aria-label={ja ? "ページを検索" : "Search pages"} value={query} onChange={event => { setQuery(event.target.value); if (!(event.nativeEvent as InputEvent).isComposing) void props.onSearch?.(event.target.value).catch(() => setMessage("検索結果を読み込めませんでした")); }} onCompositionEnd={event => { void props.onSearch?.(event.currentTarget.value).catch(() => setMessage("検索結果を読み込めませんでした")); }} /></label>
+      {!props.classic ? <>
+      <div className="oe-notes-navigation-sections" role="group" aria-label="ページの一覧">{(["tree", "favorites", "recent", "trash"] as const).filter(item => sections.includes(item)).map(item => <button key={item} type="button" aria-pressed={activeSection === item} onClick={() => setSection(item)}>{ja ? item === "tree" ? "すべて" : item === "favorites" ? "お気に入り" : item === "recent" ? "最近開いた" : "ゴミ箱" : item === "tree" ? "Pages" : item === "favorites" ? "Favorites" : item === "recent" ? "Recent" : "Trash"}</button>)}</div>
+      </> : null}
+      <div className="oe-notes-tree-root" onDragOver={event => { if (dragged.current && !busy(props)) event.preventDefault(); }} onDrop={event => { event.preventDefault(); void move(null); }}>{ja ? "最上位に移動" : "Drop here to move to top level"}</div>
+      {props.classic ? <>
+        <div className="oe-notes-classic-folders">{(["favorites", "recent", "tree", "trash"] as const).filter(item => sections.includes(item) && item !== "trash").map(item => <button key={item} type="button" aria-pressed={activeSection === item} onClick={() => setSection(item)}><span>{ja ? item === "tree" ? "ページ" : item === "favorites" ? "お気に入り" : item === "recent" ? "最近開いた" : "ゴミ箱" : item === "tree" ? "Pages" : item === "favorites" ? "Favorites" : item === "recent" ? "Recent" : "Trash"}</span><small>{item === "tree" ? props.workspace.pages.filter(page => alive(page) && !page.parentId).length : item === "favorites" ? props.workspace.pages.filter(page => alive(page) && page.favorite).length : item === "recent" ? props.recentPageIds?.length ?? 0 : props.workspace.pages.filter(page => !alive(page)).length}</small></button>)}</div>
+        <div className="oe-notes-tree-view-label" role="group" aria-label={ja ? "ページの表示" : "Page view"}><button type="button" aria-pressed={props.bodyView !== "children"} onClick={() => props.onBodyViewChange?.("body")}>{ja ? "本文" : "Body"}</button><button type="button" aria-pressed={props.bodyView === "children"} onClick={() => props.onBodyViewChange?.("children")}>{ja ? "子ページ" : "Child pages"}</button></div>
+      </> : null}
       <div ref={tree} role="tree" aria-label="ページツリー" className="oe-notes-tree">{visible.map(({ page, level }) => {
         const hasChildren = activeSection === "tree" && !query.trim() && Boolean(children.get(page.id)?.length);
         const siblings = activeSection === "tree" && !query.trim() ? children.get(page.parentId) ?? children.get(null) ?? [] : visible.map(row => row.page);
         const tabStop = visible.some(row => row.page.id === focused) ? page.id === focused : page.id === visible[0]?.page.id;
-        return <div key={page.id} className="oe-notes-tree-row" style={{ paddingInlineStart: (level - 1) * 16 }} onDragOver={event => { if (dragged.current && !busy(props) && canMoveNotesPage(props.workspace.pages, dragged.current.id, page.id)) event.preventDefault(); }} onDrop={event => { event.preventDefault(); event.stopPropagation(); void move(page.id); }}>
+        return <div key={page.id} className="oe-notes-tree-row" data-selected={page.id === props.activePageId} style={{ paddingInlineStart: (level - 1) * 16 }} onDragOver={event => { if (dragged.current && !busy(props) && canMoveNotesPage(props.workspace.pages, dragged.current.id, page.id)) event.preventDefault(); }} onDrop={event => { event.preventDefault(); event.stopPropagation(); void move(page.id); }}>
           {hasChildren ? <button type="button" tabIndex={-1} aria-label={page.title + (expanded.has(page.id) ? "を折りたたむ" : "を展開")} onClick={() => toggle(page.id)}>{expanded.has(page.id) ? "▾" : "▸"}</button> : <span className="oe-notes-tree-spacer" />}
-          <button type="button" role="treeitem" data-page-id={page.id} aria-level={level} aria-setsize={siblings.length} aria-posinset={Math.max(1, siblings.findIndex(item => item.id === page.id) + 1)} aria-selected={page.id === props.activePageId} aria-expanded={hasChildren ? expanded.has(page.id) : undefined} tabIndex={tabStop ? 0 : -1} disabled={busy(props)} draggable={!busy(props) && props.getCapabilities(page.id).includes("page.move") && alive(page)} onFocus={event => { setFocused(page.id); showPreview(page, event.currentTarget); }} onMouseEnter={event => showPreview(page, event.currentTarget)} onMouseLeave={() => { if (suppressedPreview.current === page.id) suppressedPreview.current = null; }} onKeyDown={event => key(event, page.id)} onDragStart={event => { if (!props.getCapabilities(page.id).includes("page.move") || busy(props)) { event.preventDefault(); return; } dragged.current = { id: page.id, revision: props.workspace.revision }; event.dataTransfer.setData("application/x-openeditor-page", page.id); event.dataTransfer.effectAllowed = "move"; }} onDragEnd={() => { dragged.current = null; }} onClick={() => { if (!busy(props)) void props.onOpen({ kind: "page", pageId: page.id }); }}><span aria-hidden="true">{page.icon || "▤"}</span><span>{page.title}</span></button>
+          <button type="button" role="treeitem" data-page-id={page.id} aria-level={level} aria-setsize={siblings.length} aria-posinset={Math.max(1, siblings.findIndex(item => item.id === page.id) + 1)} aria-selected={page.id === props.activePageId} aria-describedby={preview?.page.id === page.id && !previewClosing ? previewId : undefined} aria-expanded={hasChildren ? expanded.has(page.id) : undefined} tabIndex={tabStop ? 0 : -1} disabled={busy(props)} draggable={!busy(props) && props.getCapabilities(page.id).includes("page.move") && alive(page)} onFocus={event => { setFocused(page.id); showPreview(page, event.currentTarget); }} onMouseEnter={event => { retainPreview(); showPreview(page, event.currentTarget); }} onMouseLeave={() => { if (suppressedPreview.current === page.id) suppressedPreview.current = null; leavePreview(); }} onBlur={() => closePreview()} onKeyDown={event => key(event, page.id)} onDragStart={event => { if (!props.getCapabilities(page.id).includes("page.move") || busy(props)) { event.preventDefault(); return; } closePreview(false, true); dragged.current = { id: page.id, revision: props.workspace.revision }; event.dataTransfer.setData("application/x-openeditor-page", page.id); event.dataTransfer.effectAllowed = "move"; }} onDragEnd={() => { dragged.current = null; }} onClick={() => { closePreview(false, true); if (!busy(props)) void props.onOpen({ kind: "page", pageId: page.id }); }}><span className="oe-notes-tree-icon" aria-hidden="true"><NotesPageIcon value={page.icon} /></span><span className={props.classic ? "oe-notes-tree-text" : undefined}><span>{page.title}</span>{props.classic ? <small>{page.updatedAt ? (ja ? "読込済み" : "Loaded") : ""}</small> : null}</span></button>
           <button type="button" className="oe-notes-tree-more" aria-label={page.title + "の操作を表示"} aria-expanded={actionPageId === page.id} disabled={busy(props)} onClick={() => setActionPageId(current => current === page.id ? null : page.id)}>…</button>
         </div>;
       })}</div>
+      {props.classic && sections.includes("trash") ? <div className="oe-notes-classic-folders"><button type="button" aria-pressed={activeSection === "trash"} onClick={() => setSection("trash")}><span>{ja ? "ゴミ箱" : "Trash"}</span><small>{props.workspace.pages.filter(page => !alive(page)).length}</small></button></div> : null}
       {!visible.length ? <p>一致するページはありません</p> : null}
       {!props.workspace.complete ? <p>読み込まれたページを表示しています。未読込のページはまだ一覧に含まれません</p> : null}
       {props.workspace.hasMore && props.onLoadMore ? <button type="button" disabled={props.loadingMore} onClick={() => void props.onLoadMore!().catch(() => setMessage("追加のページを読み込めませんでした"))}>{props.loadingMore ? "読み込み中" : "さらに読み込む"}</button> : null}
       {actionPage ? <NotesPageActions {...props} page={actionPage} /> : null}
     </>}
-    {preview ? <NotesPagePreview data={preview} loading={previewLoading} onClose={closePreview} onOpen={async target => { const opened = await props.onOpen(target); if (opened) closePreview(false); return opened; }} blocked={busy(props)} /> : null}
+    {preview && previewAnchor && typeof document !== "undefined" ? createPortal(<NotesHoverPreview id={previewId} elementRef={previewElement} onEnter={retainPreview} onLeave={leavePreview} onEscape={() => closePreview(true)} data={preview} anchor={previewAnchor} loading={previewLoading} closing={previewClosing} />, document.body) : null}
     <p role="status">{message}</p><OperationStatus {...props} />
+  </aside>;
+}
+
+/** Viewport coordinates come directly from the tree row, including an embedded host's offset. */
+function NotesHoverPreview({ id, elementRef, onEnter, onLeave, onEscape, data, anchor, loading, closing }: { id: string; elementRef: import("react").RefObject<HTMLElement | null>; onEnter(): void; onLeave(): void; onEscape(): void; data: NotesPagePreviewData; anchor: { x: number; y: number; width: number; height: number; sidebar: { left: number; right: number }; bounds: { left: number; top: number; right: number; bottom: number } }; loading: boolean; closing: boolean }) {
+  const { bounds } = anchor;
+  const width = Math.max(1, Math.min(256, bounds.right - bounds.left - 24)), height = Math.max(1, Math.min(300, bounds.bottom - bounds.top - 24));
+  const right = anchor.sidebar.right - 8;
+  const x = Math.max(bounds.left + 12, Math.min(bounds.right - width - 12, right + width <= bounds.right - 12 ? right : anchor.sidebar.left - width - 4));
+  const y = Math.max(bounds.top + 12, Math.min(bounds.bottom - height - 12, anchor.y));
+  return <aside ref={elementRef} onMouseEnter={onEnter} onMouseLeave={onLeave} onKeyDown={event => { if (event.key === "Escape" && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) { event.stopPropagation(); onEscape(); } }} id={id} role="tooltip" aria-label={data.page.title + "のプレビュー"} aria-hidden={closing || undefined} className="oe-notes-hover-preview" data-closing={closing} style={{ left: x, top: y, width, height }}>
+    <header><span aria-hidden="true"><NotesPageIcon value={data.page.icon} /></span><h2>{data.page.title}</h2></header>
+    <div className="oe-notes-hover-preview-content">{loading ? <p>プレビューを読み込んでいます</p> : data.content ?? <p>プレビューの内容はありません</p>}</div>
   </aside>;
 }
 
@@ -401,13 +463,14 @@ export function NotesLibrary(props: NotesLibraryProps) {
     try { await props.onLoadMore(); } catch { setMessage("追加のページを読み込めませんでした。もう一度読み込めます"); }
     finally { loadLock.current = false; setLoading(false); }
   };
+  const ja = props.language !== "en";
   return <section className={"oe-notes-library oe-notes-library-" + density} aria-label="ノートのライブラリ">
-    <header><h2>ライブラリ <small>{visible.length}ページ</small></h2><div className="oe-notes-library-controls">
-      <label>検索<input type="search" aria-label="ライブラリを検索" value={query} onChange={event => { setQuery(event.target.value); resetLimit(); }} /></label>
-      <label>ページの種類<select aria-label="ページの種類" value={kind} onChange={event => { setKind(event.target.value as typeof kind); resetLimit(); }}><option value="all">すべて</option><option value="page">ページ</option><option value="database">データベース</option></select></label>
-      <label>並び順<select aria-label="並び順" value={sort} onChange={event => { setSort(event.target.value as typeof sort); resetLimit(); }}><option value="updated">更新日</option><option value="title">タイトル</option><option value="workspace">分類</option><option value="children">子ページ数</option></select></label>
-      <button type="button" aria-label={ascending ? "降順にする" : "昇順にする"} onClick={() => { setAscending(current => !current); resetLimit(); }}>{ascending ? "昇順" : "降順"}</button>
-      <div role="group" aria-label="一覧の密度"><button type="button" aria-pressed={density === "comfortable"} onClick={() => setDensity("comfortable")}>ゆったり</button><button type="button" aria-pressed={density === "compact"} onClick={() => setDensity("compact")}>コンパクト</button></div>
+    <header><h2>{ja ? "ライブラリ" : "Library"} <small>{visible.length}{ja ? "ページ" : " pages"}</small></h2><div className="oe-notes-library-controls">
+      <label>{ja ? "検索" : "Search"}<input type="search" aria-label={ja ? "ライブラリを検索" : "Search library"} value={query} onChange={event => { setQuery(event.target.value); resetLimit(); }} /></label>
+      <label>{ja ? "ページの種類" : "Page type"}<select aria-label="ページの種類" value={kind} onChange={event => { setKind(event.target.value as typeof kind); resetLimit(); }}><option value="all">{ja ? "すべて" : "All"}</option><option value="page">{ja ? "ページ" : "Pages"}</option><option value="database">{ja ? "データベース" : "Databases"}</option></select></label>
+      <label>{ja ? "並び順" : "Sort by"}<select aria-label="並び順" value={sort} onChange={event => { setSort(event.target.value as typeof sort); resetLimit(); }}><option value="updated">{ja ? "更新日" : "Updated"}</option><option value="title">{ja ? "タイトル" : "Title"}</option><option value="workspace">{ja ? "分類" : "Workspace"}</option><option value="children">{ja ? "子ページ数" : "Child pages"}</option></select></label>
+      <button type="button" aria-label={ascending ? "降順にする" : "昇順にする"} onClick={() => { setAscending(current => !current); resetLimit(); }}>{ja ? ascending ? "昇順" : "降順" : ascending ? "Ascending" : "Descending"}</button>
+      <div role="group" aria-label="一覧の密度"><button type="button" aria-pressed={density === "comfortable"} onClick={() => setDensity("comfortable")}>{ja ? "ゆったり" : "Comfortable"}</button><button type="button" aria-pressed={density === "compact"} onClick={() => setDensity("compact")}>{ja ? "コンパクト" : "Compact"}</button></div>
     </div></header>
     <div className="oe-notes-tags" role="group" aria-label="タグで絞り込み">{tags.map(value => <button key={value} type="button" aria-pressed={tag === value} onClick={() => { setTag(current => current === value ? "" : value); resetLimit(); }}>#{value}</button>)}{tag ? <button type="button" onClick={() => { setTag(""); resetLimit(); }}>タグの絞り込みを解除</button> : null}</div>
     <div role="list" className="oe-notes-library-list">{visible.slice(0, limit).map(page => {
@@ -415,7 +478,7 @@ export function NotesLibrary(props: NotesLibraryProps) {
       return <article role="listitem" key={page.id} className="oe-notes-library-row"><button type="button" className="oe-notes-page-card" aria-current={page.id === props.activePageId ? "page" : undefined} disabled={busy(props)} onClick={() => void props.onOpen({ kind: "page", pageId: page.id })}>
         <PageMedia page={page} presentation={presentation} /><div><small>{parent?.title ?? presentation?.workspace ?? page.category ?? "ページ"}</small><h3>{page.title}</h3><p>{presentation?.summary}</p>{presentation?.database ? <p>{presentation.database.title} · {presentation.database.rowCount}件 · {presentation.database.viewType}</p> : null}<small>{childCount.get(page.id) ?? 0} 子ページ · {page.updatedAt ?? ""} · {presentation?.privacy ?? ""}</small></div>
       </button><div className="oe-notes-page-tags">{page.tags?.map(value => <button key={value} type="button" aria-pressed={tag === value} onClick={() => { setTag(current => current === value ? "" : value); resetLimit(); }}>#{value}</button>)}</div>
-        <button type="button" aria-label={page.title + "の操作を表示"} aria-expanded={actionPageId === page.id} disabled={busy(props)} onClick={() => setActionPageId(current => current === page.id ? null : page.id)}>操作</button>
+        <button type="button" aria-label={page.title + "の操作を表示"} aria-expanded={actionPageId === page.id} disabled={busy(props)} onClick={() => setActionPageId(current => current === page.id ? null : page.id)}>{ja ? "操作" : "…"}</button>
         {actionPageId === page.id ? <NotesPageActions {...props} page={page} /> : null}
         {props.onAIClassify && props.getCapabilities(page.id).includes("metadata.patch") ? <button type="button" disabled={busy(props) || aiBusy !== null} onClick={() => { setAiBusy(page.id); void props.onAIClassify!({ kind: "page", pageId: page.id }).catch(() => setMessage("分類案を取得できませんでした")).finally(() => setAiBusy(null)); }}>{aiBusy === page.id ? "分類案を確認しています" : "AIの分類案を確認"}</button> : null}
       </article>;

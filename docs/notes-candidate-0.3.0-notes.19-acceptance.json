@@ -1,0 +1,39 @@
+{
+  "candidate": "0.3.0-notes.19",
+  "role": "local separate insertion/icon candidate; not host adoption",
+  "syntheticOnly": true,
+  "paidCalls": 0,
+  "validation": {
+    "typecheck": "passed",
+    "distinctTests": 1449,
+    "finalBlockNoteTests": 1008,
+    "build": "passed",
+    "exampleBuild": "passed",
+    "lint": "not configured",
+    "rootGroupedInteractionCases": 14,
+    "hostFiveConditions": "passed on5208; independent view on5204/5208",
+    "independentReview": "passed with scoped limits; final static icon reuse and narrow row rechecked by root"
+  },
+  "acceptance": {
+    "full59FunctionSignoff": false,
+    "full35VisualSignoff": false,
+    "allButtonSmoothness": false,
+    "nativeIME": false,
+    "Safari": false,
+    "productionRollout": false,
+    "hostAllOptionalBlockPersistence": false
+  },
+  "preservation": {
+    "pausedCrudWipFiles": 10,
+    "protectedPriorFiles": 302,
+    "unchanged": true
+  },
+  "adoption": {
+    "originalHostPort": 49290,
+    "restoredVersion": "0.3.0-notes.18",
+    "restorationHttp": "200 document GETs and visible writer",
+    "newCandidateInstalledIntoOriginalHost": false,
+    "usersCurrentTabVerified": false
+  },
+  "performance": "matched CPU4 final values and remaining costs in verification, not a universal speed improvement"
+}

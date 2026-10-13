@@ -1,0 +1,45 @@
+{
+  "candidate": "0.3.0-notes.30",
+  "localOnly": true,
+  "published": false,
+  "baselineHead": "9b2a2e1ad31779124d5fa4578d5435ef761964dc",
+  "status": "shared-synthetic-accepted-pa-pending",
+  "paAdoption": "pending-independent-acceptance",
+  "all35": "partial",
+  "all59": "partial",
+  "scope": "Columns whole/column/content pointer movement, bounded 2..6 addition, shared explicit widget move grips",
+  "tests": {
+    "vitest": 1435,
+    "node": 142,
+    "total": 1577,
+    "blocknote": 1126,
+    "newMeaningfulTests": 10,
+    "lint": "no configured script; git diff --check"
+  },
+  "browser": {
+    "chrome": "154.0.8037.99",
+    "columns": 15,
+    "source": "output/columns30/browser-accepted/result.json",
+    "pointer": "ordinary pointerdown/move/up; no force or direct move commands",
+    "readOnly": true,
+    "narrow": 390,
+    "reducedMotion": true
+  },
+  "regression": {
+    "widgetsAndDB": 9,
+    "nativeWidgetAndTouchEmulation": 4,
+    "HTMLDurable": 14,
+    "tableDurable": 18,
+    "headlessNativeCodeCopyPaste": 21
+  },
+  "persistenceContractChanged": false,
+  "authorizationChanged": false,
+  "schemaWriterChanged": false,
+  "remaining": [
+    "PA actual canonical save/reload/conflict/fixed unknown/restart and split host acceptance",
+    "Safari/physical touch/native IME/PA OS clipboard",
+    "Previous rapid HTML pointer and clean iframe focus limitations",
+    "No CPU4x app timing comparison",
+    "Schema29 WIP paused; ambient AI coediting follow-up separate"
+  ]
+}

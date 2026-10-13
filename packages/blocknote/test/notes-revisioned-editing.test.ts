@@ -26,7 +26,7 @@ describe("Notes revisioned editing", () => {
     expect(reopened.blocks[0]!.content).toEqual(document.blocks[0]!.content);
     expect(reopened.blocks[1]!.props).toEqual(document.blocks[1]!.props);
     document.blocks[0]!.props!.textAlignment = "right";
-    expect(() => exportLegacyNotesBlocks(document, archive, [])).toThrow(/unmapped/);
+    expect(exportLegacyNotesBlocks(document, archive, [])[0]).toMatchObject({ textAlignment: "right" });
   });
   it("refuses a deletion after metadata-only changes, while retained blocks merge current metadata", () => {
     const blocks = [{ id: "a", type: "paragraph", text: "Same", version: 1, future: "old" }], { document, archive } = importLegacyNotesBlocks(blocks);

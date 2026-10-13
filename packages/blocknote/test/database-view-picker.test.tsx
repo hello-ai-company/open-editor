@@ -130,6 +130,28 @@ describe("DatabaseViewPicker", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = priorActFlag;
   });
 
+  it("retains the dialog while Escape confirms IME composition, then cancels normally", () => {
+    const previous = (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const onPick = vi.fn();
+    const { container, cleanup } = mount(createElement(Harness, { onPick }));
+    const opener = container.querySelector('[data-testid="opener"]') as HTMLButtonElement;
+    opener.focus();
+    act(() => opener.click());
+    const dialog = container.querySelector('[role="dialog"]')!;
+    for (const composing of [{ isComposing: true }, { keyCode: 229 }]) {
+      act(() => dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true, ...composing })));
+      expect(onPick).not.toHaveBeenCalled();
+      expect(container.querySelector('[role="dialog"]')).toBe(dialog);
+    }
+    act(() => dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(onPick).toHaveBeenCalledWith(null);
+    expect(document.activeElement).toBe(opener);
+    cleanup();
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = previous;
+  });
+
   it("does not dismiss while view registration is saving", () => {
     const priorActFlag = (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

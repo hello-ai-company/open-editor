@@ -1,0 +1,18 @@
+{
+  "candidate": "0.3.0-notes.28",
+  "localOnly": true,
+  "published": false,
+  "baselineHead": "e10acb0905419f5861458425a227d7762aefdd9a",
+  "scope": "Shared Code contrast, static mobile mode label stacking, coordinated layout/document feedback",
+  "status": "shared-synthetic-partial-accepted",
+  "paAdoption": "pending-independent-acceptance",
+  "all35": "partial",
+  "all59": "partial",
+  "tests": { "vitest": 1425, "node": 142, "total": 1567, "blocknote": 1116, "newMeaningfulTests": 4, "lint": "no configured script; git diff --check passed" },
+  "browser": { "chrome": "154.0.8037.98", "captures": 30, "matchedPairs": 15, "acceptanceCases": 19, "failures": 0, "source": "output/ui28/acceptance-fixed/result.json", "toolHover": 6, "sameLoadedFont": "Inter", "bodyHeaderStableCases": 6, "afterFloatingDockInputShifts": 3, "PA_API": false },
+  "regression": { "htmlDurable": 14, "actualTableDurable": 18, "headlessNativeCodeCopyPaste": 21, "fiveWidgetsAndDB": 9, "nativeWidgetInputAndTouchEmulation": 4, "ordinaryHTMLCardFunctional": 10, "rapidDiagnostics": 2, "rapidPointerAccepted": false },
+  "remaining": [ "Existing headed narrow HTML/card save/source/rapid failures retained", "Shared rapid pointer delivery remains incomplete", "Clean preview iframe focus unresolved", "PA .28 integration pending", "Safari/physical touch/native IME/OS clipboard unverified", "No schema implementation", "No performance timing comparison" ],
+  "persistenceContractChanged": false,
+  "authorizationChanged": false,
+  "schemaWriterChanged": false
+}

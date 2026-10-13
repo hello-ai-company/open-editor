@@ -1,8 +1,11 @@
+import { useNotesFeedback } from "./NotesFeedback.js";
+import type { NotesInsertionAnchor } from "./notesToolDrag.js";
 import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import type { EditorAsset, EditorBlock, JsonValue } from "@hello-ai-company/editor-core";
 import type { DocumentIndex } from "../index/documentIndex.js";
 import type { NotesCommand, NotesCommandOutcome, NotesDocumentSnapshot, NotesPersistenceMode, NotesTarget, NotesWorkspaceController } from "../notes/contracts.js";
 import type { NotesContentCodecs, NotesMediaScope } from "./NotesContentTools.js";
+import type { NotesTextSelection } from "./notesSelection.js";
 
 export type NotesInsertKind = "text" | "page" | "link" | "card" | "attachment" | "image" | "video" | "audio" | "pdf" | "unsplash" | "code" | "equation" | "mermaid" | "whiteboard" | "htmlEmbed" | "syncedBlock" | "collection" | "gallery" | "kanban" | "columns" | "divider" | "pageBreak" | "tableInsert";
 export type NotesStyleKind = "heading" | "quote" | "bullet" | "numbered" | "checklist" | "callout" | "alignLeft" | "alignCenter" | "alignRight" | "indent" | "outdent" | "fontSans" | "fontSerif" | "fontMono" | "textSmall" | "textLarge" | "clearFormatting" | "moveUp" | "moveDown" | "moveTop" | "moveBottom";
@@ -16,18 +19,46 @@ export type NotesEditorBridge = {
   installedBlockTypes: readonly string[];
   supportedInsertActions: readonly NotesInsertKind[];
   supportedStyleActions: readonly NotesStyleKind[];
+  /** Optional live host allowlist for native toolbar/default gutter item keys. */
+  supportedNativeFormattingItems?: readonly string[];
   editable: boolean;
   composing?: boolean;
+  /** Live insert/format gate; false during retained input, save or recovery. */
+  commandsAvailable?: boolean;
+  /** Optional scoped range/ghost port; no provider or second canonical writer. */
+  coediting?: import("../document/coediting.js").DocumentCoeditingPort;
   focusBlock(blockId: string): void;
+  /** Optional ephemeral body search; never a document edit or host request. */
+  setSearchQuery?(query: string): { count: number; capped: boolean };
+  focusSearchMatch?(index: number): boolean;
   toggleTask?(blockId: string): void | Promise<void>;
-  insert(kind: NotesInsertKind, signal: AbortSignal): void | Promise<void>;
+  /** Present shared insert choices; existing insert remains available for explicit options. */
+  requestInsert?(kind: NotesInsertKind, signal: AbortSignal, options?: NotesInsertOptions): void | Promise<void>;
+  insert(kind: NotesInsertKind, signal: AbortSignal, options?: NotesInsertOptions): void | Promise<void>;
   format(kind: NotesStyleKind, signal: AbortSignal): void | Promise<void>;
   /** Optional host picker, never a global browser event or implicit paid provider call. */
   classify?(signal: AbortSignal): Promise<Record<string, JsonValue> | undefined>;
   contentCodecs?: NotesContentCodecs;
   getSelectedBlockId?(): string;
+  captureSelection?(): NotesTextSelection | undefined;
+  isSelectionCurrent?(selection: NotesTextSelection): boolean;
+  replaceSelection?(selection: NotesTextSelection, text: string, localDraftId: string, expectedLocalDraft: string): void;
+  undoSelection?(selectionId: string): boolean;
+  subscribeSelection?(listener: () => void): () => void;
+  getSelectionVersion?(): number;
+  hasTextSelection?(): boolean;
+  /** Native formatting also supports multi-block ranges; AI capture remains single-block. */
+  hasFormattingSelection?(): boolean;
+  /** Viewport coordinates from the live writer, never a persisted selection. */
+  getSelectionIdentity?(): string | undefined;
+  getInputBounds?(): { left: number; top: number; right: number; bottom: number } | undefined;
+  getSelectionBounds?(): { left: number; top: number; right: number; bottom: number } | undefined;
+  focusEditor?(): void;
+  /** Reopen the same selection toolbar for its keyboard shortcut. No text mutation. */
+  showSelectionToolbar?(): void;
   acceptAsset?(asset: EditorAsset, scope: NotesMediaScope, signal: AbortSignal, presentation?: "compact" | "card"): Promise<void>;
 };
+export type NotesInsertOptions = { table?: { rows: number; columns: number }; anchor?: NotesInsertionAnchor; html?: { empty: boolean }; /** Replace only a still-empty slash paragraph after successful insertion. */ replaceEmptyBlockId?: string };
 export type NotesPanelDataState = "loading" | "ready" | "error" | "unavailable";
 export type NotesCatalogEntry<K extends string> = { kind: K; label: string; blockTypes?: readonly string[]; oneOfBlockTypes?: readonly string[] };
 
@@ -71,8 +102,13 @@ export const NOTES_STYLE_CATALOG: readonly NotesCatalogEntry<NotesStyleKind>[] =
   { kind: "moveUp", label: "上に移動" }, { kind: "moveDown", label: "下に移動" }, { kind: "moveTop", label: "先頭へ移動" }, { kind: "moveBottom", label: "末尾へ移動" }
 ];
 export function notesAvailableCatalog<K extends string>(catalog: readonly NotesCatalogEntry<K>[], supported: readonly K[], installed: readonly string[]): readonly NotesCatalogEntry<K>[] {
-  const actions = new Set(supported), types = new Set(installed);
-  return catalog.filter(item => actions.has(item.kind) && (!item.blockTypes || item.blockTypes.every(type => types.has(type))) && (!item.oneOfBlockTypes || item.oneOfBlockTypes.some(type => types.has(type))));
+  return catalog.filter(item => !notesCatalogUnavailable(item, supported, installed));
+}
+/** Explain disabled tools without treating schema presence as host authorization. */
+export function notesCatalogUnavailable<K extends string>(item: NotesCatalogEntry<K>, supported: readonly K[], installed: readonly string[]): "feature" | "binding" | undefined {
+  const types = new Set(installed);
+  if (item.blockTypes?.some(type => !types.has(type)) || item.oneOfBlockTypes && !item.oneOfBlockTypes.some(type => types.has(type))) return "feature";
+  return supported.includes(item.kind) ? undefined : "binding";
 }
 export function notesTargetKey(target: NotesTarget): string {
   return JSON.stringify(target.kind === "page" ? ["page", target.pageId] : ["row", target.databaseId, target.rowId]);
@@ -97,7 +133,8 @@ export function useNotesController(controller: NotesWorkspaceController) {
 export function useLocalNotesDraft<T extends JsonValue>(controller: NotesWorkspaceController, id: string) {
   const state = useNotesController(controller);
   const key = JSON.stringify([state.snapshot?.scope, state.snapshot?.target, id]);
-  return { value: state.localDrafts[key] as T | undefined, id: key, set: (value: T | undefined) => controller.setLocalDraft(key, value) };
+  const isCurrent = () => { const live = controller.getState(); return JSON.stringify([live.snapshot?.scope, live.snapshot?.target, id]) === key && JSON.stringify(live.localDrafts[key]) === JSON.stringify(state.localDrafts[key]); };
+  return { value: state.localDrafts[key] as T | undefined, id: key, isCurrent, compareSet: (value: T | undefined) => { if (!isCurrent()) return false; controller.setLocalDraft(key, value); return true; }, set: (value: T | undefined) => controller.setLocalDraft(key, value) };
 }
 /** Clear only this input's composition ownership when it closes or its target changes. */
 export function useNotesComposition(controller: NotesWorkspaceController, identity?: string | boolean) {
@@ -124,23 +161,27 @@ export function notesOutcomeMessage(outcome: NotesCommandOutcome): string {
 /** Single-flight UI orchestration; controller owns CAS, receipts and cancellation semantics. */
 export function useNotesPanelCommands(controller: NotesWorkspaceController) {
   const state = useNotesController(controller), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<"success" | "notice" | "error">("notice");
   const flight = useRef(false), mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const canEdit = (kind: NotesCommand["kind"]): boolean => !!state.snapshot?.capabilities.includes(kind) && !!state.snapshot.capabilitySemantics[kind] && state.status === "ready" && !state.dirty && !busy;
   const available = (kind: NotesCommand["kind"], localDraftId?: string): boolean => canEdit(kind) && !state.composing && (!state.pendingEditors || kind === "document.save" || !!localDraftId && Object.hasOwn(state.localDrafts, localDraftId));
   const execute = async (command: NotesCommand, options?: { localDraftId?: string }): Promise<boolean> => {
     if (flight.current || !available(command.kind, options?.localDraftId)) return false;
-    flight.current = true; setBusy(true); setMessage("");
-    try { const outcome = options ? await controller.execute(command, options) : await controller.execute(command); if (mounted.current) setMessage(notesOutcomeMessage(outcome)); return outcome.status === "committed"; }
-    catch { if (mounted.current) setMessage("操作を完了できませんでした。入力を保持しています"); return false; }
+    flight.current = true; setBusy(true); setMessage(""); setMessageTone("notice");
+    try { const outcome = options ? await controller.execute(command, options) : await controller.execute(command); if (mounted.current) { setMessage(notesOutcomeMessage(outcome)); setMessageTone(outcome.status === "committed" ? "success" : ["unknown", "pending", "cancelled"].includes(outcome.status) ? "notice" : "error"); } return outcome.status === "committed"; }
+    catch { if (mounted.current) { setMessage("操作を完了できませんでした。入力を保持しています"); setMessageTone("error"); } return false; }
     finally { flight.current = false; if (mounted.current) setBusy(false); }
   };
-  return { state, busy, message, canEdit, available, execute };
+  return { state, busy, message, messageTone, canEdit, available, execute };
 }
-export function NotesPanelStatus({ controller, message }: { controller: NotesWorkspaceController; message?: string }) {
+export function NotesPanelStatus({ controller, message, ambient, tone = "notice" }: { controller: NotesWorkspaceController; message?: string; ambient?: boolean; tone?: "success" | "notice" | "error" }) {
+  const feedback = useNotesFeedback();
   const state = useNotesController(controller), [lookupBusy, setLookupBusy] = useState(false), [lookupMessage, setLookupMessage] = useState("");
   const mounted = useRef(true), flight = useRef(false);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => { if (ambient && feedback && message) feedback.announce(message, tone); }, [ambient, feedback, message, tone]);
+  if (ambient && feedback) return null;
   return <div className="oe-notes-panel-status" aria-live="polite">
     <p role="status">{lookupMessage || message || state.message || (state.pendingEditors ? "未保存の入力を保持しています。保存またはキャンセルしてから移動してください" : state.dirty ? "本文の変更を保存してから操作してください" : "")}</p>
     {state.snapshot ? <small>{[...new Set(Object.values(state.snapshot.capabilitySemantics))].map(mode => notesPersistenceLabel(mode!)).join(" / ")}</small> : null}

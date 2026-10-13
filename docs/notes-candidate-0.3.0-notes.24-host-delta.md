@@ -1,0 +1,9 @@
+# Host delta from .23
+
+No endpoints, capabilities, authorization, receipts, schema, body props, legacy formats, Core dependency or public interfaces change. `createDocumentWorkspaceFeature()` and `createCodePowerFeature()` each add the same Code clipboard-selection extension. Feature composition must retain every feature extension before host overrides, instead of assuming only one Code extension. BlockNote deduplicates the shared factory to one instance per editor; the actual browser fixture asserts that count.
+
+Notes includes the Document feature, so PA's native Code works without adding the optional highlighting peer. A standalone host using only the optional Code feature also receives the guard. Hosts not using either feature retain their previous behavior. No direct private ProseMirror/Tiptap access is introduced in the correction.
+
+The guard listens to copy on the editor DOM in capture phase and respects an already prevented event. It runs only for the focused editable body editor outside composition. DOM anchor/head must lie in the same `.bn-inline-content`, with no contenteditable=false ancestor; their resolved parent must be codeBlock. Entire inline DOM text and selected text must agree with the current document. Only a differing public TextSelection is dispatched, with addToHistory=false and no scrollIntoView. No clipboard bytes are written by this guard; the existing serializer retains text/plain, text/html and blocknote/html.
+
+Native textarea/input/iframe clipboard paths remain with their own controls. Copy does not create a body draft/save/history operation. Cut, whole-block/cross-block copy, readonly surfaces, detached DOM, Shadow DOM behavior and ordinary prose keep their current handlers; this candidate does not certify untested paths or change their permission rules.

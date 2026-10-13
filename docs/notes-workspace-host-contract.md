@@ -254,3 +254,56 @@ exports, real browser/layout/keyboard evidence, nested-row flush, all widgets/
 property/view kinds, modes and isolated candidate installation. None of these
 broader gates is implied by controller tests. No PA deletion, publish, deployment,
 push/merge, credential change or real AI execution is performed by this contract.
+
+## Optional local candidate .8 additions
+
+`NotesWorkspaceConfig.appearance` (`default`/`classic`) and `pageStyle` (clean,
+editorial, journal, mono, compact, midnight, paperback, postcard, studio,
+blueprint, gallery, minimal) are presentation only. They grant no mutation rights.
+The classic theme can also read an allowed host page-style metadata value; unknown
+metadata and original archives are retained. Host application chrome stays outside
+this subtree. Matched style metrics are not complete application parity.
+
+A session may receive `createCanvasController({target,preset})`; its returned
+controller must expose the exact immutable scoped `identity`. The session owns
+its lifetime; `NotesWorkspaceModes.canvasController` borrows it. Guarded navigation
+flushes body and Canvas, blocks uncertain/invalid/pending results, and checks all
+pane activity again after awaits. Optional `rebaseDocumentRevision` re-reads the
+canonical Canvas and preserves a draft only when Canvas revision/layout/view/theme
+are unchanged and the new body still validates it. An unrelated writer does not
+authorize silently rebasing a stale draft. Hosts still enforce both revisions in
+one durable transaction and return exact canonical receipts.
+
+`createNotesIndexedDBLayoutStorage({scope,databaseName,indexedDB,legacyKeys})` is
+explicit local storage. Reads/writes fail closed on wrong scope, unsupported stored
+records, concurrent bytes, closure or failed transaction. Explicit legacy keys are
+read-only, and migration copies retain their original bytes. Close owned adapters
+on permanent teardown; abandoned React initializers create no connection. This
+adapter is browser-only and not proof of server durability/authentication.
+
+Legacy editing v2 is separately opt-in. Keep v1 archives with v1 import/export.
+Supply an explicit original drawing coordinate space and canonical DB ID/view-field
+mapping. Export v2 with that authoritative profile and **current** raw host blocks;
+do not accept an edited sidecar/profile as authority or serialize projections as
+raw host records. Unmapped/invalid variants remain inert; unchanged raw JSON strings
+and unknown/lazy rows remain exact. Shared body editing is local unless an authorized
+shared controller is connected. New legacy specialized types are not created by v2.
+
+## Optional local candidate .9 presentation
+
+`NotesPageAppearanceOptions` from `/react` is accepted by `NotesWorkspace` and
+`NotesTabbedWorkspace` as `pageAppearance`. Its optional `fields` maps icon/tags/
+style/cover to explicitly validated host metadata keys. Only named fields are
+patched; a mapping grants no capability, persistence or authorization. Unknown
+metadata and invalid tag entries remain intact; mapping changes block stale drafts.
+`renderCoverControl({controller,editable,cover})` is an optional host-owned control;
+it must preserve its own provider, revision and permission checks. An unbound cover
+stays disabled. Custom `renderModes` must pass `classic` to `NotesWorkspaceModes`
+when the consuming host chooses the combined classic toolbar.
+
+Standalone Notes fills its container and reserves no artificial PersonalAI sidebar
+width. Hosts embedding actual app navigation own that real grid/sidebar space.
+The synthetic example's explicit `hostFrame=reference` query is for screenshot
+comparison only and is not a public API or an application layout requirement.
+See `notes-candidate-0.3.0-notes.9-host-delta.md` for the current PA partial-binding
+delta and remaining portable/host acceptance boundaries.

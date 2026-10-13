@@ -1,4 +1,6 @@
 import { createEditorDocument, type EditorDocument, type JsonValue } from "@hello-ai-company/editor-core";
+import { createNotesHtmlSourceDraftSession, notesHtmlSourceCacheKey, notesHtmlSourceCacheValue, htmlSourceInDocument } from "./htmlSourceDraft.js";
+import type { NotesHtmlSourceDraft } from "./htmlSourceDraft.js";
 import { copyLegacyNotesJson } from "../document/legacyNotes.js";
 import type { NotesCommand, NotesCommandKind, NotesCommandOutcome, NotesCommandRequest, NotesCommandResult, NotesDocumentSnapshot, NotesDraftBackup, NotesRecovery, NotesScope, NotesTarget, NotesWorkspaceController, NotesWorkspaceHost, NotesWorkspaceState } from "./contracts.js";
 
@@ -136,19 +138,44 @@ function validateEvidence(request: NotesCommandRequest, snapshot: NotesDocumentS
 }
 
 /** Instance scoped, input-preserving controller. No storage/network/provider secret implementation. */
-export function createNotesWorkspaceController(host: NotesWorkspaceHost, options: { timeoutMs?: number; operationId?: () => string; recovery?: NotesRecovery } = {}): NotesWorkspaceController {
+export function createNotesWorkspaceController(host: NotesWorkspaceHost, options: { timeoutMs?: number; operationId?: () => string; recovery?: NotesRecovery; beforeOpen?(source: NotesDocumentSnapshot, signal: AbortSignal): Promise<(() => boolean) | undefined> } = {}): NotesWorkspaceController {
   const hostScope = scope(host.scope);
   const timeoutMs = options.timeoutMs ?? 10000;
   if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 120000) throw new Error("Invalid Notes timeout");
   let state: NotesWorkspaceState = freeze({ status: "empty", dirty: false, composing: false, message: "", localDrafts: {}, pendingEditors: false });
   let generation = 0, activity = 0, readGeneration = 0, disposed = false, busy = false;
   let controller: AbortController | undefined, recovery = options.recovery ? parseRecovery(options.recovery) : undefined;
-  let submissionGeneration = 0;
+  let submissionGeneration = 0, draftSessionId = 0;
+  let sourceSession: ReturnType<typeof createNotesHtmlSourceDraftSession> | undefined;
   let localDraftVersions: Record<string, string> = recovery?.localDraftVersions ? clone(recovery.localDraftVersions) : {};
   let localDraftTarget: NotesTarget | undefined = recovery?.localDrafts ? clone(recovery.request.target) : undefined;
   let reviewedLatest: { snapshot: NotesDocumentSnapshot; activity: number; baseRevision: string } | undefined;
   const listeners = new Set<() => void>();
   const update = (patch: Partial<NotesWorkspaceState>): void => { if (disposed) return; state = freeze({ ...state, ...patch }); for (const listener of listeners) { try { listener(); } catch { /* observers cannot modify persistence */ } } };
+  sourceSession = host.sourceDraftJournal ? createNotesHtmlSourceDraftSession(host.sourceDraftJournal, hostScope, () => {
+    const sourceDrafts = sourceSession!.getState();
+    update({ sourceDrafts, pendingEditors: Object.keys(state.localDrafts).length > 0 || sourceDrafts.status !== "ready" || sourceDrafts.records.some(d => d.stage === "editing") });
+  }, timeoutMs) : undefined;
+  if (sourceSession) update({ sourceDrafts: sourceSession.getState() });
+  const sourceBlockId = (key: string): string | undefined => {
+    const snapshot = state.snapshot; if (!snapshot) return undefined;
+    try { const tuple = JSON.parse(key); const blockId = Array.isArray(tuple) ? tuple[5] : undefined; return typeof blockId === "string" && key === notesHtmlSourceCacheKey(hostScope, snapshot.target, blockId) ? blockId : undefined; } catch { return undefined; }
+  };
+  const clearLocalDraft = (key: string): void => {
+    const drafts = { ...state.localDrafts }; delete drafts[key]; delete localDraftVersions[key]; activity++;
+    update({ localDrafts: drafts, pendingEditors: Object.keys(drafts).length > 0 || Boolean(sourceSession && (sourceSession.getState().status !== "ready" || sourceSession.getState().records.some(d => d.stage === "editing"))) });
+  };
+  const restoreSources = (records: readonly NotesHtmlSourceDraft[], initial: NotesWorkspaceState["localDrafts"]) => {
+    const drafts = { ...initial }, groups = new Map<string, NotesHtmlSourceDraft[]>();
+    for (const record of records) { const key = notesHtmlSourceCacheKey(hostScope, record.target, record.blockId); groups.set(key, [...(groups.get(key) ?? []), record]); }
+    for (const [key, group] of groups) {
+      const value = notesHtmlSourceCacheValue(group[0]!);
+      if (group.length === 1 && (drafts[key] === undefined || equal(drafts[key], value))) drafts[key] = value;
+      else drafts[key] = { retainedSourceDrafts: clone(group), ...(drafts[key] !== undefined ? { retainedLocalInput: drafts[key]! } : {}) } as unknown as JsonValue;
+      localDraftVersions[key] = crypto.randomUUID();
+    }
+    return drafts;
+  };
   if (recovery && !equal(recovery.request.scope, hostScope)) throw new Error("Notes recovery scope mismatch");
   if (recovery) update({ status: "unknown", recovery: clone(recovery), localDrafts: recovery.localDrafts ? clone(recovery.localDrafts) : {}, pendingEditors: Object.keys(recovery.localDrafts ?? {}).length > 0, originalDraft: recovery.originalDraft ? clone(recovery.originalDraft) : undefined, mergeSourceDraft: recovery.mergeSourceDraft ? clone(recovery.mergeSourceDraft) : undefined, message: "保存結果を照会してください" });
   const draftBackup = (): NotesDraftBackup | undefined => state.snapshot && state.draft ? { scope: clone(hostScope), target: clone(state.snapshot.target), revision: state.snapshot.revision, contentRevision: state.snapshot.contentRevision, document: clone(state.draft), title: state.draftTitle ?? state.snapshot.title } : undefined;
@@ -175,6 +202,16 @@ export function createNotesWorkspaceController(host: NotesWorkspaceHost, options
       validateEvidence(request, snapshot, raw.evidence);
       const localRef = recovery?.localDraftRef;
       if (localRef && localDraftVersions[localRef.id] === localRef.version) { const drafts = { ...state.localDrafts }; delete drafts[localRef.id]; delete localDraftVersions[localRef.id]; activity++; update({ localDrafts: drafts, pendingEditors: Object.keys(drafts).length > 0 }); }
+      sourceSession?.rebind(snapshot);
+      if (sourceSession && request.command.kind === "document.save") {
+        // A restarted ticket may have restored an applied backup as raw. Only its
+        // exact captured sequence and exact saved source can retire that cache.
+        for (const record of submittedSourceDrafts) {
+          const key = notesHtmlSourceCacheKey(hostScope, record.target, record.blockId);
+          if (record.stage === "applied" && equal(htmlSourceInDocument(snapshot.document, record.blockId), record.input) && equal(state.localDrafts[key], notesHtmlSourceCacheValue(record)) && sourceSession.getState().records.some(current => equal(current, record))) clearLocalDraft(key);
+        }
+        sourceSession.saved(submittedSourceDrafts, snapshot.document);
+      }
       const newerInput = generation !== submissionGeneration;
       recovery = undefined;
       reviewedLatest = undefined;
@@ -188,8 +225,13 @@ export function createNotesWorkspaceController(host: NotesWorkspaceHost, options
     }
     return raw as unknown as NotesCommandResult;
   };
+  let submittedSourceDrafts: readonly NotesHtmlSourceDraft[] = [];
   const execute = async (value: NotesCommand, executeOptions: { localDraftId?: string } = {}): Promise<NotesCommandOutcome> => {
+    allowed(); const capturedActivity = activity, capturedRead = readGeneration;
+    if (sourceSession && !await sourceSession.flush()) throw new Error("Source input durability is unconfirmed; input retained");
+    if (capturedActivity !== activity || capturedRead !== readGeneration || disposed || state.composing) throw new Error("Input changed before source protection completed; retry after review");
     allowed(); const command = parseNotesCommand(value), snapshot = state.snapshot!;
+    submittedSourceDrafts = sourceSession ? clone(sourceSession.getState().records) : [];
     if (!snapshot.capabilities.includes(command.kind)) throw new Error("Notes capability unavailable");
     if (snapshot.target.kind === "row" && (command.kind.startsWith("page.") || "databaseId" in command && command.databaseId !== snapshot.target.databaseId || command.kind === "database.action" && command.rowId !== snapshot.target.rowId)) throw new Error("Notes command row scope mismatch");
     if (command.kind !== "document.save" && state.dirty) throw new Error("Save the current draft before a resource mutation");
@@ -223,6 +265,34 @@ export function createNotesWorkspaceController(host: NotesWorkspaceHost, options
   };
   const api: NotesWorkspaceController = {
     getState: () => state,
+    getDraftSessionId: () => draftSessionId,
+    assertLocalSourceCurrent: key => {
+      const blockId = sourceBlockId(key);
+      if (!sourceSession || !blockId) return;
+      const records = sourceSession.getState().records.filter(d => d.blockId === blockId);
+      if (records.length !== 1 || records[0]!.revision !== state.snapshot!.revision || records[0]!.contentRevision !== state.snapshot!.contentRevision) throw new Error("The original source revision changed. Retained input must be reviewed; no automatic rebase or Apply.");
+      if (sourceSession.getState().status !== "ready") throw new Error("Source storage is unconfirmed. Input retained; confirm storage before Apply.");
+    },
+    resumeLocalSourceDraft: key => {
+      const blockId = sourceBlockId(key), records = sourceSession?.getState().records.filter(d => d.blockId === blockId);
+      if (!blockId || !records || records.length !== 1 || state.localDrafts[key] !== undefined || state.composing || busy || recovery) throw new Error("Retained source cannot be resumed until the current operation is reviewed");
+      api.setLocalDraft(key, notesHtmlSourceCacheValue(records[0]!));
+    },
+    markLocalDraftApplied: key => {
+      const blockId = sourceBlockId(key);
+      if (sourceSession && blockId) { api.assertLocalSourceCurrent!(key); sourceSession.markApplied(blockId, state.draft!); clearLocalDraft(key); }
+      else api.setLocalDraft(key, undefined);
+    },
+    discardLocalDraft: async key => {
+      if (disposed || state.composing) return false;
+      const blockId = sourceBlockId(key), captured = state.localDrafts[key], session = draftSessionId;
+      if (!sourceSession || !blockId) { api.setLocalDraft(key, undefined); return true; }
+      sourceSession.discard(blockId);
+      if (!await sourceSession.flush() || session !== draftSessionId || !equal(state.localDrafts[key], captured)) return false;
+      clearLocalDraft(key); return true;
+    },
+    flushSourceDrafts: async () => !sourceSession || await sourceSession.flush(),
+    retrySourceDrafts: async () => !sourceSession || await sourceSession.retry(),
     subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     setDraft: (value, title) => {
       if (disposed || !state.snapshot) throw new Error("No Notes document loaded");
@@ -232,19 +302,34 @@ export function createNotesWorkspaceController(host: NotesWorkspaceHost, options
       reviewedLatest = undefined;
       update({ draft, draftTitle, latest: undefined, dirty: !equal(draft, state.snapshot.document) || draftTitle !== state.snapshot.title, message: "未保存の変更" });
     },
-    setComposing: composing => { if (typeof composing !== "boolean") throw new Error("Invalid composition state"); if (composing !== state.composing) { activity++; update({ composing }); } },
+    setComposing: composing => {
+      if (disposed) return;
+      if (typeof composing !== "boolean") throw new Error("Invalid composition state");
+      if (composing !== state.composing) {
+        activity++; update({ composing });
+        for (const key of Object.keys(state.localDrafts)) { const blockId = sourceBlockId(key); if (blockId) sourceSession?.composition(blockId, composing); }
+      }
+    },
     setLocalDraft: (valueId, value) => {
       if (disposed || !state.snapshot) throw new Error("No Notes document loaded");
       const key = localId(valueId);
       localDraftTarget = clone(state.snapshot.target);
       const detached = value === undefined ? undefined : clone(value);
+      const blockId = sourceBlockId(key);
+      if (sourceSession && blockId && detached === undefined) throw new Error("Use exact async source draft discard or verified Apply; input retained");
       if (detached === undefined && !Object.hasOwn(state.localDrafts, key) || detached !== undefined && Object.hasOwn(state.localDrafts, key) && equal(state.localDrafts[key], detached)) return;
       const drafts: Record<string, JsonValue> = { ...state.localDrafts };
       if (detached === undefined) { delete drafts[key]; delete localDraftVersions[key]; }
       else { drafts[key] = detached; clone(drafts); localDraftVersions[key] = crypto.randomUUID(); }
-      activity++; reviewedLatest = undefined; update({ localDrafts: drafts, pendingEditors: Object.keys(drafts).length > 0, latest: undefined, message: Object.keys(drafts).length ? "未保存の編集項目を保持しています" : state.message });
+      if (sourceSession && blockId && detached !== undefined) sourceSession.set(blockId, detached, state.composing);
+      activity++; reviewedLatest = undefined; update({ localDrafts: drafts, pendingEditors: Object.keys(drafts).length > 0 || Boolean(sourceSession && sourceSession.getState().status !== "ready"), latest: undefined, message: Object.keys(drafts).length ? "未保存の編集項目を保持しています" : state.message });
     },
     persistLocalDrafts: async () => {
+      if (sourceSession) {
+        const confirmed = await sourceSession.retry();
+        if (Object.keys(state.localDrafts).some(key => !sourceBlockId(key))) { update({ message: "HTMLソース以外の入力の永続退避は未確認です。入力は保持しています" }); return false; }
+        return confirmed;
+      }
       if (disposed || busy || !state.snapshot || recovery || !host.persistDraft) { update({ message: "編集項目はこのセッション内に保持しています。下書きの永続退避は未確認です" }); return false; }
       const base = state.snapshot, savedActivity = activity, drafts = clone(state.localDrafts), local = new AbortController();
       busy = true; controller = local;
@@ -283,19 +368,50 @@ export function createNotesWorkspaceController(host: NotesWorkspaceHost, options
       finally { busy = false; if (controller === local) controller = undefined; }
     },
     execute,
+    refresh: async options => {
+      const clean = () => !disposed && !busy && !recovery && state.status === "ready" && Boolean(state.snapshot) && !state.dirty && !state.composing && !state.pendingEditors && !state.manualSaveRequired;
+      if (!clean() || options?.isCurrent && !options.isCurrent()) return false;
+      const base = state.snapshot!, inputActivity = activity, read = ++readGeneration;
+      busy = true; const local = new AbortController(); controller = local;
+      try {
+        const fresh = parseNotesDocumentSnapshot(await bounded(Promise.resolve().then(() => host.readDocument(clone(base.target), local.signal)), local.signal));
+        if (disposed || local.signal.aborted || read !== readGeneration || activity !== inputActivity || state.snapshot !== base || state.dirty || state.composing || state.pendingEditors || state.manualSaveRequired || recovery || state.status !== "ready" || options?.isCurrent && !options.isCurrent() || !equal(fresh.scope, hostScope) || !equal(fresh.target, base.target)) return false;
+        sourceSession?.rebind(fresh);
+        generation++; activity++; reviewedLatest = undefined;
+        update({ snapshot: fresh, draft: clone(fresh.document), draftTitle: fresh.title, dirty: false, latest: undefined, originalDraft: undefined, mergeSourceDraft: undefined, message: "最新の保存状態を読み込みました" });
+        return true;
+      } catch { update({ message: "最新状態を読み込めません。現在の本文と入力を保持しています" }); return false; }
+      finally { busy = false; if (controller === local) controller = undefined; }
+    },
     open: async value => {
       const nextTarget = target(value);
       const restoringCachedTarget = !state.snapshot && state.pendingEditors && equal(nextTarget, localDraftTarget);
+      if (sourceSession && !await sourceSession.flush()) return false;
       if (disposed || busy || recovery || state.composing || state.pendingEditors && !restoringCachedTarget || state.manualSaveRequired || ["conflict", "denied"].includes(state.status) && !restoringCachedTarget) return false;
+      let leaveCurrent = () => true;
+      if (state.snapshot && options.beforeOpen) {
+        const source = clone(state.snapshot), captured = activity, read = readGeneration, local = new AbortController();
+        controller = local;
+        try {
+          const guard = await bounded(Promise.resolve().then(() => options.beforeOpen!(source, local.signal)), local.signal);
+          if (!guard || !guard() || disposed || busy || activity !== captured || readGeneration !== read) return false;
+          leaveCurrent = guard;
+        } catch { return false; }
+        finally { if (controller === local) controller = undefined; }
+      }
       if (state.dirty) { try { await api.save(); } catch { return false; } if (state.dirty || recovery || state.composing || state.pendingEditors || state.status !== "ready") return false; }
+      if (!leaveCurrent()) return false;
       const inputActivity = activity, read = ++readGeneration;
       busy = true; const local = new AbortController(); controller = local; update({ status: "loading", message: "読み込み中" });
       try {
         const snapshot = parseNotesDocumentSnapshot(await bounded(Promise.resolve().then(() => host.readDocument(clone(nextTarget), local.signal)), local.signal));
-        if (disposed || local.signal.aborted || read !== readGeneration || activity !== inputActivity || state.composing || state.pendingEditors && !restoringCachedTarget || state.dirty || recovery) { update({ status: state.snapshot ? "ready" : "empty", message: "入力を保持しました。移動を再実行してください" }); return false; }
+        if (disposed || local.signal.aborted || read !== readGeneration || activity !== inputActivity || state.composing || state.pendingEditors && !restoringCachedTarget || state.dirty || recovery || !leaveCurrent()) { update({ status: state.snapshot ? "ready" : "empty", message: "入力を保持しました。移動を再実行してください" }); return false; }
         if (!equal(snapshot.scope, hostScope)) throw new Error("Notes actor/workspace read mismatch");
         if (!equal(snapshot.target, nextTarget)) throw new Error("Notes read scope mismatch");
-        generation = 0; localDraftTarget = clone(snapshot.target); update({ snapshot, draft: clone(snapshot.document), draftTitle: snapshot.title, dirty: false, status: "ready", message: "" }); return true;
+        const hydrate = sourceSession ? await bounded(sourceSession.hydrate(snapshot, local.signal), local.signal) : undefined;
+        if (disposed || local.signal.aborted || read !== readGeneration || activity !== inputActivity || state.composing || state.dirty || recovery || !leaveCurrent()) { update({ status: state.snapshot ? "ready" : "empty", message: "入力を保持しました。移動を再実行してください" }); return false; }
+        const recoveredSources = hydrate?.() ?? [], drafts = restoreSources(recoveredSources, state.localDrafts);
+        draftSessionId++; generation = 0; localDraftTarget = clone(snapshot.target); update({ localDrafts: drafts, pendingEditors: Object.keys(drafts).length > 0, snapshot, draft: clone(snapshot.document), draftTitle: snapshot.title, dirty: false, status: "ready", message: "" }); return true;
       } catch { update({ status: state.snapshot ? "ready" : "error", message: "開けませんでした。現在の入力は保持しています" }); return false; }
       finally { busy = false; if (controller === local) controller = undefined; }
     },
@@ -303,12 +419,25 @@ export function createNotesWorkspaceController(host: NotesWorkspaceHost, options
     reconcile: async () => {
       if (disposed || busy || !recovery || state.status !== "unknown") throw new Error("No Notes operation to reconcile");
       busy = true; const request = clone(recovery.request), local = new AbortController(); controller = local; update({ status: "saving", message: "保存結果を照会中" });
-      try { return settle(await bounded(Promise.resolve().then(() => host.lookupOperation(clone(request.target), request.operationId, local.signal)), local.signal), request); }
+      try {
+        if (sourceSession && !sourceSession.isHydrated()) {
+          // Private ticket supplies identity only, never grants. Hydrate retained raw
+          // before lookup so an exact verified receipt can retire only its applied backup.
+          const base: NotesDocumentSnapshot = { scope: clone(hostScope), target: clone(request.target), revision: request.expectedRevision, contentRevision: request.expectedContentRevision, document: request.command.kind === "document.save" ? request.command.document : createEditorDocument([]), title: request.command.kind === "document.save" ? request.command.title : "", metadata: {}, capabilities: [], capabilitySemantics: {} };
+          const hydrate = await bounded(sourceSession.hydrate(base, local.signal), local.signal);
+          if (disposed || local.signal.aborted || recovery?.request.operationId !== request.operationId) throw new Error("Recovery source changed");
+          const records = hydrate(), drafts = restoreSources(records, state.localDrafts);
+          localDraftTarget = clone(request.target);
+          submittedSourceDrafts = clone(records);
+          update({ localDrafts: drafts, pendingEditors: Object.keys(drafts).length > 0 });
+        }
+        return settle(await bounded(Promise.resolve().then(() => host.lookupOperation(clone(request.target), request.operationId, local.signal)), local.signal), request);
+      }
       catch { local.abort(); update({ status: "unknown", message: "保存結果を確認できませんでした。入力は保持しています" }); return { status: "unknown", target: request.target, operationId: request.operationId }; }
       finally { busy = false; if (controller === local) controller = undefined; }
     },
     getRecovery: () => recovery ? clone(recovery) : undefined,
-    dispose: () => { disposed = true; readGeneration++; controller?.abort(); listeners.clear(); }
+    dispose: () => { sourceSession?.dispose(); disposed = true; readGeneration++; controller?.abort(); listeners.clear(); }
   };
   return api;
 }

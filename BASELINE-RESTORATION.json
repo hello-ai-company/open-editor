@@ -1,0 +1,11 @@
+{
+  "source": "v12 cumulative plus sdk-base",
+  "targetFiles": 805,
+  "verified": 803,
+  "missing": [
+    "examples/blocknote-power/cloud-audit-frame.html",
+    "scripts/qa/cloud-audit-vite.config.mjs"
+  ],
+  "mismatched": [],
+  "fullHistoricalReplay": false
+}

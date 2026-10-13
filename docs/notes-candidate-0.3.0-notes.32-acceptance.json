@@ -1,0 +1,92 @@
+{
+  "candidate": "0.3.0-notes.32",
+  "localOnly": true,
+  "published": false,
+  "base": "ed508d967fd84d6664562976610ea106c4100431",
+  "scope": [
+    "adjacent column resize and responsive row weights",
+    "public viewport-safe SideMenu gutter and native target correction",
+    "ghost fade/reduced motion/caret reflow protection"
+  ],
+  "verification": {
+    "rootTypecheck": true,
+    "exampleTypecheck": true,
+    "rootTests": 1602,
+    "blocknoteTests": 1151,
+    "newUnitTests": 5,
+    "build": true,
+    "lint": "not configured",
+    "gitDiffCheck": true,
+    "browserCases": 85,
+    "browserResults": [
+      {
+        "name": "resize-final",
+        "cases": 20,
+        "passed": 20,
+        "evidence": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-columns32/output/columns32/resize-final/result.json",
+        "browser": "154.0.8037.99"
+      },
+      {
+        "name": "movement-accepted",
+        "cases": 15,
+        "passed": 15,
+        "evidence": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-columns32/output/columns32/movement-accepted/result.json",
+        "browser": "154.0.8037.99"
+      },
+      {
+        "name": "coediting-final",
+        "cases": 14,
+        "passed": 14,
+        "evidence": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-columns32/output/columns32/coediting-final/result.json",
+        "browser": "154.0.8037.99"
+      },
+      {
+        "name": "tabbed-final",
+        "cases": 4,
+        "passed": 4,
+        "evidence": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-columns32/output/columns32/tabbed-final/result.json",
+        "browser": "154.0.8037.99"
+      },
+      {
+        "name": "html-regression",
+        "cases": 14,
+        "passed": 14,
+        "evidence": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-columns32/output/columns32/html-regression/result.json",
+        "browser": "154.0.8037.99"
+      },
+      {
+        "name": "table-regression",
+        "cases": 18,
+        "passed": 18,
+        "evidence": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-columns32/output/columns32/table-regression/result.json",
+        "browser": "154.0.8037.99"
+      }
+    ]
+  },
+  "preservation": {
+    "files": 1028,
+    "allUnchanged": true
+  },
+  "performance": {
+    "31": {
+      "cssBytes": 174562,
+      "gzipBytes": 27146
+    },
+    "32": {
+      "cssBytes": 176449,
+      "gzipBytes": 27440
+    },
+    "delta": {
+      "cssBytes": 1887,
+      "gzipBytes": 294
+    },
+    "conditions": "Same local power.css artifact; Python gzip mtime=0. No app bundle or CPU paint/paste timing comparison."
+  },
+  "unverified": [
+    "PA canonical host adoption/receipt/audit/conflict/fixed-ID lookup/retry",
+    "durable post-dispatch newer-draft and AI Undo recovery across process crash/restart",
+    "Safari/physical touch/native IME",
+    "real AI/provider/fees",
+    "old app bundle/CPU4 paint/paste timing"
+  ]
+}

@@ -23,6 +23,15 @@ function initialDraft(definition: NotesDatabasePropertyDefinition, value: JsonVa
   if (["multi_select", "checkbox"].includes(definition.type)) return JSON.stringify(value);
   return value === null ? "" : typeof value === "string" ? value : JSON.stringify(value);
 }
+function PropertyValue({ definition, value }: { definition: NotesDatabasePropertyDefinition; value: JsonValue }) {
+  if (value === null || value === "" || Array.isArray(value) && !value.length) return <span className="oe-notes-property-empty">未設定</span>;
+  if (Array.isArray(value)) return <span className="oe-notes-property-chips">{value.map((item, index) => {
+    const label = typeof item === "string" ? definition.options?.find(option => option.id === item)?.label ?? item : item && typeof item === "object" && !Array.isArray(item) ? item.label ?? item.name ?? item.id ?? item.assetId ?? JSON.stringify(item) : JSON.stringify(item);
+    return <span key={index} className="oe-notes-property-chip" title={String(label)}>{String(label)}</span>;
+  })}</span>;
+  if (definition.type === "location" && definition.config?.valueMode !== "legacy-text" && value && typeof value === "object" && !Array.isArray(value)) return <span>{typeof value.label === "string" ? value.label + " · " : ""}{String(value.latitude)}, {String(value.longitude)}</span>;
+  return <span>{typeof value === "string" ? value : JSON.stringify(value)}</span>;
+}
 type PropertyCache = { draft: string; base: { revision: string; definition: string; value: JsonValue } };
 function propertyCache(value: JsonValue | undefined): PropertyCache | undefined {
   if (value && typeof value === "object" && !Array.isArray(value)) value = value.presentation;
@@ -112,15 +121,22 @@ function PropertyDraft(props: NotesDatabasePropertiesProps & { definition: Notes
   };
   const label = `${definition.name}の値`, disabled = inputBlocked || !canPatch;
   let control;
-  if (!writable) control = <output aria-label={label}>{typeof value === "string" ? value : JSON.stringify(value)}</output>;
-  else if (authority === "host-picker") control = <><output aria-label={label}>{draft}</output><button type="button" disabled={disabled || stale} onClick={() => void pick()}>選択する</button>{picking ? <button type="button" onClick={() => { pickerController.current?.abort(); controller.setLocalDraft(cacheKey, pickerPriorCache.current); setPicking(false); }}>選択をキャンセル</button> : null}</>;
+  if (!writable) control = <output aria-label={label}><PropertyValue definition={definition} value={canonicalValue} /></output>;
+  else if (authority === "host-picker") control = <><output aria-label={label}><PropertyValue definition={definition} value={(() => { try { return JSON.parse(draft) as JsonValue; } catch { return draft; } })()} /></output><button type="button" disabled={disabled || stale} onClick={() => void pick()}>選択する</button>{picking ? <button type="button" onClick={() => { pickerController.current?.abort(); controller.setLocalDraft(cacheKey, pickerPriorCache.current); setPicking(false); }}>選択をキャンセル</button> : null}</>;
   else if (definition.type === "checkbox") control = <select aria-label={label} value={draft} disabled={disabled} onChange={event => storeDraft(event.target.value)}><option value="null">未設定</option><option value="true">チェック済み</option><option value="false">未チェック</option>{!["null", "true", "false"].includes(draft) ? <option value={draft}>不明な値を保持</option> : null}</select>;
   else if (definition.type === "select" || definition.type === "status") control = <select aria-label={label} value={draft} disabled={disabled} onChange={event => storeDraft(event.target.value)}><option value="">未設定</option>{definition.options?.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}{draft && !definition.options?.some(option => option.id === draft) ? <option value={draft}>不明な値を保持: {draft}</option> : null}</select>;
-  else if (definition.type === "text" || definition.type === "multi_select") control = <textarea aria-label={label} value={draft} disabled={disabled} onChange={event => storeDraft(event.target.value)} />;
+  else if (definition.type === "multi_select") {
+    let selected: unknown; try { selected = JSON.parse(draft); } catch { /* Retain malformed source verbatim. */ }
+    if (Array.isArray(selected) && selected.every(item => typeof item === "string")) {
+      const ids = selected as string[], options = [...(definition.options ?? []), ...ids.filter(id => !definition.options?.some(option => option.id === id)).map(id => ({ id, label: "保持された値: " + id }))];
+      control = <fieldset aria-label={label} className="oe-notes-property-options">{options.map(option => <label key={option.id}><input type="checkbox" aria-label={option.label} checked={ids.includes(option.id)} disabled={disabled} onChange={event => storeDraft(JSON.stringify(event.target.checked ? [...ids, option.id] : ids.filter(id => id !== option.id)))} />{option.label}</label>)}</fieldset>;
+    } else control = <textarea aria-label={label} value={draft} disabled={disabled} onChange={event => storeDraft(event.target.value)} />;
+  }
+  else if (definition.type === "text") control = <textarea aria-label={label} value={draft} disabled={disabled} onChange={event => storeDraft(event.target.value)} />;
   else control = <input aria-label={label} value={draft} inputMode={definition.type === "number" ? "decimal" : undefined} disabled={disabled} onChange={event => storeDraft(event.target.value)} />;
-  return <form aria-label={`${definition.name}の編集`} onCompositionStart={() => { composing.current = true; controller.setComposing(true); }} onCompositionEnd={() => { composing.current = false; controller.setComposing(false); }} onSubmit={event => { event.preventDefault(); void resolve(); }} onKeyDown={event => { if (event.key === "Escape" && !event.nativeEvent.isComposing && event.keyCode !== 229 && canCancel) { event.stopPropagation(); reset(); props.onCancel?.(); } }}>
+  return <form className="oe-notes-property-field" data-authority={authority} aria-label={`${definition.name}の編集`} onCompositionStart={() => { composing.current = true; controller.setComposing(true); }} onCompositionEnd={() => { composing.current = false; controller.setComposing(false); }} onSubmit={event => { event.preventDefault(); void resolve(); }} onKeyDown={event => { if (event.key === "Escape" && !event.nativeEvent.isComposing && event.keyCode !== 229 && canCancel) { event.stopPropagation(); reset(); props.onCancel?.(); } }}>
     <label>{definition.name} <small>{isNotesDatabasePropertyKind(definition.type) ? NOTES_DATABASE_PROPERTY_LABELS[definition.type] : definition.type}</small>{control}</label>
-    {authority === "unknown" ? <p>未対応の定義と値をそのまま保持しています</p> : authority === "host-computed" ? <p>ホストが管理する値です</p> : authority === "host-picker" && !adapter ? <p>選択用のホスト接続が必要です</p> : null}
+    {authority === "unknown" ? <p>未対応の定義と値をそのまま保持しています</p> : authority === "host-computed" ? <p>自動計算・記録される値です</p> : authority === "host-picker" && !adapter ? <p>選択ツールはまだ接続されていません</p> : null}
     {stale ? <p role="status">別の変更を検出しました。入力を保持しています</p> : null}
     {canPatch || canAction ? <small>保存方式: {snapshot?.capabilitySemantics[canAction ? "database.action" : "property.patch"] ?? "未接続"}</small> : null}
     {writable ? <><button type="submit" disabled={blocked || stale || !canPatch}>確認して保存</button><button type="button" disabled={!canCancel} onClick={reset}>最新値に戻す</button></> : null}

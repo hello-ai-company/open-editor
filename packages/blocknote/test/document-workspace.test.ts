@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEditorDocument } from "@hello-ai-company/editor-core";
-import { createDocumentColumns, updateDocumentColumns, validateDocumentColumns } from "../src/document/columns.js";
+import { createDocumentColumns, documentColumnResizeWidths, updateDocumentColumns, validateDocumentColumns } from "../src/document/columns.js";
 import { createHtmlWidgetPreview, parseHtmlWidgetSource, sanitizeWidgetMarkup } from "../src/document/htmlWidget.js";
 
 function fixture() {
@@ -34,6 +34,29 @@ describe("independently authored Document columns", () => {
     const before = fixture(), snapshot = structuredClone(before);
     expect(() => updateDocumentColumns(before, { type: "width", columnId: "col0", width })).toThrow();
     expect(before).toEqual(snapshot);
+  });
+  it("resizes one adjacent pair without changing its opaque content, metadata or other columns", () => {
+    const before = fixture(), snapshot = structuredClone(before);
+    before.blocks[0]!.children![1]!.props = { width: 1, future: { retained: true } };
+    const next = updateDocumentColumns(before, { type: "resize-pair", groupId: "group", leftId: "col0", rightId: "col1", leftWidth: 1.4, rightWidth: .6 });
+    expect(next.blocks[0]!.children!.map(b => b.id)).toEqual(["col0", "col1", "col2"]);
+    expect(next.blocks[0]!.children![1]!.children).toEqual(snapshot.blocks[0]!.children![1]!.children);
+    expect(next.blocks[0]!.children![1]!.props).toEqual({ width: .6, future: { retained: true } });
+    expect(next.blocks[0]!.children![2]).toEqual(snapshot.blocks[0]!.children![2]);
+    expect(before.blocks[0]!.children![0]!.props?.width).toBe(1);
+  });
+  it.each(["col2", "missing"])("rejects nonadjacent resize target %s before any partial edit", rightId => {
+    const before = fixture(), copy = structuredClone(before);
+    expect(() => updateDocumentColumns(before, { type: "resize-pair", groupId: "group", leftId: "col0", rightId, leftWidth: 2, rightWidth: 0 })).toThrow();
+    expect(before).toEqual(copy);
+  });
+  it("clamps pixel and codec bounds while retaining total across nested/short and wide rows", () => {
+    for (const pixels of [100, 400, 1600]) for (const [left, right] of [[1, 1], [.1, 10], [10, 10]]) for (const delta of [-1e5, 0, 1e5]) {
+      const pair = documentColumnResizeWidths(left!, right!, pixels, delta);
+      expect(pair[0] + pair[1]).toBeCloseTo(left! + right!); expect(pair[0]).toBeGreaterThanOrEqual(.1); expect(pair[1]).toBeGreaterThanOrEqual(.1); expect(Math.max(...pair)).toBeLessThanOrEqual(10);
+    }
+    expect(documentColumnResizeWidths(1, 1, 400, 40)).toEqual([1.2, .8]);
+    expect(() => documentColumnResizeWidths(1, 1, 0, 1)).toThrow();
   });
   it("rejects orphan columns, duplicates, invalid group children and cycles", () => {
     const orphan = fixture().blocks[0]!.children![0]!;

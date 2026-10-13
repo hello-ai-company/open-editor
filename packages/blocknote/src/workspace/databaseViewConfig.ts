@@ -51,7 +51,12 @@ export type DatabaseViewConfigProvider = {
   delete?: (databaseId: string, viewId: string) => Promise<void>;
   /** Discover saved views, including OpenEditor-created IDs absent from EditorDatabase.views. */
   list?: (databaseId: string) => Promise<readonly DatabaseViewConfigIdentity[]>;
+  /** Additive per-reader baseline. Every independent settings writer needs its own load. */
+  loadVersioned?: (databaseId: string, viewId: string) => Promise<{ config: unknown | null; version: DatabaseViewConfigWriteVersion }>;
+  saveVersioned?: (config: DatabaseViewConfig, version: DatabaseViewConfigWriteVersion) => Promise<void>;
 };
+/** Opaque local read identity; never an authorization grant. Keep paired with its draft. */
+export type DatabaseViewConfigWriteVersion = { readId: string; revision: string | null };
 
 export type DatabaseViewConfigIdentity = {
   databaseId: string;
@@ -66,6 +71,7 @@ export type DatabaseViewConfigValidation = {
 };
 
 export type DatabaseViewConfigHydration = DatabaseViewConfigValidation & {
+  version?: DatabaseViewConfigWriteVersion;
   /** True only when the host successfully reported that no config existed. */
   missing: boolean;
   state: DatabaseViewConfigHydrationState;
@@ -120,7 +126,7 @@ export async function registerDatabaseViewConfig(
   provider: DatabaseViewConfigProvider | undefined,
   config: DatabaseViewConfig
 ): Promise<DatabaseViewConfigIdentity[]> {
-  if (!provider?.save || !provider.list) {
+  if ((!provider?.save && !provider?.saveVersioned) || !provider.list) {
     throw new Error("Host cannot durably register database views");
   }
   const current = validateDatabaseViewConfigIdentities(await provider.list(config.databaseId), config.databaseId);
@@ -129,7 +135,12 @@ export async function registerDatabaseViewConfig(
     if (existing.viewType !== config.viewType) throw new Error("View ID is already registered with a different type");
     return current;
   }
-  await provider.save(config);
+  if (provider.saveVersioned) {
+    if (!provider.loadVersioned) throw new Error("Host cannot read a view registration baseline");
+    const baseline = await provider.loadVersioned(config.databaseId, config.viewId);
+    if (baseline.config !== null) throw new Error("View ID already has saved settings; reload the picker");
+    await provider.saveVersioned(config, baseline.version);
+  } else await provider.save!(config);
   const saved = validateDatabaseViewConfigIdentities(await provider.list(config.databaseId), config.databaseId);
   const discovered = saved.find(({ viewId }) => viewId === config.viewId);
   if (!discovered || discovered.viewType !== config.viewType) {
@@ -352,12 +363,17 @@ export async function loadDatabaseViewHydration(input: {
   if (!input.provider) {
     return unavailable("unavailable", "Saved database view settings are unavailable from the host.");
   }
-  if (!input.provider.load) {
+  if (!input.provider.load && !input.provider.loadVersioned) {
     return unavailable("config-load-failed", "Saved database view settings cannot be loaded; local changes will not be saved.");
   }
   let raw: unknown | null;
+  let version: DatabaseViewConfigWriteVersion | undefined;
   try {
-    raw = await input.provider.load(input.databaseId, input.viewId);
+    if (input.provider.loadVersioned) {
+      const loaded = await input.provider.loadVersioned(input.databaseId, input.viewId);
+      if (!loaded.version || !boundedId(loaded.version.readId) || loaded.version.revision !== null && !boundedId(loaded.version.revision)) throw new Error("Invalid view write baseline");
+      version = { ...loaded.version }; raw = loaded.config;
+    } else raw = await input.provider.load!(input.databaseId, input.viewId);
   } catch {
     return unavailable("config-load-failed", "Saved view could not be loaded; defaults are shown and changes will not be saved.");
   }
@@ -367,7 +383,8 @@ export async function loadDatabaseViewHydration(input: {
       warnings,
       valid: true,
       missing: true,
-      state: "missing"
+      state: "missing",
+      ...(version ? { version } : {})
     };
   }
 
@@ -395,6 +412,7 @@ export async function loadDatabaseViewHydration(input: {
   const state = !validated.valid || validated.warnings.length > 0 ? "invalid" : "ready";
   return {
     ...validated,
+    ...(version ? { version } : {}),
     warnings: [...warnings, ...validated.warnings],
     missing: false,
     state,
@@ -406,11 +424,11 @@ export async function loadDatabaseViewHydration(input: {
 /** Prevent a sanitized/default view from overwriting config whose remote state is unknown. */
 export function persistDatabaseViewConfigIfAuthoritative(
   state: DatabaseViewConfigHydrationState,
-  writer: { save: (config: DatabaseViewConfig) => Promise<void> },
+  writer: { save: (config: DatabaseViewConfig) => Promise<void>; saveAuthoritative?: (config: DatabaseViewConfig) => Promise<boolean> },
   config: DatabaseViewConfig
 ): Promise<boolean> {
   if (state !== "ready" && state !== "missing") return Promise.resolve(false);
-  return writer.save(config).then(() => true);
+  return writer.saveAuthoritative ? writer.saveAuthoritative(config) : writer.save(config).then(() => true, () => false);
 }
 
 /** Immutable merge for intentional settings changes; identity is never patchable. */
@@ -474,34 +492,38 @@ export function patchDatabaseViewConfig(
 /** Serializes writes so an earlier slow save can never finish after a newer save. */
 export function createDatabaseViewConfigWriter(
   provider: DatabaseViewConfigProvider | undefined,
-  onError: (error: string | null) => void
-): { save(config: DatabaseViewConfig): Promise<void>; retry(): Promise<void> } {
-  let lastCoordinator: DatabaseViewConfigWriteCoordinator | null = null;
-  const enqueue = (config: DatabaseViewConfig): Promise<void> => {
-    if (!provider?.save) return Promise.resolve();
-    const snapshot = structuredClone(config);
+  onError: (error: string | null) => void,
+  options: { version?: () => DatabaseViewConfigWriteVersion | undefined } = {}
+): { save(config: DatabaseViewConfig): Promise<void>; saveAuthoritative(config: DatabaseViewConfig): Promise<boolean>; retry(): Promise<void> } {
+  let latest: { config: DatabaseViewConfig; version?: DatabaseViewConfigWriteVersion } | undefined, ownRevision = 0;
+  const enqueue = (config: DatabaseViewConfig, version = options.version?.()): Promise<boolean> => {
+    if (!provider?.save && !provider?.saveVersioned) return Promise.resolve(false);
+    const snapshot = structuredClone(config), baseline = version && structuredClone(version);
     const coordinator = getDatabaseViewConfigWriteCoordinator(provider, snapshot);
-    lastCoordinator = coordinator;
-    coordinator.latestConfig = snapshot;
-    const revision = ++coordinator.latestRevision;
-    const write = coordinator.tail.catch(() => undefined).then(() => provider.save!(snapshot));
-    coordinator.tail = write.then(
-      () => { if (revision === coordinator.latestRevision) onError(null); },
-      (error: unknown) => {
-        if (revision === coordinator.latestRevision) onError(error instanceof Error ? error.message : "Failed to save database view");
+    latest = { config: snapshot, ...(baseline ? { version: baseline } : {}) };
+    const revision = ++ownRevision;
+    const write = coordinator.tail.catch(() => undefined).then(() => {
+      if (provider.saveVersioned) {
+        if (!baseline) throw new Error("Read the settings baseline before saving this view");
+        return provider.saveVersioned(snapshot, baseline);
       }
+      return provider.save!(snapshot);
+    });
+    const outcome = write.then(
+      () => { if (revision === ownRevision) onError(null); return true; },
+      (error: unknown) => { if (revision === ownRevision) onError(error instanceof Error ? error.message : "Failed to save database view"); return false; }
     );
-    return coordinator.tail;
+    coordinator.tail = outcome.then(() => undefined);
+    return outcome;
   };
   return {
-    save: enqueue,
-    retry: () => lastCoordinator?.latestConfig ? enqueue(lastCoordinator.latestConfig) : Promise.resolve()
+    save: config => enqueue(config).then(() => undefined),
+    saveAuthoritative: config => enqueue(config),
+    retry: () => latest ? enqueue(latest.config, latest.version).then(() => undefined) : Promise.resolve()
   };
 }
 
 type DatabaseViewConfigWriteCoordinator = {
-  latestRevision: number;
-  latestConfig: DatabaseViewConfig | null;
   tail: Promise<void>;
 };
 
@@ -522,7 +544,7 @@ function getDatabaseViewConfigWriteCoordinator(
   const key = JSON.stringify([config.databaseId, config.viewId]);
   let coordinator = byIdentity.get(key);
   if (!coordinator) {
-    coordinator = { latestRevision: 0, latestConfig: null, tail: Promise.resolve() };
+    coordinator = { tail: Promise.resolve() };
     byIdentity.set(key, coordinator);
   }
   return coordinator;

@@ -1,0 +1,9 @@
+# Installed-package Notes example
+
+`NotesExample.tsx` imports only public package entry points and power.css; no PersonalAI files, private aliases or app logic. Supply one stable, authorized Notes host, one Canvas host, Canvas renderers and your BlockNoteView renderer. BlockNote peers/renderer styles and fonts are installed by the consuming application. Optional math/diagram/code features remain explicit imports.
+
+Layout storage is **local-only**, actor/workspace scoped and CAS guarded. It does not grant remote durability. The session owns one body and Canvas controller per target. Remount the example when the actor/workspace changes, and close local storage when its owning application is permanently torn down. Canvas/Notes hosts must persist exact recovery tickets before sending mutations; read unresolved tickets on startup and pass recovery to controllers in a production integration. This minimal example deliberately does not invent a production recovery store or remote authentication. The runnable synthetic workbench demonstrates those tickets locally.
+
+To edit existing supported legacy blocks, opt into `importLegacyNotesEditableBlocks` + `createLegacyNotesEditingFeature`, then use `exportLegacyNotesEditableBlocks` with the **authoritative host profile** and current raw host records. Retain v1 archives with the original v1 codec. Whiteboard source dimensions and DB IDs/view ownership must be supplied explicitly; unknown formats stay inert. Never serialize the editor projection as the host's original document. Shared blocks remain local unless a separately authorized shared controller is bound.
+
+Candidate .8 packaging compiles this file against the extracted installed candidate, using cached peer dependencies. No network install, publication or private source resolver is used.

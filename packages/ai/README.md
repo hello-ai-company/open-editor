@@ -62,3 +62,33 @@ if (result.status === "accepted") {
 ### Free-writing note organization (candidate .3)
 
 `createNoteOrganizationSession` coordinates per-note opt-in, idle/IME-safe exact-character structural organization, verbatim titles, permitted existing-parent/root placement, ambiguous-placement confirmation and atomic host Undo. `NoteOrganizationHost` must implement a single body/title/move/history transaction with document/hierarchy/pin CAS, pre-submit recovery, bound idempotent receipts and terminal operation fencing. `NoteOrganizationAgent` receives untrusted context and a fixed instruction; no model provider is bundled. See [the host contract](../../docs/note-organization-host-contract.md). This API never authorizes arbitrary paraphrasing or partial independent title/move saves.
+
+## Review-only block candidate policy
+
+`evaluateBlockCandidates` inventories all 33 known block types plus runtime extensions,
+then ranks up to three non-overlapping, exact-source suggestions (maximum five).
+It returns an explicit no-change choice and per-type rejection diagnostics. Schema
+registration, typed host bindings, proposal permission, durable persistence and
+conflict-aware Undo are separate gates. Unknown envelopes remain opaque.
+
+This is a pure policy helper, not a block executor or an AI provider. Its output
+always has `execution: "denied"`; a host must validate typed changes and obtain
+approval before invoking its existing canonical transaction. Revisions and exact
+source keys are private correlation data, never authorization or model prompts.
+See [the candidate policy and host contract](../../docs/cloud-block-candidate-policy.md)
+for typed evidence, bounds, dismissal, freshness and integration examples.
+
+## Optional reviewed embedded chat extensions
+
+`AgentChatSession` supports opt-in canonical employee profiles, explicitly selected
+approved memories, and selected rich multi-block document proposals. Full source
+snapshots remain local; provider requests contain only reviewed eligible rich
+blocks. `previewAgentChatDocumentProposal` is pure, and applying a proposal requires
+explicit acceptance plus a full-source guarded host transaction. Legacy ask/plain
+rewrite hosts remain supported. See [the embedded chat contract](../../docs/embedded-agent-chat.md).
+
+Interrupted sends retain a bounded private approved-request journal. An optional
+GET-only `provider.recover(request, signal)` and explicit `session.recover()` can
+retrieve a durable prior response after reload, using the same context and atomic
+history checks as a send. Loading never generates or looks up receipts; recovery
+never resends. Legacy histories and providers without recovery remain supported.

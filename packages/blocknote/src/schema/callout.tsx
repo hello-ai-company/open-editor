@@ -1,3 +1,4 @@
+import { defaultProps } from "@blocknote/core";
 import { createReactBlockSpec } from "@blocknote/react";
 import type { ReactElement } from "react";
 
@@ -15,6 +16,7 @@ export const createCalloutBlockSpec = createReactBlockSpec(
   {
     type: "callout" as const,
     propSchema: {
+      textAlignment: defaultProps.textAlignment,
       variant: {
         default: "info" as const,
         values: [...calloutVariants]
@@ -37,7 +39,7 @@ export const createCalloutBlockSpec = createReactBlockSpec(
           aria-label={variantLabels[variant] ?? "Callout"}
         >
           {title ? <div className="oe-callout__title">{title}</div> : null}
-          <div className="oe-callout__body" ref={props.contentRef} />
+          <div className="oe-callout__body" style={{ textAlign: props.block.props.textAlignment }} ref={props.contentRef} />
         </aside>
       );
     }

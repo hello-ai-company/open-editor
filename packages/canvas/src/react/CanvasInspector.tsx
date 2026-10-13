@@ -1,3 +1,4 @@
+import { CanvasActionIcon } from "./CanvasActionIcon.js";
 import { CANVAS_THEME_PRESETS, type CanvasLayoutNode, type CanvasLayoutSpec, type CanvasLayoutValidationIssue, type CanvasRect, type CanvasThemePresetName } from "../index.js";
 import {
   duplicateCanvasNode,
@@ -62,11 +63,11 @@ export function CanvasInspector(props: {
       <h3 id={`${headingId}-selection-heading`}>Selected layout</h3>
       <p className="oe-canvas__selected">{nodeLabel(selectedNode)}</p>
       <div className="oe-canvas__actions">
-        <button type="button" onClick={() => { const next = reorderCanvasNode(spec, selectedNode.id, -1); if (next) onSpecUpdate(next); }} disabled={isLocked || isRoot}>Move up</button>
-        <button type="button" onClick={() => { const next = reorderCanvasNode(spec, selectedNode.id, 1); if (next) onSpecUpdate(next); }} disabled={isLocked || isRoot}>Move down</button>
-        <button type="button" onClick={() => { const next = duplicateCanvasNode(spec, selectedNode.id); if (next) onSpecUpdate(next); }} disabled={isLocked || isRoot}>Duplicate</button>
-        <button type="button" aria-pressed={hiddenSelected} onClick={() => onViewUpdate({ hiddenNodeIds: hiddenSelected ? view.hiddenNodeIds.filter((id) => id !== selectedNode.id) : [...view.hiddenNodeIds, selectedNode.id] })}>Hidden</button>
-        <button type="button" aria-pressed={isLocked && !directlyLocked ? undefined : directlyLocked} disabled={isLocked && !directlyLocked} onClick={() => onViewUpdate({ lockedNodeIds: directlyLocked ? view.lockedNodeIds.filter((id) => id !== selectedNode.id) : [...view.lockedNodeIds, selectedNode.id] })}>{isLocked && !directlyLocked ? "Locked by parent" : "Locked"}</button>
+        <button type="button" onClick={() => { const next = reorderCanvasNode(spec, selectedNode.id, -1); if (next) onSpecUpdate(next); }} disabled={isLocked || isRoot} aria-label="Move up" title="Move up"><CanvasActionIcon name="arrow-up" /><span>Move up</span></button>
+        <button type="button" onClick={() => { const next = reorderCanvasNode(spec, selectedNode.id, 1); if (next) onSpecUpdate(next); }} disabled={isLocked || isRoot} aria-label="Move down" title="Move down"><CanvasActionIcon name="arrow-down" /><span>Move down</span></button>
+        <button type="button" onClick={() => { const next = duplicateCanvasNode(spec, selectedNode.id); if (next) onSpecUpdate(next); }} disabled={isLocked || isRoot} aria-label="Duplicate" title="Duplicate"><CanvasActionIcon name="copy" /><span>Duplicate</span></button>
+        <button type="button" aria-pressed={hiddenSelected} onClick={() => onViewUpdate({ hiddenNodeIds: hiddenSelected ? view.hiddenNodeIds.filter((id) => id !== selectedNode.id) : [...view.hiddenNodeIds, selectedNode.id] })} aria-label="Hidden" title={hiddenSelected ? "Show layer" : "Hide layer"}><CanvasActionIcon name={hiddenSelected ? "eye-off" : "eye"} /><span>Hidden</span></button>
+        <button type="button" aria-pressed={isLocked && !directlyLocked ? undefined : directlyLocked} disabled={isLocked && !directlyLocked} onClick={() => onViewUpdate({ lockedNodeIds: directlyLocked ? view.lockedNodeIds.filter((id) => id !== selectedNode.id) : [...view.lockedNodeIds, selectedNode.id] })} aria-label={isLocked && !directlyLocked ? "Locked by parent" : "Locked"} title={isLocked && !directlyLocked ? "Locked by parent" : directlyLocked ? "Unlock layer" : "Lock layer"}><CanvasActionIcon name="lock" /><span>{isLocked && !directlyLocked ? "Locked by parent" : "Locked"}</span></button>
       </div>
       <label className="oe-canvas__field">Move into
         <select aria-label="Move into layout group" value="" disabled={isLocked} onChange={(event) => {
@@ -82,7 +83,7 @@ export function CanvasInspector(props: {
     <section className="oe-canvas__section" aria-labelledby={`${headingId}-alignment-heading`}>
       <h3 id={`${headingId}-alignment-heading`}>Alignment</h3>
       <div className="oe-canvas__alignments">
-        {(["left", "center", "right", "stretch"] as const).map((alignment) => <button type="button" key={alignment} aria-label={`Align ${alignment}`} aria-pressed={(view.alignmentByNodeId[selectedNode.id] ?? "left") === alignment} disabled={isLocked} onClick={() => onViewUpdate({ alignmentByNodeId: { ...view.alignmentByNodeId, [selectedNode.id]: alignment } })}>{alignment === "left" ? "Left" : alignment === "center" ? "Center" : alignment === "right" ? "Right" : "Fill"}</button>)}
+        {(["left", "center", "right", "stretch"] as const).map((alignment) => <button type="button" key={alignment} aria-label={`Align ${alignment}`} title={`Align ${alignment}`} aria-pressed={(view.alignmentByNodeId[selectedNode.id] ?? "left") === alignment} disabled={isLocked} onClick={() => onViewUpdate({ alignmentByNodeId: { ...view.alignmentByNodeId, [selectedNode.id]: alignment } })}><CanvasActionIcon name={alignment === "stretch" ? "move-horizontal" : `align-${alignment}`} />{alignment === "stretch" ? <span>Fill</span> : null}</button>)}
       </div>
     </section>
     <section className="oe-canvas__section" aria-labelledby={`${headingId}-spacing-heading`}>

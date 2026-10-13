@@ -1,0 +1,7 @@
+# .21 Personal AI contract
+
+The shared SDK owns drawing/controls and safe preview projection. Personal AI owns application chrome, auth, persistence and external proposal/explorer placement. The sole Document writer, scope/actor/revision/permission guards, idempotent receipts and manual recovery remain unchanged. .20 floating surfaces remain pane-scoped; ResizeObserver now watches the actual workspace, including pane resize without window resize. Success does not change layout or claim canonical persistence. Uncertain/error/recovery controls remain persistent.
+
+The complete preview contract is opt-in: install new publish package and wire the optional NotesWorkspaceRenderers.validatePublication plus requireCompleteDocument:true. Guarded failures preserve Document and input, expose no private body, do not save Canvas or switch mode. Default legacy exports intentionally remain a public subset for backward compatibility. Metadata, unsupported widgets, unknown properties and original payload are retained in the canonical document; they are not transformed into pretend public HTML. No HTML importer, Whiteboard static-site renderer or full DB publication implementation is supplied.
+
+Parent-reported .20 host acceptance is the active baseline. .21 needs owner installation and real-host validation before live-complete claims. Keep .20 user's current preview/tab unchanged while accepting a new entry. Backend37/CRUD WIP is a separate checkpoint. No merge/push/publish/deploy in this handoff.

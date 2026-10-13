@@ -1,0 +1,21 @@
+{
+  "candidate": "0.3.0-notes.25",
+  "localOnly": true,
+  "scope": "focused Code caret/range vs pending focus selection work",
+  "hostAdopted": false,
+  "hostAcceptance": "pending PA owner adoption and original insertion-flow verification",
+  "newPublicRootAPI": false,
+  "storedSchemaChanged": false,
+  "newGrants": false,
+  "realAI": false,
+  "published": false,
+  "limitations": [
+    "PA5391 connection refused during direct retry",
+    "Columns canonical save unsupported in PA.24 and out of common scope",
+    "Controlled vendor-timer test is distinguished from native browser receiver validation",
+    "Physical IME/touch, Safari, rich HTML receiver and full cross-block/cut/Shadow DOM not certified"
+  ],
+  "automatedTests": 1490,
+  "nativeFocusReceiverCases": 40,
+  "nativeTypedReceiverCases": 21
+}

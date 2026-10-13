@@ -3,13 +3,13 @@
  * Host `resolveMapLocation` only — no SDK, tiles, geocoding, or mutations.
  */
 import {
-  useId,
+  useId, useEffect, useRef, useState,
   type CSSProperties,
   type KeyboardEvent,
   type ReactElement
 } from "react";
 import {
-  buildMapRowPresentations,
+  buildMapRowPresentations, clusterMapPins,
   type MapRowPresentation
 } from "./databaseMapModel.js";
 import { resolveDatabaseRowTitle } from "./databaseRowPresentation.js";
@@ -52,6 +52,16 @@ export function MapRenderer(ctx: DatabaseViewRendererContext): ReactElement {
   } = ctx;
   const baseId = useId();
   const openable = Boolean(runtime.onOpenRow);
+  const plane = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement | null>(null);
+  const [size, setSize] = useState({ width: 320, height: 160 });
+  const [chosen, setChosen] = useState<readonly string[]>([]);
+  useEffect(() => {
+    const element = plane.current; if (!element) return;
+    const measure = () => { const box = element.getBoundingClientRect(); if (box.width > 0 && box.height > 0) setSize(previous => previous.width === box.width && previous.height === box.height ? previous : { width: box.width, height: box.height }); };
+    measure(); const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(measure); observer?.observe(element);
+    return () => observer?.disconnect();
+  }, []);
+  useEffect(() => setChosen([]), [snap.databaseId, viewId]);
 
   const rows = buildMapRowPresentations({
     items: snap.items,
@@ -61,6 +71,9 @@ export function MapRenderer(ctx: DatabaseViewRendererContext): ReactElement {
   });
 
   const located = rows.filter((r) => r.status.kind === "located");
+  const clusters = clusterMapPins(rows, size.width, size.height);
+  const selected = rows.filter(row => chosen.includes(row.item.rowKey));
+  const close = () => { setChosen([]); if (trigger.current?.isConnected) trigger.current.focus(); else plane.current?.focus(); };
 
   return (
     <div
@@ -81,47 +94,18 @@ export function MapRenderer(ctx: DatabaseViewRendererContext): ReactElement {
       <div
         className="oe-database-map__plane"
         id={`${baseId}-plane`}
-        role="img"
-        aria-label={`${located.length} located ${
-          located.length === 1 ? "pin" : "pins"
-        } on map`}
+        ref={plane} tabIndex={-1} role="group"
+        aria-label={`${located.length} located ${located.length === 1 ? "pin" : "pins"} on map`}
       >
-        {located.map((row) => {
-          const rowTitle = resolveDatabaseRowTitle(row.item, definitions);
-          const style = {
-            left: `${row.projection!.xPercent}%`,
-            top: `${row.projection!.yPercent}%`
-          } as CSSProperties;
-          if (openable) {
-            return (
-              <button
-                key={row.item.rowKey}
-                type="button"
-                className="oe-database-map__pin"
-                style={style}
-                data-row-key={row.item.rowKey}
-                aria-label={`Open row ${rowTitle}`}
-                onClick={() => openRow(ctx, row.item.rowKey)}
-                onKeyDown={(event: KeyboardEvent<HTMLButtonElement>) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    openRow(ctx, row.item.rowKey);
-                  }
-                }}
-              />
-            );
-          }
-          return (
-            <span
-              key={row.item.rowKey}
-              className="oe-database-map__pin"
-              style={style}
-              data-row-key={row.item.rowKey}
-              aria-hidden="true"
-            />
-          );
+        {clusters.map(cluster => {
+          const row = cluster.rows[0]!, grouped = cluster.rows.length > 1;
+          const style = { left: `clamp(14px, ${cluster.projection.xPercent}%, calc(100% - 14px))`, top: `clamp(14px, ${cluster.projection.yPercent}%, calc(100% - 14px))` } as CSSProperties;
+          const label = grouped ? `Show ${cluster.rows.length} nearby locations` : `Open row ${resolveDatabaseRowTitle(row.item, definitions)}`;
+          if (grouped || openable) return <button key={row.item.rowKey} type="button" className="oe-database-map__pin" data-cluster-count={cluster.rows.length} data-row-key={row.item.rowKey} style={style} aria-label={label} aria-expanded={grouped ? cluster.rows.every(item => chosen.includes(item.item.rowKey)) : undefined} aria-controls={grouped ? `${baseId}-selected` : undefined} onClick={event => { if (grouped) { trigger.current = event.currentTarget; setChosen(cluster.rows.map(item => item.item.rowKey)); } else openRow(ctx, row.item.rowKey); }}>{grouped ? cluster.rows.length : null}</button>;
+          return <span key={row.item.rowKey} className="oe-database-map__pin" style={style} data-row-key={row.item.rowKey} aria-hidden="true" />;
         })}
       </div>
+      {selected.length ? <section className="oe-database-map__selection" id={`${baseId}-selected`} aria-label="Nearby locations" onKeyDown={event => { if (event.key === "Escape" && !event.nativeEvent.isComposing) { event.preventDefault(); close(); } }}><header><strong>{selected.length} nearby locations</strong><button type="button" onClick={close}>Close locations</button></header><ul>{selected.map(row => <li key={row.item.rowKey}>{openable ? <button type="button" onClick={() => openRow(ctx, row.item.rowKey)}>{resolveDatabaseRowTitle(row.item, definitions)}</button> : <strong>{resolveDatabaseRowTitle(row.item, definitions)}</strong>} <span>{locationStatusText(row)}</span></li>)}</ul></section> : null}
 
       <ul
         className="oe-database-map__list"

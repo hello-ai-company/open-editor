@@ -17,7 +17,7 @@ import {
   ReleaseGuardError
 } from "./validate-public-blocknote-release.mjs";
 
-const basePkg = JSON.parse(readFileSync("packages/blocknote/package.json", "utf8"));
+const basePkg = JSON.parse(readFileSync(new URL("./fixtures/blocknote-0.2.0.json", import.meta.url), "utf8"));
 const reviewedCommit = "a".repeat(40);
 
 const baseEnv = {
@@ -51,6 +51,10 @@ function failingExec(stderr, status = 1) {
 }
 
 describe("validate-public-blocknote-release", () => {
+  it("keeps extended local candidate metadata outside the immutable 0.2 release", () => {
+    const candidate = JSON.parse(readFileSync("packages/blocknote/package.json", "utf8"));
+    assertFails(() => validateIdentityAndInputs({ ...baseEnv, pkg: candidate }), /metadata mismatch/);
+  });
   it("accepts identity for the R2 update candidate", () => {
     const id = validateIdentityAndInputs(baseEnv);
     assert.equal(id.name, basePkg.name);

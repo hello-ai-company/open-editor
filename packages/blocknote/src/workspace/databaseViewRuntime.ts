@@ -14,6 +14,8 @@ import type {
 } from "@hello-ai-company/editor-core";
 import type { DatabaseRuntimeStore } from "./databaseRuntimeStore.js";
 import type { DatabaseViewConfigProvider } from "./databaseViewConfig.js";
+import type { NotesTableEditingRegistry } from "../notes/tableEditing.js";
+import type { NotesScope, NotesTarget } from "../notes/contracts.js";
 import type {
   DatabaseRowOpenRequest,
   DatabaseViewRendererMap
@@ -72,6 +74,9 @@ export type DatabaseMapLocation = {
 };
 
 export type DatabaseViewRuntime = {
+  /** Optional revisioned writer. Host shares one registry across every pane/view.
+   * Absence preserves the existing provider contract and does not grant writes. */
+  tableEditing?: { registry: NotesTableEditingRegistry; source(): { scope: NotesScope; parentTarget: NotesTarget } | undefined };
   database?: DatabaseProvider;
   /** Preferred: instance-scoped interaction store. */
   store?: DatabaseRuntimeStore;

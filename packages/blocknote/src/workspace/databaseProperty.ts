@@ -321,9 +321,16 @@ export function buildTypedCreateRowPayload(
 /** Format a cell value for display (never throws). */
 export function formatDatabaseCellDisplay(
   value: unknown,
-  kind: NormalizedPropertyKind | DatabasePropertyType
+  kind: NormalizedPropertyKind | DatabasePropertyType | "location"
 ): string {
   if (value === null || value === undefined) return "";
+  if (kind === "location" && typeof value === "object" && !Array.isArray(value)) {
+    const point = value as Record<string, unknown>;
+    if (typeof point.latitude === "number" && Number.isFinite(point.latitude) && point.latitude >= -90 && point.latitude <= 90 && typeof point.longitude === "number" && Number.isFinite(point.longitude) && point.longitude >= -180 && point.longitude <= 180) {
+      const label = typeof point.label === "string" ? point.label.trim() : typeof point.address === "string" ? point.address.trim() : "";
+      return `${label ? label + " · " : ""}${point.latitude}, ${point.longitude}`;
+    }
+  }
   if (kind === "boolean") {
     return value === true || value === "true" || value === 1 ? "✓" : "";
   }
@@ -379,7 +386,7 @@ function parseBooleanDraft(raw: string): boolean {
  */
 export function parseEditedCellValue(
   raw: string,
-  kind: NormalizedPropertyKind | DatabasePropertyType
+  kind: NormalizedPropertyKind | DatabasePropertyType | "location"
 ): string | number | boolean | undefined {
   if (kind === "number") {
     const n = parseNumberDraft(raw);

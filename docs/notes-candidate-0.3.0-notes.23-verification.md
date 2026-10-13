@@ -1,0 +1,11 @@
+# Verification
+
+Root typecheck/build and all1479 automated tests pass (1337 Vitest +142 Node tests). Targeted97 tests cover HTML raw-cache rejection/retry, conflict/IME/scope and page metadata outcomes. Lint is not configured. Example TypeScript/build passes; an initially omitted required beforeModeChange in the new QA fixture was corrected before packaging. Existing >500KB Vite chunk warnings remain.
+
+Actual isolated visible Chrome154.0.8037.98 at1440x1000 and390x1000/reduced motion:12 checks pass. Ready/missing/unbound/error/typed restricted/empty/loading Card, restricted ChildPage, shared fetch deduplication, delayed/retry recovery; real BlockNote onBeforeChange veto retaining12,029-character HTML and all source fields, keyboard retry/focus, inert scripts, local synthetic Save/reload, concurrent-source conflict, Cancel/Escape; fit; unbound reload without fetch;20 immediate pointer clicks delivered in this common-only fixture. Page errors0, HTTP writes0, external requests0. Saved data is private synthetic localStorage, not an actual PA store.
+
+All13 inherited .22 browser regression checks pass and cover Whiteboard, native/legacy input, Columns, shared callbacks, Code/Math/Diagram, Split/narrow/reduced motion. Reproducible source: scripts/qa/verify-widget-state.cjs, widget-state-vite.config.mjs and examples/blocknote-power/{widget-state-fixture.html,src/qa/widget-state-fixture.tsx}. Start Vite with `--config scripts/qa/widget-state-vite.config.mjs`; run the verifier with OPENEDITOR_PLAYWRIGHT_PATH pointing to existing Playwright and OPENEDITOR_QA_ORIGIN to the isolated port. No installer/real APIs/AI required.
+
+Same local Vite example build versus .22: index JS1528.72→1529.50KB, gzip463.14→463.54KB; Workbench unchanged1315.82KB/gzip355.86KB. CSS index423.68→423.79KB/gzip66.21→66.22KB. No runtime speed claim. Original Chromium144 CPU4 paint391ms/paste598ms conditions were not reproduced and are not comparable.
+
+PA read-only probes corroborated unchanged canonical source after missed pointer Apply and proper keyboard close. PA owner separately confirmed/fixed native-focus scroll and pages provider in a new isolated host. .23 host adoption, fastest PA preview click, all-widget host persistence, Safari, native IME, physical touch and native column-body drag remain unverified.

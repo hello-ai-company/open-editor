@@ -1,0 +1,31 @@
+{
+  "candidate": "0.3.0-notes.21",
+  "status": "scoped-sdk-pass-awaiting-host-owner-adoption",
+  "base": "ed3d4b56a826d3b43f6cdd08ba5cc7d4eeb1cdbb",
+  "checks": 1467,
+  "typecheck": true,
+  "build": true,
+  "exampleBuild": true,
+  "lint": "not configured",
+  "sourceFiles": 175,
+  "sourceTextReviewed": 173,
+  "svgAssetsReviewed": 2,
+  "broaderRepoCodeOutsideSourceReview": 225,
+  "publicationPreflightRequiresHostWiring": true,
+  "hostAdopted": false,
+  "realAI": false,
+  "paidCalls": 0,
+  "originalStoreTestWrites": 0,
+  "wholeAppSmoothCertified": false,
+  "preservation": {
+    "pausedCRUD": 10,
+    "priorArtifacts": 302,
+    "frozen20": 706
+  },
+  "unverified": [
+    "final real host .21 acceptance",
+    "Safari/iOS touch/real IME",
+    "all database visual paths",
+    "long sessions and whole app performance"
+  ]
+}

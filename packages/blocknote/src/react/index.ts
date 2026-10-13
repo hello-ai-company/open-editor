@@ -110,12 +110,35 @@ export { NotesDatabaseProperties, type NotesDatabasePropertiesProps } from "./No
 export { NotesDatabaseSchema, type NotesDatabaseSchemaProps } from "./NotesDatabaseSchema.js";
 export * from "./NotesWorkspaceModes.js";
 export { NotesWorkspaceTabs, type NotesWorkspaceTabsProps, type NotesNavigationIntent } from "./NotesWorkspaceTabs.js";
-export { NotesBlockNoteDocument, type NotesBlockNoteDocumentProps, type NotesDocumentRenderer } from "./NotesBlockNoteDocument.js";
+export { NotesBlockNoteDocument, type NotesBlockNoteDocumentProps, type NotesCoeditingOptions, type NotesDocumentRenderer } from "./NotesBlockNoteDocument.js";
 export { NotesNavigation, NotesLibrary, NotesPageHub, NotesPageActions, canMoveNotesPage, type NotesNavigationProps } from "./NotesNavigation.js";
 export { NotesDocumentSidebar, type NotesDocumentSidebarProps } from "./NotesDocumentSidebar.js";
 export { NotesInspector, type NotesInspectorProps } from "./NotesInspector.js";
 export { NotesRowDetail, type NotesRowDetailProps, type NotesRowProperty } from "./NotesRowDetail.js";
 export { NotesProposalRail, type NotesProposalRailProps } from "./NotesProposalRail.js";
-export { NOTES_INSERT_CATALOG, NOTES_STYLE_CATALOG, notesAvailableCatalog, type NotesEditorBridge, type NotesInsertKind, type NotesStyleKind } from "./notesWorkspacePanels.js";
+export { NOTES_INSERT_CATALOG, NOTES_STYLE_CATALOG, notesAvailableCatalog, type NotesEditorBridge, type NotesInsertOptions, type NotesInsertKind, type NotesStyleKind } from "./notesWorkspacePanels.js";
 
 export { NotesInsertDialog, notesSupportedPickerInsertKinds, notesSafeInsertionLink, type NotesInsertDialogProps, type NotesInsertRequest, type NotesInsertEditor, type NotesInsertionHost, type NotesPickerInsertKind } from "./NotesInsertDialog.js";
+
+export type { NotesPageAppearanceOptions, NotesCoverPreset, NotesCoverCatalogRequest, NotesCoverCatalog } from "./notesPresentation.js";
+export { NotesPageIcon } from "./NotesPageIcon.js";
+
+export { NotesAssistancePanel, type NotesAssistancePanelProps, type NotesAssistanceService, type NotesAssistanceRequest, type NotesAssistanceResult } from "./NotesAssistancePanel.js";
+export { NotesDictionaryPanel, type NotesDictionaryEntry } from "./NotesDictionaryPanel.js";
+export { NotesDatabaseExplorer, type NotesDatabaseExplorerProps, type NotesDatabaseNavigationItem, type NotesDatabaseNavigationPage, type NotesDatabaseNavigationHost } from "./NotesDatabaseExplorer.js";
+export { useNotesPropertyPickers, type NotesPropertyOptionsHost, type NotesPropertyChoicePage, type NotesPropertyChoice } from "./NotesPropertyPickers.js";
+export { NotesLegacyLinkPresentation, NotesLegacyMediaPreview, type NotesLegacyPresentationOptions } from "./NotesLegacyPresentation.js";
+
+export { NotesStyleGalleryButton } from "./NotesStyleGallery.js";
+export { NotesSelectionTools } from "./NotesSelectionTools.js";
+export type { NotesTextSelection, NotesSelectionAction, NotesSelectionAIRequest, NotesSelectionAIResult, NotesSelectionAIService, NotesSelectionProposalRequest, NotesSelectionProposalEntry } from "./notesSelection.js";
+
+export { NotesRelatedPages, type NotesRelatedPagesProps } from "./NotesRelatedPages.js";
+
+export { DocumentSideMenuController } from "./DocumentSideMenuController.js";
+
+export { notesInsertionCommands, NotesSlashMenuController, NOTES_INSERT_LABELS_EN } from "./NotesInsertionCommands.js";
+
+export type { NotesSaveActionContext, NotesSaveActionResult, NotesSaveActionHandler } from "./notesSaveAction.js";
+
+export { ReadableDocument, ReadableDocumentComparison, readableBlockText, mergeComparedDocuments } from "./ReadableDocumentComparison.js";

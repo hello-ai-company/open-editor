@@ -197,9 +197,12 @@ export function blockLikeToEditorBlockIdentity(block: BlockLike, path: string): 
   }
 
   if (block.content !== undefined) {
-    const content = isJsonValue(block.content)
-      ? block.content
-      : omitUndefinedObjectProperties(block.content);
+    // BlockNote uses undefined slots for automatic table column widths. Preserve
+    // their positions with JSON null; other undefined array values stay invalid.
+    const source = block.type === "table" && block.content && typeof block.content === "object" && !Array.isArray(block.content) && (block.content as Record<string, unknown>).type === "tableContent" && Array.isArray((block.content as Record<string, unknown>).columnWidths)
+      ? { ...block.content, columnWidths: ((block.content as Record<string, unknown>).columnWidths as unknown[]).map(width => width === undefined ? null : width) }
+      : block.content;
+    const content = isJsonValue(source) ? source : omitUndefinedObjectProperties(source);
     if (!isJsonValue(content)) {
       throw new BlockNoteAdapterError("NON_JSON_VALUE", "Block content must be JsonValue", path);
     }

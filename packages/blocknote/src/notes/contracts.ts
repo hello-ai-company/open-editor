@@ -1,11 +1,15 @@
+import type { NotesHtmlSourceDraftJournal, NotesHtmlSourceDraftState } from "./htmlSourceDraft.js";
 import type { EditorDocument, EditorProviders, JsonValue } from "@hello-ai-company/editor-core";
 
 /** A row id is meaningful only inside its database. No host account or credentials enter this identity. */
 export type NotesTarget = { kind: "page"; pageId: string } | { kind: "row"; databaseId: string; rowId: string };
 export type NotesScope = { actorId: string; workspaceId: string };
+/** A read invalidation, never a write grant or canonical snapshot. */
+export type NotesResourceInvalidation = { scope: NotesScope; target: NotesTarget; revision?: string; operationId?: string };
 export type NotesPersistenceMode = "local-only" | "offline-queued" | "remote-committed" | "test-only";
 export type NotesDocumentPanel = "outline" | "tasks" | "media" | "search" | "comments" | "history" | "info";
 export type NotesInspectorPanel = "insert" | "style" | "info";
+export type NotesPageStyle = "clean" | "editorial" | "journal" | "mono" | "compact" | "midnight" | "paperback" | "postcard" | "studio" | "blueprint" | "gallery" | "minimal";
 export type NotesWorkspaceConfig = {
   version: 1;
   title?: string;
@@ -15,6 +19,8 @@ export type NotesWorkspaceConfig = {
   defaultDocumentPanel?: NotesDocumentPanel;
   defaultInspectorPanel?: NotesInspectorPanel;
   theme?: "light" | "dark" | "system";
+  appearance?: "default" | "classic";
+  pageStyle?: NotesPageStyle;
   density?: "comfortable" | "compact";
   locale?: string;
   navigationWidth?: number;
@@ -26,6 +32,8 @@ export type NotesPageSummary = {
   id: string; title: string; parentId: string | null; position: number;
   icon?: string; cover?: string; favorite?: boolean; deletedAt?: string | null;
   updatedAt?: string; category?: string; tags?: readonly string[];
+  /** Host-normalized explicit page relationships; never inferred from raw metadata keys. */
+  relatedPageIds?: readonly string[];
 };
 export type NotesCatalogPage = { pages: readonly NotesPageSummary[]; nextCursor: string | null; hasMore: boolean; total?: number };
 export type NotesWorkspaceSnapshot = NotesCatalogPage & { scope: NotesScope; revision: string; complete: boolean };
@@ -106,6 +114,9 @@ export type NotesWorkspaceHost = {
   searchWorkspace?(query: string, signal: AbortSignal, options?: { cursor?: string; limit?: number }): Promise<NotesCatalogPage>;
   readPanels?(target: NotesTarget, signal: AbortSignal): Promise<NotesPanelSnapshot>;
   subscribe?(listener: () => void): () => void;
+  /** Emit exact affected targets after a canonical receipt (including row commit's parent).
+   * The host owns relation resolution. Dirty/composing/pending writers are retained. */
+  subscribeResourceChanges?(listener: (notice: NotesResourceInvalidation) => void): () => void;
   /** Host atomically reauthorizes, compares all expected revisions, preserves legacy unknown fields,
    * applies only named fields, appends history and stores the exact idempotent operation receipt.
    * A repeated id with a different payload must be rejected. All final failures fence delayed writes.
@@ -116,6 +127,8 @@ export type NotesWorkspaceHost = {
   /** Persist BEFORE submission. A failure prevents submission; host owns recovery retention. */
   beforeSubmit(recovery: NotesRecovery, signal: AbortSignal): Promise<void>;
   /** Optional explicitly invoked draft backup, actor/workspace+target scoped. Never a canonical commit or mutation grant. */
+  /** Optional per-source exact-CAS journal. Automatic raw protection is separate from body save. */
+  sourceDraftJournal?: NotesHtmlSourceDraftJournal;
   persistDraft?(scope: NotesScope, target: NotesTarget, drafts: NotesLocalDrafts, signal: AbortSignal): Promise<void>;
 };
 export type NotesWorkspaceState = {
@@ -124,6 +137,7 @@ export type NotesWorkspaceState = {
   dirty: boolean; composing: boolean; message: string; recovery?: NotesRecovery;
   localDrafts: NotesLocalDrafts;
   pendingEditors: boolean;
+  sourceDrafts?: NotesHtmlSourceDraftState;
   lastPersistence?: NotesPersistenceMode;
   latest?: NotesDocumentSnapshot;
   originalDraft?: NotesDraftBackup;
@@ -135,10 +149,20 @@ export type NotesWorkspaceController = {
   getState(): NotesWorkspaceState;
   subscribe(listener: () => void): () => void;
   open(target: NotesTarget): Promise<boolean>;
+  /** Read same target only if clean, before and after await. Never saves or merges input. */
+  refresh?(options?: { isCurrent?: () => boolean }): Promise<boolean>;
   setDraft(document: EditorDocument, title?: string): void;
   /** Cache editor-local input before unmount. Only explicit Cancel or a matching committed operation clears it. */
   setLocalDraft(id: string, value: JsonValue | undefined): void;
   persistLocalDrafts(): Promise<boolean>;
+  /** Controller view epoch also fences A→B→A callbacks. */
+  getDraftSessionId?(): number;
+  assertLocalSourceCurrent?(id: string): void;
+  resumeLocalSourceDraft?(id: string): void;
+  markLocalDraftApplied?(id: string): void;
+  discardLocalDraft?(id: string): Promise<boolean>;
+  flushSourceDrafts?(): Promise<boolean>;
+  retrySourceDrafts?(): Promise<boolean>;
   setComposing(composing: boolean): void;
   save(options?: { explicit?: boolean }): Promise<NotesCommandOutcome | undefined>;
   readLatest(): Promise<NotesDocumentSnapshot | undefined>;

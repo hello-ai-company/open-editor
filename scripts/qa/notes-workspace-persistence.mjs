@@ -1,0 +1,26 @@
+export default async page => {
+  const errors=[], external=[];
+  page.on('pageerror',e=>errors.push(e.message));
+  await page.route('**/*',r=>{const url=r.request().url();if(!/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//.test(url)&&!/^(data|blob):/.test(url)){external.push(url);return r.abort();}return r.continue();});
+  await page.setViewportSize({width:1440,height:900});await page.goto('http://127.0.0.1:5199/?notes=synthetic');await page.locator('.bn-editor').waitFor();
+  const inspect=()=>page.evaluate(async()=>new Promise((resolve,reject)=>{const open=indexedDB.open('open-editor.synthetic-notes-workspace.v1',1);open.onsuccess=()=>{const db=open.result,tx=db.transaction('fixture','readonly'),r=tx.objectStore('fixture').get('state');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);tx.oncomplete=()=>db.close();};open.onerror=()=>reject(open.error);}));
+  const row=page.locator('.oe-notes-tab').filter({has:page.getByRole('button',{name:'閉じる 行のノート',exact:true})});
+  await page.getByRole('button',{name:'固定 行のノート',exact:true}).click();await page.getByRole('button',{name:'固定を解除 行のノート',exact:true}).waitFor();
+  await row.getByRole('button',{name:/Options for|の操作$/,exact:false}).click();await page.getByRole('menuitem',{name:'右に分割',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.oe-notes-pane').length===2);
+  await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.oe-notes-pane').length===2);if(!await page.getByRole('button',{name:'閉じる 行のノート',exact:true}).isDisabled())throw new Error('Reload lost pinned state');
+  await page.getByRole('button',{name:'分割を閉じる',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.oe-notes-pane').length===1);
+  const editor=page.locator('.bn-editor');await editor.click();await page.keyboard.press('ControlOrMeta+End');await page.keyboard.type(' Synthetic body flush before Canvas');
+  const modes=page.locator('.oe-notes-modes');await modes.getByRole('button',{name:'レイアウトを作成',exact:true}).click();await modes.getByRole('combobox',{name:'テンプレート',exact:true}).selectOption('report');await modes.getByRole('combobox',{name:'テーマ',exact:true}).selectOption('editorial');await modes.getByRole('button',{name:'作成',exact:true}).click();await modes.getByRole('tree',{name:'Canvas preview',exact:true}).waitFor();
+  await modes.getByRole('button',{name:'Align center',exact:true}).click();
+  await page.getByRole('combobox',{name:'合成workspace保存障害',exact:true}).selectOption('lost-ack');await modes.getByRole('button',{name:'Canvasを保存',exact:true}).click();await modes.getByRole('button',{name:'保存結果を照会',exact:true}).waitFor();
+  const submitted=await inspect(), journals=Object.values(submitted.canvasJournals??{});if(journals.length!==1)throw new Error('Exact Canvas journal missing');const operationId=journals[0].request.operationId, key=JSON.stringify(['page','welcome']), canonical=submitted.canvases[key].snapshot;
+  if(canonical.theme!=='editorial'||!Object.values(canonical.view.alignmentByNodeId??{}).includes('center'))throw new Error('Canvas theme/view not committed');
+  await page.reload();await page.locator('.bn-editor').waitFor();await page.locator('.oe-notes-modes').getByRole('button',{name:'保存結果を照会',exact:true}).waitFor();
+  if(!Object.values((await inspect()).canvasJournals??{}).some(j=>j.request.operationId===operationId))throw new Error('Restart lost operation identity');
+  await page.locator('.oe-notes-modes').getByRole('button',{name:'保存結果を照会',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('.oe-notes-modes')?.textContent.includes('Recovered uncertain'));
+  const reconciled=await inspect();if(JSON.stringify(reconciled.canvases[key].snapshot)!==JSON.stringify(canonical)||Object.keys(reconciled.canvasReceipts).length!==1||Object.keys(reconciled.canvasJournals).length!==0||reconciled.canvases[key].history.length!==1)throw new Error('Recovery resent or canonical Canvas changed');
+  await page.locator('.oe-notes-modes').getByRole('tab',{name:'Canvas',exact:true}).click();await page.getByRole('tree',{name:'Canvas preview',exact:true}).waitFor();if(await page.getByRole('combobox',{name:'Canvas theme',exact:true}).inputValue()!=='editorial')throw new Error('Reload did not render saved theme');
+  await page.locator('.oe-notes-modes').getByRole('tab',{name:'Document',exact:true}).click();if(!(await page.locator('.bn-editor').innerText()).includes('Synthetic body flush before Canvas'))throw new Error('Body flush lost');
+  if(errors.length||external.length)throw new Error(JSON.stringify({errors,external}));
+  return {pinAndSplitReload:true,bodyFlushedBeforeCanvas:true,layoutViewThemeReload:true,lostAckRestartExactTicket:true,lookupWithoutResend:true,oneCanonicalHistory:true,errors,externalRequests:external.length};
+};

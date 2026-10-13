@@ -1,0 +1,183 @@
+{
+  "candidate": "0.3.0-notes.34",
+  "localOnly": true,
+  "sourceBase": "51d2c33a96944c861fa944980abe0abf42fbe3ee",
+  "browser": "154.0.8037.99",
+  "syntheticHostOnly": true,
+  "allPass": true,
+  "cases": 141,
+  "suites": [
+    {
+      "suite": "ui34",
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui34/output/ui34/browser-complete/result.json",
+      "cases": 23,
+      "passed": 23,
+      "errors": [],
+      "fatal": null,
+      "external": [],
+      "writes": []
+    },
+    {
+      "suite": "tools",
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui34/output/ui34/regression-tools/result.json",
+      "cases": 33,
+      "passed": 33,
+      "errors": [],
+      "fatal": null,
+      "external": [],
+      "writes": []
+    },
+    {
+      "suite": "resize",
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui34/output/ui34/regression-resize/result.json",
+      "cases": 20,
+      "passed": 20,
+      "errors": [],
+      "fatal": null,
+      "external": [],
+      "writes": []
+    },
+    {
+      "suite": "movement",
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui34/output/ui34/regression-movement-accepted/result.json",
+      "cases": 15,
+      "passed": 15,
+      "errors": [],
+      "fatal": null,
+      "external": [],
+      "writes": []
+    },
+    {
+      "suite": "html",
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui34/output/ui34/regression-html/result.json",
+      "cases": 14,
+      "passed": 14,
+      "errors": [],
+      "fatal": null,
+      "external": [],
+      "writes": []
+    },
+    {
+      "suite": "table",
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui34/output/ui34/regression-table/result.json",
+      "cases": 18,
+      "passed": 18,
+      "errors": [],
+      "fatal": null,
+      "external": [],
+      "writes": []
+    },
+    {
+      "suite": "coediting",
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui34/output/ui34/regression-coediting/result.json",
+      "cases": 14,
+      "passed": 14,
+      "errors": [],
+      "fatal": null,
+      "external": [],
+      "writes": []
+    },
+    {
+      "suite": "tabbed",
+      "result": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui34/output/ui34/regression-tabbed/result.json",
+      "cases": 4,
+      "passed": 4,
+      "errors": [],
+      "fatal": null,
+      "external": [],
+      "writes": []
+    }
+  ],
+  "unitTests": {
+    "vitest": 1470,
+    "node": 142,
+    "total": 1612
+  },
+  "preservation": {
+    "allUnchanged": true,
+    "totalFiles": 1492,
+    "checks": [
+      {
+        "candidate": "33",
+        "manifest": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui33/output/ui33/frozen-deliverables.json",
+        "files": 275,
+        "unchanged": true,
+        "mismatches": []
+      },
+      {
+        "candidate": "32",
+        "manifest": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-columns32/output/columns32/frozen-deliverables.json",
+        "files": 189,
+        "unchanged": true,
+        "mismatches": []
+      },
+      {
+        "candidate": "31",
+        "manifest": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-coediting31/output/coediting31/frozen-deliverables.json",
+        "files": 115,
+        "unchanged": true,
+        "mismatches": []
+      },
+      {
+        "candidate": "30",
+        "manifest": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-columns30/output/columns30/frozen-deliverables.json",
+        "files": 90,
+        "unchanged": true,
+        "mismatches": []
+      },
+      {
+        "candidate": "28",
+        "manifest": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui28/output/ui28/frozen-deliverables.json",
+        "files": 561,
+        "unchanged": true,
+        "mismatches": []
+      },
+      {
+        "candidate": "27",
+        "manifest": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-html-durable/output/html27/frozen-deliverables.json",
+        "files": 153,
+        "unchanged": true,
+        "mismatches": []
+      },
+      {
+        "candidate": "26",
+        "manifest": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-table-durable/output/table26/frozen-deliverables.json",
+        "files": 96,
+        "unchanged": true,
+        "mismatches": []
+      },
+      {
+        "candidate": "schema29 WIP",
+        "manifest": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-schema29/output/schema29/WIP-preservation.json",
+        "files": 13,
+        "unchanged": true,
+        "mismatches": []
+      }
+    ]
+  },
+  "performance": {
+    "baselineSourceHead": "51d2c33a96944c861fa944980abe0abf42fbe3ee",
+    "before": {
+      "cssBytes": 179480,
+      "gzipBytes": 27916
+    },
+    "after": {
+      "cssBytes": 183099,
+      "gzipBytes": 28407
+    },
+    "delta": {
+      "cssBytes": 3619,
+      "gzipBytes": 491
+    },
+    "browserTimingCompared": false,
+    "oldChrome144TimingComparable": false
+  },
+  "hostAdopted": false,
+  "limitations": [
+    "PA adoption/carrier/navigation/full-frame layout/audit/restart need host acceptance",
+    "Physical IME/Safari/touch unverified; composition events simulated",
+    "No real AI/external API/upload/Unsplash/DB row mutation",
+    "New reference variants across Canvas/Present/Site unverified",
+    "No matched before/after CPU paint or paste timings"
+  ]
+}

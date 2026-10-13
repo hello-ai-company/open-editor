@@ -135,7 +135,7 @@ export { renderMapView } from "./databaseMapRenderer.js";
 export { renderTimelineView } from "./databaseTimelineRenderer.js";
 
 export {
-  buildMapRowPresentations,
+  buildMapRowPresentations, clusterMapPins, type MapPinCluster,
   projectEquirectangular,
   safeResolveMapLocation,
   validateMapLocation,
@@ -193,6 +193,7 @@ export {
   type DatabaseViewConfigHydration,
   type DatabaseViewConfigIdentity,
   type DatabaseViewConfigProvider,
+  type DatabaseViewConfigWriteVersion,
   type DatabaseViewConfigHydrationState,
   type DatabaseViewConfigValidation
 } from "./databaseViewConfig.js";
@@ -238,6 +239,7 @@ export {
 
 export {
   createPageRuntimeStore,
+  PageRuntimeAccessDeniedError,
   createPageRuntimesFromStore,
   snapshotToResolveResult,
   type PageRuntimeStore,
@@ -253,3 +255,6 @@ export {
   type PageSearchRequest,
   type PageSearchResult
 } from "./pageSearch.js";
+
+export { createReviewedDatabaseViewConfigProvider } from "./databaseViewReceipts.js";
+export type { DatabaseViewConfigReceiptPort, DatabaseViewConfigReadRequest, DatabaseViewConfigReadSnapshot, DatabaseViewConfigOperation, DatabaseViewConfigReceipt } from "./databaseViewReceipts.js";

@@ -1,4 +1,5 @@
 import { createReactBlockSpec } from "@blocknote/react";
+import { interactiveBlockMeta } from "../document/widgetInteraction.js";
 import type { ReactElement } from "react";
 
 export const statusStates = ["todo", "doing", "done", "blocked"] as const;
@@ -31,6 +32,7 @@ export const createStatusBlockSpec = createReactBlockSpec(
     content: "none" as const
   },
   {
+    meta: interactiveBlockMeta,
     render: (props): ReactElement => {
       const state = props.block.props.state as StatusState;
       const label = props.block.props.label || stateLabels[state];

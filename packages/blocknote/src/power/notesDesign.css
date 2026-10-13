@@ -1,0 +1,91 @@
+/* Portable gallery geometry and book-cover treatment from the Notes reference.
+   Owner-bounded modal, staged writes and reduced-motion override are intentional. */
+.oe-notes-design-gallery,.oe-notes-selection-dialog{position:absolute;inset:14px;margin:auto;width:min(1120px,calc(100% - 28px));height:fit-content;max-height:calc(100% - 28px);overflow:auto;overscroll-behavior:contain;padding:20px;border:1px solid #606f6633;border-radius:16px;background:var(--note-canvas,#fbfaf6);box-shadow:0 28px 80px #121c194d;color:var(--note-text,#1d2523);font:13px/1.55 system-ui,sans-serif;box-sizing:border-box}
+.oe-notes-design-gallery :is(header,footer),.oe-notes-selection-dialog :is(header,footer){display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.oe-notes-design-gallery h2,.oe-notes-selection-dialog h2{margin:0;font-size:clamp(23px,3vw,36px);letter-spacing:0}
+.oe-notes-design-gallery button,.oe-notes-selection-dialog button{min-height:36px;font:inherit;color:inherit;padding:7px 12px;border:1px solid #66716d29;border-radius:8px;background:var(--note-canvas,#fffdf8);cursor:pointer}
+.oe-notes-design-gallery button:disabled,.oe-notes-selection-dialog button:disabled{opacity:.5;cursor:default}
+.oe-notes-design-gallery button:focus-visible,.oe-notes-selection-dialog button:focus-visible{outline:2px solid #0f766e;outline-offset:2px}
+.oe-notes-design-gallery button[aria-pressed=true],.oe-notes-selection-dialog button[aria-pressed=true]{border-color:#0f766e80;box-shadow:0 0 0 2px #0f766e1a}
+.oe-notes-design-hero{display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);min-height:280px;margin:18px 0 21px;overflow:hidden;border:1px solid #66716d29;border-radius:13px;background:#f3f0e8;box-shadow:0 16px 28px #44392b1a}
+.oe-notes-design-hero>div:last-child{padding:32px;align-self:center;min-width:0;overflow-wrap:anywhere}
+.oe-notes-design-hero h3{font-size:32px;line-height:1.2;margin:12px 0}
+.oe-notes-design-hero i,.oe-notes-design-book i{display:block;height:5px;border-radius:3px;background:currentColor;opacity:.16;margin:10px 0;width:90%}
+.oe-notes-design-hero i:last-child{width:60%}
+.oe-notes-design-media{display:grid;place-items:center;min-height:280px;background:#dfe8e1;overflow:hidden}
+.oe-notes-design-media img{width:100%;height:100%;object-fit:cover;max-height:360px}
+.oe-notes-design-media span{font-size:88px;color:#426453}
+.oe-notes-design-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.oe-notes-design-grid .oe-notes-design-card{display:grid;place-items:center;gap:9px;min-width:0;padding:13px;border-radius:10px;background:#e8e1d7;box-shadow:0 5px 12px #44392b0d}
+.oe-notes-design-book{display:flex;flex-direction:column;justify-content:flex-end;position:relative;width:min(100%,154px);aspect-ratio:.72;padding:16px;box-sizing:border-box;border-radius:2px 7px 7px 2px;background:#c7d5ce;box-shadow:7px 7px 0 #3f3d3521,12px 13px 18px #2f332e33;transform:rotateY(-10deg) rotateZ(-1.2deg);text-align:left}
+.oe-notes-design-book:after{position:absolute;top:4px;right:-5px;bottom:4px;width:6px;border-radius:0 3px 3px 0;background:#eee8dc;content:""}
+.oe-notes-design-book strong{font-size:38px;line-height:1.2}
+.oe-notes-design-book small{font-size:14px}
+.oe-notes-design-card[data-style=editorial] .oe-notes-design-book,.oe-notes-design-hero[data-style=editorial]{font-family:Georgia,serif;background:#efe4d1;color:#382b25}
+.oe-notes-design-card[data-style=journal] .oe-notes-design-book,.oe-notes-design-hero[data-style=journal]{background:#eee4ba;color:#605428}
+.oe-notes-design-card[data-style=mono] .oe-notes-design-book,.oe-notes-design-hero[data-style=mono]{font-family:monospace;background:#dce4db;color:#24402e}
+.oe-notes-design-card[data-style=midnight] .oe-notes-design-book,.oe-notes-design-hero[data-style=midnight]{background:#202b35;color:#edf4f8}
+.oe-notes-design-card[data-style=paperback] .oe-notes-design-book,.oe-notes-design-hero[data-style=paperback]{font-family:Georgia,serif;background:#ebd2b4;color:#4f3428}
+.oe-notes-design-card[data-style=postcard] .oe-notes-design-book,.oe-notes-design-hero[data-style=postcard]{background:#e0bfc3;color:#4c303b}
+.oe-notes-design-card[data-style=studio] .oe-notes-design-book,.oe-notes-design-hero[data-style=studio]{background:#cbd5ce;color:#234835}
+.oe-notes-design-card[data-style=blueprint] .oe-notes-design-book,.oe-notes-design-hero[data-style=blueprint]{font-family:monospace;background:#264f79;color:#f1f7ff}
+.oe-notes-design-card[data-style=gallery] .oe-notes-design-book,.oe-notes-design-hero[data-style=gallery]{background:#dcc8ae;color:#493c2e}
+.oe-notes-design-card[data-style=minimal] .oe-notes-design-book,.oe-notes-design-hero[data-style=minimal]{background:#f3f1eb;color:#3a3e3b}
+.oe-notes-cover-catalog{margin:20px 0}
+.oe-notes-cover-catalog>div{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.oe-notes-cover-catalog>div button{display:grid;gap:6px;text-align:left;overflow:hidden}
+.oe-notes-cover-catalog img{width:100%;height:100px;object-fit:cover;border-radius:6px}
+.oe-notes-page-cover{width:100%;margin-bottom:16px;overflow:hidden;border-radius:10px}
+.oe-notes-page-cover img{display:block;width:100%;max-height:280px;object-fit:cover}
+.oe-notes-page-cover[data-layout=compact] img{max-height:140px}
+.oe-notes-page-cover[data-layout=portrait]{max-width:240px}
+.oe-notes-page-cover[data-layout=portrait] img{max-height:360px;aspect-ratio:.72}
+.oe-notes-page-cover[data-layout=postcard]{max-width:480px;transform:rotate(-1deg)}
+.oe-notes-page-cover[data-layout=cinematic] img{aspect-ratio:21/9}
+.oe-notes-selection-tools{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.oe-notes-selection-dialog{width:min(580px,calc(100% - 28px))}
+.oe-notes-selection-dialog h2{font-size:20px}
+.oe-notes-selection-dialog :is(blockquote,p){white-space:pre-wrap;overflow-wrap:anywhere}
+.oe-notes-selection-dialog blockquote{margin:8px 0;border-left:3px solid #0f766e;padding-left:12px;max-height:180px;overflow:auto}
+.oe-notes-selection-source,.oe-notes-selection-proposal{margin:16px 0;padding:12px;border:1px solid #66716d29;border-radius:9px}
+.oe-notes-selection-proposal{background:#edf4ef;color:#1d3528;max-height:300px;overflow:auto}
+.oe-notes-selection-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
+.oe-notes-selection-dialog label{display:grid;gap:6px;margin:12px 0}
+.oe-notes-selection-dialog textarea{width:100%;box-sizing:border-box;min-height:80px;padding:10px;font:inherit;resize:vertical;color:inherit;background:var(--note-canvas,#fffdf8);border:1px solid #66716d55;border-radius:8px}
+@media(max-width:720px){.oe-notes-design-gallery,.oe-notes-selection-dialog{padding:12px;inset:8px;width:calc(100% - 16px);max-height:calc(100% - 16px)}.oe-notes-design-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.oe-notes-design-hero{grid-template-columns:minmax(0,1fr)}.oe-notes-design-hero>div:last-child{padding:18px}.oe-notes-design-media{min-height:140px}.oe-notes-design-media img{max-height:180px}.oe-notes-design-book{padding:10px}}
+@media(prefers-reduced-motion:reduce){.oe-notes-design-gallery *,.oe-notes-page-cover{animation:none!important;transition:none!important;transform:none!important;scroll-behavior:auto!important}}
+/* One wrapping icon bar. The direct selector intentionally outranks the later
+   Mantine .bn-mantine .bn-toolbar rule, including at narrow viewports. */
+.oe-notes-unified-selection{max-width:calc(100vw - 24px);color:var(--note-text,#1d2523)}
+.oe-notes-unified-selection > .bn-toolbar.bn-formatting-toolbar{display:flex;align-items:center;flex-wrap:wrap;width:max-content;max-width:min(680px,calc(100vw - 24px));gap:3px;padding:6px;box-sizing:border-box;border-radius:10px;overflow:visible}
+.oe-notes-format-item,.oe-notes-unified-selection .oe-notes-selection-tools{display:contents}
+/* Native link menus already receive viewport-aware coordinates from their
+   popover provider. Do not apply the workspace modal's centering transform. */
+.oe-notes-blocknote-document[data-notes-restricted-links] :is(.oe-notes-format-item[data-notes-native-item=createLinkButton],.bn-link-toolbar) > .bn-popover-content.bn-form-popover[role=dialog]:not([data-fixed]){position:absolute;transform:none}
+.oe-notes-blocknote-document[data-notes-restricted-links] :is(.oe-notes-format-item[data-notes-native-item=createLinkButton],.bn-link-toolbar) > .bn-popover-content.bn-form-popover[role=dialog]:not([data-fixed]) .mantine-Input-input{padding-inline-start:var(--input-padding-inline-start)}
+.oe-notes-unified-selection .bn-formatting-toolbar>span:empty{display:none}
+.oe-notes-unified-selection .bn-formatting-toolbar .oe-notes-format-item>:is(.mantine-ActionIcon-root,.mantine-Button-root),.oe-notes-selection-tools>.oe-notes-selection-icon{position:relative;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-width:36px;min-height:36px;padding:6px;box-sizing:border-box;border:0;border-radius:7px;color:inherit;background:transparent;cursor:pointer}
+.oe-notes-unified-selection .bn-formatting-toolbar .oe-notes-format-item>:is(.mantine-ActionIcon-root,.mantine-Button-root) svg,.oe-notes-selection-icon>svg{width:20px;height:20px;flex-shrink:0}
+.oe-notes-block-type .mantine-Button-root{width:48px!important}
+.oe-notes-block-type .mantine-Button-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.oe-notes-block-type .mantine-Button-section{margin:0}
+.oe-notes-block-type .mantine-Button-section[data-position=right] svg{width:12px!important}
+.oe-notes-selection-tools>.oe-notes-selection-icon:hover{background:color-mix(in srgb,currentColor 8%,transparent)}
+.oe-notes-selection-tools>.oe-notes-selection-icon:focus-visible{outline:2px solid #0f766e;outline-offset:2px}
+.oe-notes-selection-tools>.oe-notes-selection-icon:disabled{opacity:.45;cursor:default}
+.oe-notes-selection-icon[data-availability=unavailable]{color:var(--oe-notes-muted,#68756f)}
+.oe-notes-availability-dot{position:absolute;right:4px;bottom:4px;width:5px;height:5px;border:1px solid currentColor;border-radius:50%;background:var(--note-canvas,#fffdf8)}
+@media(pointer:coarse){.oe-notes-selection-tools>.oe-notes-selection-icon,.oe-notes-unified-selection .bn-formatting-toolbar .oe-notes-format-item>:is(.mantine-ActionIcon-root,.mantine-Button-root){min-height:44px;min-width:44px;width:44px;height:44px}}
+
+/* Fixed native palette, inline selections only. Preserve real menuitem labels and
+   keyboard behavior; avoid twenty long rows on the 392px owner surface. */
+.oe-notes-blocknote-document[data-notes-restricted-colors] .oe-notes-format-item[data-notes-native-item=colorStyleButton] .bn-color-picker-dropdown{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;width:256px;max-width:calc(100vw - 24px);max-height:calc(100vh - 80px);overflow:auto;overscroll-behavior:contain;box-sizing:border-box;padding:6px}
+.oe-notes-blocknote-document[data-notes-restricted-colors] .oe-notes-format-item[data-notes-native-item=colorStyleButton] .bn-color-picker-dropdown .mantine-Menu-label{grid-column:1/-1;padding:3px 4px;font-size:11px}
+.oe-notes-blocknote-document[data-notes-restricted-colors] .oe-notes-format-item[data-notes-native-item=colorStyleButton] .bn-color-picker-dropdown [role=menuitem]{display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0;min-height:42px;padding:4px 1px;font-size:10px;line-height:1.2;text-align:center}
+.oe-notes-blocknote-document[data-notes-restricted-colors] .oe-notes-format-item[data-notes-native-item=colorStyleButton] .bn-color-picker-dropdown .mantine-Menu-itemSection{margin:0}
+.oe-notes-blocknote-document[data-notes-restricted-colors] .oe-notes-format-item[data-notes-native-item=colorStyleButton] .bn-color-picker-dropdown .mantine-Menu-itemLabel{flex:0 1 auto;white-space:normal;overflow-wrap:anywhere}
+
+/* Native color marks may wrap the anchor. Let an explicit non-default inline
+   foreground reach its link label; keep ordinary/default links and other hosts
+   in their existing link style. Do not depend on the vendor's anchor class. */
+.oe-notes-blocknote-document[data-notes-restricted-colors] .bn-editor [data-style-type=textColor][data-value]:not([data-value=default]) a[data-inline-content-type=link]{color:inherit}

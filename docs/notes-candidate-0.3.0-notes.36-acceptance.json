@@ -1,0 +1,13 @@
+{
+  "version": "0.3.0-notes.36",
+  "localOnly": true,
+  "published": false,
+  "baseSourceHead": "c435b9314da409dc10bc95805eec5b120cbb0edd",
+  "sourceValidation": {"rootTests": 1634, "blocknoteTests": 1183, "typecheck": "pass", "build": "pass", "exampleBuild": "pass", "lint": "not configured"},
+  "browserValidation": {"browser": "Chrome 154.0.8037.99", "syntheticOnly": true, "caseCount": 74, "evidence": "output/ui36/acceptance-result.json", "physicalIME": "unverified", "Safari": "unverified", "touch": "design only"},
+  "newContracts": ["NotesDocumentRenderer.formattingToolbar?", "notesEditorDictionary", "Notes preset/Tabbed dictionary override", "NotesSelectionProposalEntry.open review only"],
+  "preservation": {"previousCandidateAndWIPFiles": 1948, "method": "SHA-256"},
+  "packaging": {"preflightNewAPI": "type/runtime pass", "extractedConsumer": "Read final manifest; pack writes it only after .8 through .36 compile/runtime success", "corePeer": "existing ^0.2.0"},
+  "outOfScope": ["real provider/API", "publication/push/install/permission expansion", "PA source/data/config modifications", "original Notes save-response input loss", "SDK all-block auto-edit implementation"],
+  "hostBlockProposal": "Separate parent host work. Existing quiet review APIs and constraints are documented; its adoption is not verified here."
+}

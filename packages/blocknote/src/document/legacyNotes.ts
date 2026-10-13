@@ -1,4 +1,5 @@
 import { createEditorDocument, type EditorBlock, type EditorDocument, type JsonValue } from "@hello-ai-company/editor-core";
+import { isOrdinaryTextAlignmentBlock, isNotesTextAlignment } from "./textAlignment.js";
 import { DOCUMENT_COLUMN_TYPE, DOCUMENT_COLUMNS_TYPE, validateDocumentColumns } from "./columns.js";
 import { HTML_WIDGET_TYPE, parseHtmlWidgetSource } from "./htmlWidget.js";
 
@@ -57,9 +58,20 @@ const aliases: Record<string, string> = {
   , pageBreak: "oePageBreak"
 };
 const fields: Record<string, Record<string, string>> = {
-  heading: { headingLevel: "level" }, code: { codeLanguage: "language" }, checklist: { checked: "checked" },
+  paragraph: { textAlignment: "textAlignment" }, quote: { textAlignment: "textAlignment" }, bullet_list: { textAlignment: "textAlignment" },
+  heading: { headingLevel: "level", textAlignment: "textAlignment" }, code: { codeLanguage: "language" }, checklist: { checked: "checked", textAlignment: "textAlignment" },
+  numbered_list: { listStart: "start", textAlignment: "textAlignment" }, callout: { calloutVariant: "variant", calloutTitle: "title", textAlignment: "textAlignment" },
   column: { columnWidth: "width" }, image: { imageURL: "url", imageAlt: "caption" }
 };
+/** These fields are editable only when their complete native semantics are representable. */
+function validateOrdinaryProps(type: string, props: RecordData | undefined): void {
+  if (isOrdinaryTextAlignmentBlock(type) && props?.textAlignment !== undefined && !isNotesTextAlignment(props.textAlignment)) throw new Error("Unsupported ordinary text alignment");
+  if (type === "numberedListItem" && props?.start !== undefined && (typeof props.start !== "number" || !Number.isInteger(props.start) || props.start < 1 || props.start > 999_999_999)) throw new Error("Numbered list start must be an integer from 1 to 999999999");
+  if (type === "callout") {
+    if (props?.variant !== undefined && (typeof props.variant !== "string" || !["info", "warning", "success", "danger"].includes(props.variant))) throw new Error("Unsupported callout variant");
+    if (props?.title !== undefined && (typeof props.title !== "string" || props.title.length > 500)) throw new Error("Callout title must be a string of at most 500 UTF-16 units");
+  }
+}
 const reverseTypes: Record<string, string> = Object.fromEntries(Object.entries(aliases).filter(([type]) => type !== "columnList").map(([a, b]) => [b, a]));
 function isWidget(raw: RecordData): boolean { return (raw.type === "editor_tool" || raw.type === "editorTool") && raw.toolKind === "htmlEmbed"; }
 function project(raw: RecordData): EditorBlock {
@@ -73,6 +85,7 @@ function project(raw: RecordData): EditorBlock {
   }
   const props: RecordData = {};
   for (const [field, prop] of Object.entries(Object.hasOwn(fields, raw.type) ? fields[raw.type]! : {})) if (raw[field] !== undefined) props[prop] = raw[field]!;
+  validateOrdinaryProps(type, props);
   if (type === DOCUMENT_COLUMN_TYPE && props.width === undefined) props.width = 1;
   if (type === DOCUMENT_COLUMNS_TYPE) props.gap = 16;
   if (isWidget(raw)) {
@@ -94,8 +107,47 @@ function same(a: unknown, b: unknown): boolean {
   return JSON.stringify(normalize(a)) === JSON.stringify(normalize(b));
 }
 const nativeDefaults: Record<string, JsonValue> = { backgroundColor: "default", textColor: "default", textAlignment: "left", isToggleable: false, level: 1, language: "text", checked: false, url: "", caption: "" };
+function isNativeDefault(type: string, prop: string, value: unknown): boolean {
+  // Numbered start has no numeric default: absence means continuation, not start=1.
+  if (type === "callout" && (prop === "variant" || prop === "title")) return value === (prop === "variant" ? "info" : "");
+  return Object.hasOwn(nativeDefaults, prop) && same(value, nativeDefaults[prop]);
+}
 function sameContent(a: unknown, b: unknown): boolean {
-  const inline = (value: unknown): unknown => typeof value === "string" ? value ? [{ type: "text", text: value, styles: {} }] : [] : value === undefined ? [] : value;
+  type TextRun = { type: "text"; text: string; styles?: Record<string, unknown> };
+  const isTextRun = (value: unknown): value is TextRun => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const run = value as Record<string, unknown>;
+    return run.type === "text" && typeof run.text === "string" && (run.styles === undefined || !!run.styles && typeof run.styles === "object" && !Array.isArray(run.styles)) && Object.keys(run).every(key => ["type", "text", "styles"].includes(key));
+  };
+  const isLinkRun = (value: unknown): value is { type: "link"; href: string; content: TextRun[] } => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const run = value as Record<string, unknown>;
+    return run.type === "link" && typeof run.href === "string" && Array.isArray(run.content) && run.content.every(isTextRun) && Object.keys(run).every(key => ["type", "href", "content"].includes(key));
+  };
+  const inline = (value: unknown, labels = true): unknown => {
+    const content = typeof value === "string" ? [{ type: "text", text: value, styles: {} }] : value === undefined ? [] : value;
+    if (!Array.isArray(content)) return content;
+    const normalized: unknown[] = [];
+    for (const entry of content) {
+      if (labels && isLinkRun(entry)) {
+        // Only the known one-level text label representation is equivalent.
+        // Keep href byte-for-byte; unknown shape/marks still require lossless export.
+        const previous = normalized[normalized.length - 1];
+        if (isLinkRun(previous) && previous.href === entry.href) previous.content = inline([...previous.content, ...entry.content], false) as TextRun[];
+        else normalized.push({ type: "link", href: entry.href, content: inline(entry.content, false) });
+        continue;
+      }
+      if (!isTextRun(entry)) { normalized.push(entry); continue; }
+      // Native text nodes coalesce equal adjacent styles and omit empty runs.
+      // Compare that representation only; never replace the original raw runs.
+      if (!entry.text) continue;
+      const previous = normalized[normalized.length - 1];
+      const styles = Object.fromEntries(Object.entries(entry.styles ?? {}).filter(([key, setting]) => !(setting === false && ["bold", "italic", "underline", "strike", "code"].includes(key))));
+      if (isTextRun(previous) && same(previous.styles, styles)) previous.text += entry.text;
+      else normalized.push({ type: "text", text: entry.text, styles });
+    }
+    return normalized;
+  };
   return same(inline(a), inline(b));
 }
 function omitUnsupportedStyles(content: JsonValue | undefined, extra: readonly string[]): { value: JsonValue | undefined; omitted: boolean } {
@@ -163,6 +215,7 @@ export function exportLegacyNotesBlocks(document: EditorDocument, archive: Legac
     if (!retained.has(id) && String(projected.type).startsWith("notes:") && !options.allowUnknownDeletion) throw new Error("Unknown legacy deletion requires explicit host approval");
   }
   const visit = (block: EditorBlock): JsonValue => {
+    validateOrdinaryProps(block.type, block.props);
     const archived = Object.hasOwn(archiveRecords, block.id) ? record(archiveRecords[block.id]!) : undefined;
     let result: RecordData;
     if (archived) {
@@ -181,18 +234,29 @@ export function exportLegacyNotesBlocks(document: EditorDocument, archive: Legac
         const allowedProps = new Set(Object.values(fields[String(result.type)] ?? {}));
         if (block.type === DOCUMENT_COLUMNS_TYPE) allowedProps.add("gap");
         if (block.type === HTML_WIDGET_TYPE) for (const key of ["html", "css", "javascript", "title"]) allowedProps.add(key);
-        if (Object.keys(block.props ?? {}).some(key => !allowedProps.has(key) && !same(block.props?.[key], expected.props?.[key]) && !(Object.hasOwn(nativeDefaults, key) && same(block.props?.[key], nativeDefaults[key])))) throw new Error("Unmapped editor property; extend the host codec explicitly");
+        if (Object.keys(block.props ?? {}).some(key => !allowedProps.has(key) && !same(block.props?.[key], expected.props?.[key]) && !isNativeDefault(block.type, key, block.props?.[key]))) throw new Error("Unmapped editor property; extend the host codec explicitly");
         const contentProjection = omitUnsupportedStyles(expected.content, options.supportedStyles ?? []);
         const contentUnchanged = sameContent(block.content, expected.content) || contentProjection.omitted && sameContent(block.content, contentProjection.value);
         if (!contentUnchanged) {
           if (contentProjection.omitted) throw new Error("Legacy content has unsupported styles; provide a supporting schema before editing it");
           if (!["paragraph", "heading", "quote", "codeBlock", "bulletListItem", "numberedListItem", "checkListItem", "table", "callout"].includes(block.type)) throw new Error("Content is not writable for this legacy type");
+          // A canonical inline projection can hide a newer raw text fallback.
+          // Check every field this edit replaces, not only the visible projection.
+          const replacedFields = block.type === "table" ? ["tableContent"] : ["inlineContent", "text"];
+          if (replacedFields.some(field => !same(baseline[field], result[field]))) throw new Error("Host source changed; refresh before editing legacy content");
           if (block.type === "table") { if (block.content === undefined) delete result.tableContent; else result.tableContent = block.content; }
           else { if (block.content === undefined) delete result.inlineContent; else result.inlineContent = block.content; delete result.text; }
         }
         for (const [field, prop] of Object.entries(fields[String(result.type)] ?? {})) {
+          if (prop === "textAlignment") {
+            // Absence is left semantically, but unchanged raw presence is retained.
+            // Resetting an existing non-left value deliberately writes left.
+            const wanted = block.props?.textAlignment ?? "left";
+            if (wanted !== (expected.props?.textAlignment ?? "left")) result[field] = wanted;
+            continue;
+          }
           if (same(block.props?.[prop], expected.props?.[prop])) continue;
-          if (expected.props?.[prop] === undefined && Object.hasOwn(nativeDefaults, prop) && same(block.props?.[prop], nativeDefaults[prop])) continue;
+          if (expected.props?.[prop] === undefined && isNativeDefault(block.type, prop, block.props?.[prop])) continue;
           if (block.props?.[prop] === undefined) delete result[field]; else result[field] = block.props[prop]!;
         }
         if (block.type === DOCUMENT_COLUMNS_TYPE && !same(block.props?.gap, expected.props?.gap)) throw new Error("Legacy format has no column gap field");
@@ -218,7 +282,7 @@ export function exportLegacyNotesBlocks(document: EditorDocument, archive: Legac
       const allowed = new Set(Object.values(fields[legacyType] ?? {}));
       if (block.type === DOCUMENT_COLUMNS_TYPE) allowed.add("gap");
       if (block.type === HTML_WIDGET_TYPE) for (const key of ["title", "html", "css", "javascript"]) allowed.add(key);
-      if (Object.keys(block.props ?? {}).some(key => !allowed.has(key) && !(Object.hasOwn(nativeDefaults, key) && same(block.props?.[key], nativeDefaults[key])))) throw new Error("New block contains unmapped properties");
+      if (Object.keys(block.props ?? {}).some(key => !allowed.has(key) && !isNativeDefault(block.type, key, block.props?.[key]))) throw new Error("New block contains unmapped properties");
       if (block.type === DOCUMENT_COLUMNS_TYPE && block.props?.gap !== undefined && block.props.gap !== 16) throw new Error("Legacy format has no column gap field");
       if (block.type === HTML_WIDGET_TYPE) {
         if (block.content !== undefined) throw new Error("Widget content must use its source fields");

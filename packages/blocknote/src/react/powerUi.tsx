@@ -198,6 +198,7 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
         aria-label={dict.commandPaletteTitle}
         tabIndex={-1}
         onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
           if (event.key === "Escape") {
             event.preventDefault();
             onOpenChange(false);
@@ -217,6 +218,7 @@ export function PowerCommandPalette(props: PowerCommandPaletteProps): ReactEleme
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
             if (event.key === "ArrowDown") {
               event.preventDefault();
               setActiveIndex((index) => Math.min(index + 1, Math.max(items.length - 1, 0)));

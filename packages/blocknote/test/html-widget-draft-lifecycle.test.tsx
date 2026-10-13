@@ -57,6 +57,13 @@ describe("optional Notes HTML source cache", () => {
     const f = fixture(); await f.controller.open(target()); mount(f); click("Edit source"); type("Local source retained"); f.block.props.html = "Newer remote source"; click("Apply source");
     expect(f.editor.updateBlock).not.toHaveBeenCalled(); expect(container.textContent).toContain("changed elsewhere"); expect(container.querySelector("textarea")!.value).toBe("Local source retained"); expect(f.controller.getState().pendingEditors).toBe(true); expect(f.block.props.html).toBe("Newer remote source");
   });
+  it("retains raw source/cache when an editor silently rejects a transaction, then permits retry", async () => {
+    const f = fixture(); await f.controller.open(target()); mount(f); click("Edit source"); type("<p>Retained after veto</p>");
+    f.editor.updateBlock.mockImplementationOnce(() => undefined); click("Apply source");
+    expect(f.block.props.html).toBe(original.html); expect(container.querySelector("textarea")!.value).toBe("<p>Retained after veto</p>");
+    expect(container.textContent).toContain("Source was not applied"); expect(f.controller.getState().pendingEditors).toBe(true); expect(f.host.commit).not.toHaveBeenCalled();
+    click("Apply source"); expect(container.querySelector("textarea")).toBeNull(); expect(f.block.props.html).toBe("<p>Retained after veto</p>"); expect(f.controller.getState().pendingEditors).toBe(false);
+  });
   it("IME prevents Escape/Apply/Cancel; unmount ends composition without clearing raw input", async () => {
     const f = fixture(); await f.controller.open(target()); mount(f); click("Edit source"); const input = container.querySelector("textarea")!;
     act(() => input.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }))); type("未確定の日本語");

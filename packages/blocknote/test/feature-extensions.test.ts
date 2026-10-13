@@ -26,6 +26,6 @@ describe("feature extension composition", () => {
       editor: { extensions: [hostExt] }
     });
     const options = preset.editorOptions();
-    expect(options.extensions).toEqual([code.extensions?.[0], hostExt]);
+    expect(options.extensions).toEqual([...(code.extensions ?? []), hostExt]);
   });
 });

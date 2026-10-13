@@ -1,0 +1,18 @@
+{
+  "candidate": "0.3.0-notes.23",
+  "base": "60c37efee26f38765466f35ee897eabc5d688acd",
+  "status": "scoped-sdk-pass-awaiting-host-owner-adoption",
+  "checks": 1479,
+  "typecheck": true,
+  "build": true,
+  "exampleBuild": true,
+  "lint": "not configured",
+  "newBrowserChecks": 12,
+  "hostAdopted": false,
+  "realAI": false,
+  "paidCalls": 0,
+  "originalStoreTestWrites": 0,
+  "wholeAppSmoothCertified": false,
+  "deferredDB37Head": "e11adab77f48abd303e0906973ba088bf2b754c0",
+  "unverified": ["PA .23 adoption/restart", "PA rapid preview/pointer path", "Card/HTML canonical host persistence/navigation outside grants", "Safari", "native IME", "physical touch", "native column-body drag"]
+}

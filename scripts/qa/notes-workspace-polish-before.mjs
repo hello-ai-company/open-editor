@@ -1,0 +1,11 @@
+export default async rootpage => {
+ const context=await rootpage.context().browser().newContext({viewport:{width:1600,height:1000},locale:'en-US',reducedMotion:'no-preference'}),page=await context.newPage(),errors=[],external=[];
+ try {
+  page.on('pageerror',e=>errors.push(e.message));await page.route('**/*',r=>{if(!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(r.request().url())&&!/^(data|blob):/.test(r.request().url())){external.push(r.request().url());return r.abort();}return r.continue();});
+  await page.goto('http://127.0.0.1:5199/?notes=synthetic&classic&baseline');await page.locator('.bn-editor').waitFor();await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:'OUTPUT/before-desktop.png',animations:'disabled'});
+  const row=page.locator('[role=treeitem]').nth(1);await row.hover();await page.locator('.oe-notes-page-preview').waitFor();await page.screenshot({path:'OUTPUT/before-hover.png'});const anchor=await row.boundingBox(),preview=await page.locator('.oe-notes-page-preview').boundingBox();await page.mouse.move(800,100);await page.waitForTimeout(350);const previewPersists=await page.locator('.oe-notes-page-preview').isVisible();
+  await page.goto('http://127.0.0.1:5199/?notes=synthetic&classic&baseline');await page.locator('.bn-editor').waitFor();await page.locator('.bn-editor').click();await page.keyboard.press('End');await page.keyboard.insertText('long-unbroken-content'.repeat(140));
+  const metrics=await page.evaluate(()=>{const body=document.querySelector('.bn-editor'),rail=document.querySelector('.oe-notes-workspace-right'),container=document.querySelector('.bn-container');const rect=n=>{const r=n.getBoundingClientRect();return {x:r.x,right:r.right,width:r.width}};return {body:rect(body),container:rect(container),rail:rect(rail),bodyScrollWidth:body.scrollWidth,bodyClientWidth:body.clientWidth,overflow:document.documentElement.scrollWidth>innerWidth+1,blocks:[...document.querySelectorAll('.bn-block-content')].map(n=>({right:n.getBoundingClientRect().right,scrollWidth:n.scrollWidth,clientWidth:n.clientWidth}))};});await page.screenshot({path:'OUTPUT/before-long.png'});
+  return {anchor,preview,previewPersists,metrics,errors,externalRequests:external.length};
+ }finally{await context.close();}
+};

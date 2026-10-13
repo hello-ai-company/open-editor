@@ -1,0 +1,100 @@
+{
+  "candidate": "0.3.0-notes.33",
+  "localOnly": true,
+  "published": false,
+  "base": "c32e363482c506f471d8014b9d09358c9dd2732a",
+  "scope": [
+    "viewport-safe placed Columns controls and native gutter coordinate conversion",
+    "configured 44px narrow icon rail and single nonmodal selected overlay",
+    "schema versus authorized binding diagnostics and all12 synthetic insert/edit/save"
+  ],
+  "verification": {
+    "rootTypecheck": true,
+    "exampleTypecheck": true,
+    "rootTests": 1604,
+    "blocknoteTests": 1153,
+    "newUnitTests": 2,
+    "build": true,
+    "lint": "not configured",
+    "gitDiffCheck": true,
+    "browserCases": 118,
+    "browserResults": [
+      {
+        "name": "ui33",
+        "cases": 33,
+        "passed": 33,
+        "evidence": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui33/output/ui33/final-pass/result.json",
+        "browser": "154.0.8037.99"
+      },
+      {
+        "name": "resize",
+        "cases": 20,
+        "passed": 20,
+        "evidence": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui33/output/ui33/regression-final-columns-resize/result.json",
+        "browser": "154.0.8037.99"
+      },
+      {
+        "name": "movement",
+        "cases": 15,
+        "passed": 15,
+        "evidence": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui33/output/ui33/regression-final-columns-movement/result.json",
+        "browser": "154.0.8037.99"
+      },
+      {
+        "name": "coediting",
+        "cases": 14,
+        "passed": 14,
+        "evidence": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui33/output/ui33/regression-final-coediting/result.json",
+        "browser": "154.0.8037.99"
+      },
+      {
+        "name": "tabbed",
+        "cases": 4,
+        "passed": 4,
+        "evidence": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui33/output/ui33/regression-final-coediting-tabbed/result.json",
+        "browser": "154.0.8037.99"
+      },
+      {
+        "name": "HTML",
+        "cases": 14,
+        "passed": 14,
+        "evidence": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui33/output/ui33/regression-final-html-durable/result.json",
+        "browser": "154.0.8037.99"
+      },
+      {
+        "name": "table",
+        "cases": 18,
+        "passed": 18,
+        "evidence": "/Users/fujiwaraisamusei/Documents/Codex/Open-Editor/open-editor-ui33/output/ui33/regression-final-table-durable/result.json",
+        "browser": "154.0.8037.99"
+      }
+    ]
+  },
+  "preservation": {
+    "files": 1217,
+    "allUnchanged": true
+  },
+  "performance": {
+    "32": {
+      "cssBytes": 176449,
+      "gzipBytes": 27440
+    },
+    "33": {
+      "cssBytes": 179480,
+      "gzipBytes": 27916
+    },
+    "delta": {
+      "cssBytes": 3031,
+      "gzipBytes": 476
+    },
+    "conditions": "Same local power.css artifacts; Python gzip mtime=0. No app bundle or CPU paint/paste comparison."
+  },
+  "unverified": [
+    "PA5501 host installation/real canonical receipt/audit and AI connection",
+    "durable newer-draft and AI Undo process crash/restart",
+    "DB row mutations/real media decode and playback/real Unsplash or upload",
+    "Safari/physical touch/native IME/KaTeX font serving",
+    "old CPU4 paint/paste timing",
+    "actual URL/surface for user-reported database below editor"
+  ]
+}

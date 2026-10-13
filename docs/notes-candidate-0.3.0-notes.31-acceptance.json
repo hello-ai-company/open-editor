@@ -1,0 +1,43 @@
+{
+  "candidate": "0.3.0-notes.31",
+  "baselineHead": "5066c31867d2f7a60375d2b75b36138f2a43bfbc",
+  "localOnly": true,
+  "published": false,
+  "status": "shared-synthetic-contract-accepted-host-pending",
+  "paAdoption": "pending",
+  "realAI": false,
+  "providerCalls": 0,
+  "all35": "partial",
+  "all59": "partial",
+  "tests": {
+    "total": 1597,
+    "vitest": 1455,
+    "node": 142,
+    "blocknote": 1146,
+    "new": 20,
+    "lint": "no configured script; git diff --check"
+  },
+  "browser": {
+    "chrome": "154.0.8037.99",
+    "coediting": 14,
+    "tabbed": 4,
+    "columnsRegression": 15,
+    "HTMLDurable": 14,
+    "tableDurable": 18,
+    "total": 65,
+    "physicalIME": false,
+    "PA_API": false
+  },
+  "canonicalWriterAdded": false,
+  "optionalPublicProps": true,
+  "sourceAndOutputDigest": "SHA256 local source slice and output text",
+  "undo": "mapped inverse slice; overlap returns bounded review, no whole document restore",
+  "persistence": "existing Notes commit/receipt/fixed lookup; tickets and Undo session memory only",
+  "remaining": [
+    "PA5491 public port hookup and independent real-host canonical acceptance",
+    "Durable latest post-dispatch body draft and process restart/AI audit/Undo recovery",
+    "Safari/native IME/physical touch",
+    "Separate Columns resize/gutter/ghost presentation request",
+    "Existing rapid HTML pointer/clean iframe focus limitations"
+  ]
+}

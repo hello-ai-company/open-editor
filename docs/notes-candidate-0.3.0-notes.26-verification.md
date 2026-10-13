@@ -1,0 +1,13 @@
+# .26 verification
+
+Final shared tests: 1,528 passing (Vitest 1,386; Node 142). BlockNote contains 1,077; the table controller/UI/lifecycle subset contains 38. Root typecheck and production package build pass; the example typecheck + build pass. No lint script is configured; whitespace validation uses `git diff --check`.
+
+Browser acceptance uses installed Chrome 154, localhost:5229, a disposable persistent profile and a dedicated synthetic IndexedDB database. HTTP write methods and external origins are blocked. It checks actual database-view DOM, named cell mutation, repeated row creation/save, invalid raw close/resume/discard cancel/export, browser-process restart, dirty navigation/query/Split, composition ownership, stale schema hydration, raw/private-ticket/receipt/cleanup failures, fixed-ID lost ACK restart and lookup only, foreign query rows, pagination/read-only future fields, two independent private journals sharing one synthetic canonical database, previous-view review and 390px Reduced Motion long input. All 18 browser cases pass with zero page errors, HTTP writes or external requests. See the evidence HANDOFF.
+
+The native Code clipboard regression passes 21 cases; HTML/Card input-state regression passes 12. These use the retained .25 fixture flow without `tableEditing`. Existing full tests also exercise the prior widget and Notes paths.
+
+Final example build: index JS 1,554.53 KB / gzip 471.31 KB; CSS 424.63 KB / gzip 66.36 KB; Workbench JS 1,312.64 KB / gzip 354.89 KB. Previous .25 same example build: index 1,531.30 / 464.19, CSS 423.79 / 66.22, Workbench 1,315.82 / 355.85. Index delta +23.23 KB / gzip +7.12 KB. Vite's existing >500KB chunk warning remains. These are build sizes, not runtime latency evidence. The older CPU-throttled paint/paste measurements were not reproduced; differing browser/conditions are not compared as speed gains.
+
+Initial failures are retained in output logs. One real issue was simultaneous New row starts overwriting input before their awaited journal read; it is fixed with a post-await input check and regression test. A blocked search/query reason had been confined to the filter panel; it is now shown in the Notes feedback dock. Other early harness failures came from waiting on Promise truthiness, selecting feedback controls inside the table despite their dock portal, the searchbox role, and requiring unattested ticket removal; those assertions were corrected. No failed run is counted as accepted.
+
+Unverified: real PA adoption/API restart, physical IME/touch/Safari, PA schema writer ownership extraction, authorization changes, arbitrary compound property editing, full all-59 plan, deployment or publication. No real AI request or original-store write is made.

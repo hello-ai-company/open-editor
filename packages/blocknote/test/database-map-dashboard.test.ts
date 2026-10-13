@@ -45,7 +45,7 @@ import {
   renderDashboardView
 } from "../src/workspace/databaseDashboardRenderer.js";
 import {
-  buildMapRowPresentations,
+  buildMapRowPresentations, clusterMapPins,
   projectEquirectangular,
   safeResolveMapLocation,
   validateMapLocation
@@ -706,6 +706,24 @@ describe("4F-4E — Map source-of-truth / no mutation / isolation", () => {
 });
 
 describe("4F-4E — MapRenderer", () => {
+  it("groups nearby exact coordinates and offers each original row without opening one implicitly", async () => {
+    const provider = createMapDashProvider(SEED_ROWS), store = await readyStore(provider), snapshot = store.getView("tasks::main"), opens: DatabaseRowOpenRequest[] = [];
+    const ctx = buildContext({ snapshot, store, definitions: resolveDatabasePropertyDefinitions({ legacySchema: snapshot.schema, definitions: snapshot.meta?.propertyDefinitions }), viewType: "map", runtime: { store, database: provider, resolveMapLocation: req => ({ latitude: req.rowKey === "a" ? 35 : 36, longitude: 139 }), onOpenRow: req => opens.push(req) } });
+    const projected = buildMapRowPresentations({ items: snapshot.items, runtime: ctx.runtime, databaseId: "tasks", viewId: "main" });
+    const clusters = clusterMapPins(projected, 610, 305); expect(clusters).toHaveLength(1); expect(clusters[0]?.rows.map(row => row.item.rowKey)).toEqual(["a", "b", "c"]); expect(clusters[0]?.projection).toEqual(projected[0]?.projection);
+    const mounted = await mount(MapRenderer, ctx), pin = mounted.host.querySelector<HTMLButtonElement>("[data-cluster-count='3']")!;
+    await act(async () => pin.click()); expect(opens).toEqual([]); expect(pin.getAttribute("aria-expanded")).toBe("true");
+    const buttons = mounted.host.querySelectorAll<HTMLButtonElement>(".oe-database-map__selection li button"); expect(buttons).toHaveLength(3); await act(async () => buttons[1]!.click()); expect(opens[0]?.rowKey).toBe("b");
+    pin.focus(); await act(async () => mounted.host.querySelector<HTMLButtonElement>(".oe-database-map__selection header button")!.click()); expect(mounted.host.querySelector(".oe-database-map__selection")).toBeNull(); expect(document.activeElement).toBe(pin); await mounted.cleanup();
+  });
+  it("changes clusters with measured size, preserves far pins and handles edge collisions", () => {
+    const provider = createMapDashProvider(SEED_ROWS), items = SEED_ROWS;
+    const rows = buildMapRowPresentations({ items, runtime: { resolveMapLocation: req => ({ latitude: 0, longitude: req.rowKey === "a" ? -180 : req.rowKey === "b" ? -179 : 100 }) }, databaseId: "tasks", viewId: "main" });
+    expect(clusterMapPins(rows, 600, 300).map(group => group.rows.length)).toEqual([2, 1]);
+    expect(clusterMapPins(rows, 30000, 15000).map(group => group.rows.length)).toEqual([1, 1, 1]);
+    expect(clusterMapPins(rows, NaN, 0)).toEqual([]); expect(provider).toBeDefined();
+  });
+
   it("renders pins + accessible list in provider order; no/invalid location labels", async () => {
     const provider = createMapDashProvider(SEED_ROWS);
     const store = await readyStore(provider);
