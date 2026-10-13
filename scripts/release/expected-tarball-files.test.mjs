@@ -13,6 +13,11 @@ describe("candidate tarball file inventory", () => {
       mkdirSync(join(directory, "src/nested"));
       writeFileSync(join(directory, "src/index.ts"), "export {};\n");
       writeFileSync(join(directory, "src/nested/view.tsx"), "export {};\n");
+      mkdirSync(join(directory, "src/react"));
+      writeFileSync(join(directory, "src/react/notesLucideIcons.ts"), "export {};\n");
+      const withCss = expectedTarballFiles(directory, { css: true });
+      assert.ok(withCss.has("package/dist/react/NOTES-ICON-LICENSE.txt"));
+      assert.throws(() => assertExactTarballFiles([...withCss].filter(file => !file.endsWith("NOTES-ICON-LICENSE.txt")), withCss), /Missing tarball files/);
       const expected = expectedTarballFiles(directory);
       assert.ok(expected.has("package/dist/index.js"));
       assert.ok(expected.has("package/dist/nested/view.d.ts.map"));
