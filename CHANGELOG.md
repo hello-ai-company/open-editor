@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 — unpublished candidate
+
+BlockNote adds the opt-in `./agent-chat` export and an optional editor-ai `^0.3.0` peer, alongside the cumulative Notes UX/workspace candidate. AI adds scoped chat sessions, typed rich proposals and block candidates. Canvas includes inspector/action refinements. Publish preserves document-column projections and excludes private agent chats. Changed packages use a new minor version; immutable npm 0.2.0 remains untouched. Core runtime/source/API/schema are unchanged and remain 0.2.0; all Core floors remain ^0.2.0. Publish requires Canvas ^0.3.0.
+
+Strict export/peer/lifecycle/tarball/source-SHA guards cover the new candidate. Ordinary BlockNote consumers do not need editor-ai; only agent-chat consumers install the matching AI candidate. This change authorizes source preparation and CI, not npm publication, tags, GitHub Releases or deployment. See [migration](docs/migration-0.3.md).
+
 ## 0.2.0 — 2026-10-06
 
 Compared against integrity-verified npm releases on 2026-10-06: core/blocknote

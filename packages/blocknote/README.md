@@ -1,6 +1,10 @@
 # @hello-ai-company/editor-blocknote
 
-## 0.2.0
+## 0.3.0 — unpublished candidate
+
+This source prepares a new minor release; npm 0.2.0 remains the immutable published line. Use reviewed candidate tarballs for new APIs until a separately approved publication. Core stays 0.2.0. See the [0.3 migration boundary](https://github.com/hello-ai-company/open-editor/blob/main/docs/migration-0.3.md).
+
+## Published 0.2.0 baseline
 
 Requires `editor-core ^0.2.0`; BlockNote peers
 remain `^0.54.2`, with math/diagram/code optional. Adds optional persistent database
@@ -13,6 +17,8 @@ See the [migration guide](https://github.com/hello-ai-company/open-editor/blob/m
 OpenEditor BlockNote power layer on **BlockNote `^0.54.2`** (MPL-2.0).
 
 ## Install
+
+These registry commands install the published line. The new opt-in `./agent-chat` entry requires both reviewed BlockNote 0.3.0 and AI 0.3.0 candidate tarballs; ordinary consumers can omit AI.
 
 ```bash
 npm install @hello-ai-company/editor-blocknote @hello-ai-company/editor-core
@@ -138,7 +144,7 @@ Use `createBlockChangeBridge` / `useOpenEditorBlockChanges` and `createDocumentI
 
 ## Publication
 
-Metadata targets public npmjs (`publishConfig.access: public`). Versions `0.1.0` and `0.1.1` are already published and immutable. Publishing `0.2.0` requires a reviewed main commit and an owner-triggered release; this repository does **not** auto-publish on merge.
+Metadata targets public npmjs (`publishConfig.access: public`). Versions `0.1.0` and `0.1.1` are already published and immutable. Versions `0.2.0` are also published and immutable. Publishing new `0.3.0` requires a reviewed main commit and an owner-triggered release; this repository does **not** auto-publish on merge.
 
 ## Notes workspace integration candidate
 

@@ -9,3 +9,7 @@ Mac validation: build/typecheck passed after dependency ordering; AI 373, Canvas
 Install `npm ci --ignore-scripts`, then `npm run typecheck`, `npm test`, `npm run build`. Personal AI consumes the verified vendor tarballs supplied in v26; this SDK checkout does not silently replace those packages.
 
 GitHub follow-up: Node 20 and Node 22 verify jobs both passed at `57922d0`. The preflight jobs rejected extended BlockNote export metadata against the fixed 0.2 public contract. The mandatory Notes icon license was added to the exact inventory; publication metadata guards remain unchanged. This is a source-only Draft and is not release-ready.
+
+## Merge-readiness follow-up
+
+The earlier 0.2 candidate rejection is superseded by an explicit unpublished 0.3 line for changed BlockNote/AI/Canvas/Publish packages. Core remains immutable 0.2.0. The frozen 0.2 fixture remains as a negative old-identity case, while exact 0.3 export/peer guards and real packed agent-chat/AI consumers are added. No release guard is disabled; see migration-0.3.md. Final CI evidence is recorded in the task's OPENEDITOR-FINAL-20261013.txt.

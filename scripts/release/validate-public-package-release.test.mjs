@@ -90,7 +90,7 @@ describe("public package release guards", () => {
         execFileSync: registryExec({
           [packageConfig(key).name]: ["0.0.1"],
           "@hello-ai-company/editor-core": ["0.2.0"],
-          "@hello-ai-company/editor-canvas": [key === "canvas" ? "0.0.1" : "0.2.0"],
+          "@hello-ai-company/editor-canvas": [key === "canvas" ? "0.0.1" : "0.3.0"],
           react: ["19.0.0"],
           docx: ["9.7.2"]
         })
@@ -180,13 +180,13 @@ describe("public package release guards", () => {
       calls.push(args[1]);
       return JSON.stringify(args[1] === config.name ? ["0.0.1"] : args[1] === "@hello-ai-company/editor-canvas" ? ["0.1.0"] : args[1] === "docx" ? ["9.7.2"] : ["0.2.0"]);
     };
-    assert.throws(() => validateRegistryState(config, { exec }), /required @hello-ai-company\/editor-canvas@0\.2\.0 is not published/);
+    assert.throws(() => validateRegistryState(config, { exec }), /required @hello-ai-company\/editor-canvas@0\.3\.0 is not published/);
     assert.deepEqual(calls, [config.name, "@hello-ai-company/editor-canvas"]);
 
     const exact = validateRegistryState(config, {
       exec: registryExec({
         [config.name]: ["0.0.1"],
-        "@hello-ai-company/editor-canvas": ["0.2.0", "0.2.0"],
+        "@hello-ai-company/editor-canvas": ["0.3.0", "0.3.0"],
         "@hello-ai-company/editor-core": ["0.2.0"],
         docx: ["9.7.2"]
       })
@@ -199,7 +199,7 @@ describe("public package release guards", () => {
     const dir = mkdtempSync(join(tmpdir(), "public-package-artifact-"));
     const symlinkTarget = join(tmpdir(), `public-package-artifact-target-${process.pid}.txt`);
     try {
-      const filename = "hello-ai-company-editor-ai-0.2.0.tgz";
+      const filename = "hello-ai-company-editor-ai-0.3.0.tgz";
       const body = "candidate tarball";
       writeFileSync(join(dir, filename), body);
       writeFileSync(join(dir, "digest.json"), JSON.stringify({

@@ -14,8 +14,8 @@ const blocknote = JSON.parse(readFileSync(join(root, "packages/blocknote/package
 if (core.name !== "@hello-ai-company/editor-core" || core.version !== "0.2.0") {
   throw new Error("Dependency DAG requires @hello-ai-company/editor-core@0.2.0");
 }
-if (blocknote.name !== "@hello-ai-company/editor-blocknote" || blocknote.version !== "0.2.0"
+if (blocknote.name !== "@hello-ai-company/editor-blocknote" || blocknote.version !== "0.3.0"
   || blocknote.dependencies?.[core.name] !== "^0.2.0") {
-  throw new Error("Dependency DAG requires editor-blocknote@0.2.0 → editor-core ^0.2.0");
+  throw new Error("Dependency DAG requires editor-blocknote@0.3.0 → editor-core ^0.2.0");
 }
 console.log("Public candidate manifests and release DAG passed: core → AI, core → Canvas → Publish; BlockNote → core.");

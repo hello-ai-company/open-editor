@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
+import { packageConfig } from "./public-package-config.mjs";
+
 const root = process.cwd();
 const cases = [
   ["core", "@hello-ai-company/editor-core"],
@@ -28,7 +30,7 @@ for (const [key, name] of cases) {
     });
 
     it("requires exact package confirmation, version, and owner OIDC environment", () => {
-      assert.match(yaml, new RegExp(`PUBLISH ${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}@0\\.2\\.0`));
+      assert.match(yaml, new RegExp(`PUBLISH ${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}@${packageConfig(key).version.replaceAll(".", "\\.")}`));
       assert.match(yaml, /environment: public-npmjs/);
       assert.match(publishJob, /id-token:\s*write/);
       assert.match(publishJob, /--registry=https:\/\/registry\.npmjs\.org/);

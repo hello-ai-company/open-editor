@@ -17,13 +17,13 @@ import {
   ReleaseGuardError
 } from "./validate-public-blocknote-release.mjs";
 
-const basePkg = JSON.parse(readFileSync(new URL("./fixtures/blocknote-0.2.0.json", import.meta.url), "utf8"));
+const basePkg = JSON.parse(readFileSync(new URL("./fixtures/blocknote-0.3.0.json", import.meta.url), "utf8"));
 const reviewedCommit = "a".repeat(40);
 
 const baseEnv = {
   pkg: basePkg,
-  inputVersion: "0.2.0",
-  confirmation: expectedConfirmation("0.2.0"),
+  inputVersion: "0.3.0",
+  confirmation: expectedConfirmation("0.3.0"),
   githubRef: "refs/heads/main",
   githubRepository: "hello-ai-company/open-editor",
   reviewedCommit,
@@ -51,14 +51,28 @@ function failingExec(stderr, status = 1) {
 }
 
 describe("validate-public-blocknote-release", () => {
-  it("keeps extended local candidate metadata outside the immutable 0.2 release", () => {
+  it("accepts the reviewed 0.3 candidate and rejects the immutable 0.2 identity", () => {
     const candidate = JSON.parse(readFileSync("packages/blocknote/package.json", "utf8"));
-    assertFails(() => validateIdentityAndInputs({ ...baseEnv, pkg: candidate }), /metadata mismatch/);
+    assert.equal(validateIdentityAndInputs({ ...baseEnv, pkg: candidate }).version, "0.3.0");
+    const published = JSON.parse(readFileSync(new URL("./fixtures/blocknote-0.2.0.json", import.meta.url), "utf8"));
+    assertFails(() => validateIdentityAndInputs({ ...baseEnv, pkg: published }), /package version must be 0.3.0/);
+  });
+  it("requires the new exact agent-chat export and optional 0.3 AI peer", () => {
+    for (const mutate of [
+      pkg => { delete pkg.exports['./agent-chat']; },
+      pkg => { pkg.exports['./agent-chat'].import = './dist/index.js'; },
+      pkg => { pkg.peerDependencies['@hello-ai-company/editor-ai'] = '^0.2.0'; },
+      pkg => { delete pkg.peerDependenciesMeta['@hello-ai-company/editor-ai']; }
+    ]) {
+      const pkg = structuredClone(basePkg); mutate(pkg);
+      assert.throws(() => validateIdentityAndInputs({ ...baseEnv, pkg }), ReleaseGuardError);
+    }
+    assert.throws(() => assertRegistryEligible({ status:'published', versions:['0.2.0','0.3.0'] }, '0.3.0'), ReleaseGuardError);
   });
   it("accepts identity for the R2 update candidate", () => {
     const id = validateIdentityAndInputs(baseEnv);
     assert.equal(id.name, basePkg.name);
-    assert.equal(id.version, "0.2.0");
+    assert.equal(id.version, "0.3.0");
   });
 
   it("rejects private:true", () => {

@@ -1,6 +1,10 @@
 # @hello-ai-company/editor-canvas
 
-## 0.2.0
+## 0.3.0 — unpublished candidate
+
+This source prepares a new minor release; npm 0.2.0 remains the immutable published line. Use reviewed candidate tarballs for new APIs until a separately approved publication. Core stays 0.2.0. See the [0.3 migration boundary](https://github.com/hello-ai-company/open-editor/blob/main/docs/migration-0.3.md).
+
+## Published 0.2.0 baseline
 
 Requires `editor-core ^0.2.0`. Adds a dedicated
 inspector within `CanvasEditor` and richer static previews for lists, tables, callouts and

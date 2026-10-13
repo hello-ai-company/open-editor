@@ -1,5 +1,5 @@
 /**
- * Release guards for @hello-ai-company/editor-blocknote 0.2.0 candidate.
+ * Release guards for @hello-ai-company/editor-blocknote 0.3.0 candidate.
  *
  * The 0.1.0 release is already on npmjs. Candidate registry eligibility:
  * - Successful `npm view` that returns explicit npm E404 → eligible for first publish
@@ -23,7 +23,7 @@ import { fetchCorePublishedVersions } from "../lib/core-registry-probe.mjs";
 
 export const EXPECTED_REPO = "hello-ai-company/open-editor";
 export const EXPECTED_NAME = "@hello-ai-company/editor-blocknote";
-export const EXPECTED_VERSION = "0.2.0";
+export const EXPECTED_VERSION = "0.3.0";
 export const EXPECTED_LICENSE = "MIT";
 export const EXPECTED_REGISTRY = "https://registry.npmjs.org";
 export const EXPECTED_ACCESS = "public";
@@ -59,10 +59,12 @@ const EXPECTED_EXPORTS = Object.freeze({
   "./math": Object.freeze({ types: "./dist/math/index.d.ts", import: "./dist/math/index.js" }),
   "./diagram": Object.freeze({ types: "./dist/diagram/index.d.ts", import: "./dist/diagram/index.js" }),
   "./code": Object.freeze({ types: "./dist/code/index.d.ts", import: "./dist/code/index.js" }),
+  "./agent-chat": Object.freeze({ types: "./dist/agentChat.d.ts", import: "./dist/agentChat.js" }),
   "./power.css": "./dist/power.css"
 });
 const EXPECTED_FILES = Object.freeze(["dist", "LICENSE", "README.md"]);
 const EXPECTED_PEER_META = Object.freeze({
+  "@hello-ai-company/editor-ai": Object.freeze({ optional: true }),
   "@blocknote/math-block": Object.freeze({ optional: true }),
   "@blocknote/diagram-block": Object.freeze({ optional: true }),
   "@blocknote/code-block": Object.freeze({ optional: true })
@@ -164,7 +166,8 @@ export function validateIdentityAndInputs({
     }
   }
   if (pkg.peerDependencies?.["@tiptap/pm"] !== "^3.31.3") stop("STOP — peer @tiptap/pm must be ^3.31.3");
-  const expectedPeers = [...EXPECTED_PEER_BLOCKNOTE_PACKAGES, "@tiptap/pm", "react", "react-dom"].sort();
+  if (pkg.peerDependencies?.["@hello-ai-company/editor-ai"] !== "^0.3.0") stop("STOP — optional agent-chat peer must be editor-ai ^0.3.0");
+  const expectedPeers = [...EXPECTED_PEER_BLOCKNOTE_PACKAGES, "@hello-ai-company/editor-ai", "@tiptap/pm", "react", "react-dom"].sort();
   if (!isDeepStrictEqual(Object.keys(pkg.peerDependencies ?? {}).sort(), expectedPeers)) {
     stop("STOP — peerDependencies contains missing or unexpected peers");
   }

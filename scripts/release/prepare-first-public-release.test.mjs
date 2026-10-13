@@ -130,7 +130,7 @@ describe("first-publication preparation guards", () => {
       assert.throws(() => prepareFirstPublicRelease({ key: "ai", root, exec: existingVersion.exec }), /first publication requires a new npm package/);
       assert.equal(existingVersion.calls.some(({ command, args }) => command === "npm" && args[0] === "pack"), false);
 
-      const candidateVersion = mockExec("ai", { candidateVersions: ["0.2.0"] });
+      const candidateVersion = mockExec("ai", { candidateVersions: ["0.3.0"] });
       assert.throws(() => prepareFirstPublicRelease({ key: "ai", root, exec: candidateVersion.exec }), /first publication requires a new npm package/);
     });
   });
@@ -171,7 +171,7 @@ describe("first-publication preparation guards", () => {
       const packagePath = join(root, config.directory, "package.json");
       writeFileSync(packagePath, JSON.stringify({ ...packageManifest(config), version: "0.1.1" }));
       const { exec, calls } = mockExec("canvas");
-      assert.throws(() => prepareFirstPublicRelease({ key: "canvas", root, exec }), /package version must be 0.2.0/);
+      assert.throws(() => prepareFirstPublicRelease({ key: "canvas", root, exec }), /package version must be 0.3.0/);
       assert.equal(calls.length, 0);
     });
   });
